@@ -14,10 +14,12 @@ Cible : MacBook Air Apple Silicon, macOS 15.5 (Sequoia).
 2026-06-10
 
 ## Ce qu'on a fait
-- 2026-06-10 : init projet (git + .gitignore Swift/Xcode). Brainstorming complet de l'idée. 3 agents (recherche libs open source, idées produit, stress-test du design). Design v1 validé en brainstorming et écrit dans `docs/superpowers/specs/2026-06-10-assisttodo-design.md`. Décisions tranchées : push-to-talk, transcription streaming, micro armé à l'appui, focus préservé d'abord, parsing LLM via OpenRouter avec fallback texte brut.
+- 2026-06-10 (après-midi) : implémentation Phase 0 + Phase 1 sur branche `feat/assisttodo-v1`, en subagent-driven (un sous-agent par tâche, TDD). Package SwiftPM `AssistToDoCore` créé avec tout le cœur métier testé : modèles (Priority, ParsedTask, TaskRecord), ParisCalendar (helpers TZ), DateResolver (dates/heures relatives FR déterministes), ParseResponseDecoder (JSON LLM), ParsePromptBuilder, HallucinationFilter, RolloverEngine idempotent. **26 tests verts** (`swift test`). Revue finale faite : 1 bug corrigé (DateResolver renvoyait une heure passée pour "à 8h" quand déjà dépassée → reporte au lendemain). Clé OpenRouter validée, modèle `google/gemini-2.5-flash` testé et figé.
+- 2026-06-10 (matin) : init projet (git + .gitignore Swift/Xcode). Brainstorming complet. 3 agents (recherche libs, idées produit, stress-test design). Design v1 validé + spec écrit. Plan d'implémentation écrit (`docs/superpowers/plans/2026-06-10-assisttodo-v1.md`).
 
 ## Ou on en est
-Phase design terminée. Spec écrit et en attente de revue finale de l'utilisateur avant d'écrire le plan d'implémentation. Aucun code applicatif encore. Pas de projet Xcode créé.
+Phase 0 + Phase 1 (cœur métier, package `AssistToDoCore`) **terminées, testées (26 tests), commitées** sur la branche `feat/assisttodo-v1`. 
+Prochaine étape = **Phase 2 (app Xcode)** : nécessite Xcode GUI + le Mac de Florian (créer le projet, accorder permissions micro/notif, build, vérif). Les sous-agents CLI ne peuvent pas faire cette phase seuls. À reprendre avec Florian aux commandes d'Xcode.
 
 ## Architecture et decisions
 Voir le spec complet : `docs/superpowers/specs/2026-06-10-assisttodo-design.md`.
