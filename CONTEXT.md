@@ -18,8 +18,12 @@ Cible : MacBook Air Apple Silicon, macOS 15.5 (Sequoia).
 - 2026-06-10 (matin) : init projet (git + .gitignore Swift/Xcode). Brainstorming complet. 3 agents (recherche libs, idées produit, stress-test design). Design v1 validé + spec écrit. Plan d'implémentation écrit (`docs/superpowers/plans/2026-06-10-assisttodo-v1.md`).
 
 ## Ou on en est
-Phase 0 + Phase 1 (cœur métier, package `AssistToDoCore`) **terminées, testées (26 tests), commitées** sur la branche `feat/assisttodo-v1`. 
-Prochaine étape = **Phase 2 (app Xcode)** : nécessite Xcode GUI + le Mac de Florian (créer le projet, accorder permissions micro/notif, build, vérif). Les sous-agents CLI ne peuvent pas faire cette phase seuls. À reprendre avec Florian aux commandes d'Xcode.
+Phase 0 + Phase 1 (cœur métier) terminées et testées (26 tests verts).
+Phase 2 en cours. Projet Xcode créé à `AssistToDo/AssistToDo.xcodeproj` (équipe TQVHUV8MZY, Sign to Run Locally, App Sandbox: Audio Input + Outgoing Connections, LSUIElement=YES, NSMicrophoneUsageDescription). 3 packages liés: AssistToDoCore (local `../AssistToDoCore`), WhisperKit, KeyboardShortcuts. Groupe synchronisé (drop .swift = auto-ajouté).
+- Task 2.1 (app .accessory + lien core) : **build-vérifiée**, commitée (`3e94872`).
+- Task 2.2 (SwiftData TaskEntity/TaskStore, MenuBarController + badge, ListView/ListWindow, rollover) + Réglages (SettingsView: hotkey recorder, modèle Whisper, clé OpenRouter→Keychain, login item, permissions micro/notif) + HotkeyManager : écrites, commitées WIP (`d561a9e`), **PAS encore build-vérifiées**.
+
+**REPRISE = ouvrir Xcode (`AssistToDo/AssistToDo.xcodeproj`), `⌘R`, corriger erreurs de build éventuelles, puis dérouler le test :** menu-bar avec badge + Réglages, set hotkey, coller clé API (Enregistrer), autoriser micro/notifs, Debug›Ajouter tâches test (badge), Ouvrir liste + cocher, maintenir ⌃⌥Espace + relâcher → ouvre la liste (preuve hotkey). Une fois vert, commit propre puis **Task 2.4 (AudioCapture + ondes + VAD)**, puis 2.5 (WhisperKit), 2.6 (OpenRouter+toast+notif réelle), 2.7 (onboarding).
 
 ## Architecture et decisions
 Voir le spec complet : `docs/superpowers/specs/2026-06-10-assisttodo-design.md`.
