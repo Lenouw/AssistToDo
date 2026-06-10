@@ -32,4 +32,6 @@ enum CaptureState {
 @MainActor
 final class CaptureModel: ObservableObject {
     @Published var state: CaptureState = .preparing
+    /// Texte affiché dans le HUD (transcription ou message d'état).
+    @Published var transcript: String = ""
 }

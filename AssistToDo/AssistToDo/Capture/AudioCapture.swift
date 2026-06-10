@@ -17,6 +17,8 @@ final class AudioCapture: ObservableObject {
 
     private(set) var didDetectSpeech = false
     private var startTime: Date?
+    private var audioFile: AVAudioFile?
+    private var fileURL: URL?
 
     /// Seuil RMS au-dessus duquel on considère que l'utilisateur a parlé.
     private let speechThreshold: Float = 0.02
@@ -24,6 +26,7 @@ final class AudioCapture: ObservableObject {
     struct Result {
         let duration: TimeInterval
         let didDetectSpeech: Bool
+        let fileURL: URL?
     }
 
     init() {
@@ -41,9 +44,22 @@ final class AudioCapture: ObservableObject {
 
         let input = engine.inputNode
         let format = input.inputFormat(forBus: 0)
+
+        // Fichier temporaire pour la transcription (WhisperKit lit + resample le fichier).
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("assisttodo-\(UUID().uuidString).caf")
+        do {
+            audioFile = try AVAudioFile(forWriting: url, settings: format.settings)
+            fileURL = url
+        } catch {
+            print("Erreur création fichier audio: \(error)")
+            fileURL = nil
+        }
+
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self else { return }
+            try? self.audioFile?.write(from: buffer)
             let rms = AudioCapture.rms(buffer)
             if rms > self.speechThreshold { self.didDetectSpeech = true }
             DispatchQueue.main.async { self.level = min(1, rms * 20) }
@@ -63,9 +79,11 @@ final class AudioCapture: ObservableObject {
         let duration = startTime.map { Date().timeIntervalSince($0) } ?? 0
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
+        audioFile = nil            // ferme et finalise le fichier
+        let url = fileURL
         startTime = nil
         DispatchQueue.main.async { self.level = 0 }
-        return Result(duration: duration, didDetectSpeech: didDetectSpeech)
+        return Result(duration: duration, didDetectSpeech: didDetectSpeech, fileURL: url)
     }
 
     private static func rms(_ buffer: AVAudioPCMBuffer) -> Float {

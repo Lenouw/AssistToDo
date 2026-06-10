@@ -23,6 +23,15 @@ struct HUDView: View {
             }
             Waveform(level: audio.level)
                 .frame(height: 38)
+
+            if !model.transcript.isEmpty {
+                Text(model.transcript)
+                    .font(.callout)
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(18)
         .frame(width: 260)

@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var listController: ListWindowController!
     private var settingsController: SettingsWindowController!
     private var hotkey: HotkeyManager!
+    private var transcriber: Transcriber!
     private var capture: CaptureCoordinator!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -30,8 +31,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onOpenSettings: { [weak self] in self?.settingsController.show() }
         )
 
-        // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop.
-        capture = CaptureCoordinator()
+        // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription.
+        let model = UserDefaults.standard.string(forKey: "whisperModel") ?? "base"
+        transcriber = Transcriber(model: model)   // pré-charge le modèle au lancement
+        capture = CaptureCoordinator(transcriber: transcriber)
         hotkey = HotkeyManager()
         hotkey.onPressStart = { [weak self] in self?.capture.begin() }
         hotkey.onPressEnd = { [weak self] in self?.capture.end() }
