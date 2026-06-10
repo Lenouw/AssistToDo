@@ -18,6 +18,9 @@ final class TaskStore: ObservableObject {
     /// Tâches du jour (après rollover), triées. Pilote la liste et le badge.
     @Published private(set) var tasks: [TaskRecord] = []
 
+    /// Tâches à échéance future (non faites), pour la section "À venir".
+    @Published private(set) var upcoming: [TaskRecord] = []
+
     private let lastRolloverKey = "lastRolloverDay"
 
     init() {
@@ -43,6 +46,12 @@ final class TaskStore: ObservableObject {
             return ParisCalendar.ymd(for: due) <= today
         }
         tasks = todays.map { $0.toRecord() }.sorted(by: Self.order)
+
+        let futures = all.filter { e in
+            guard !e.isDone, let due = e.dueDate else { return false }
+            return ParisCalendar.ymd(for: due) > today
+        }
+        upcoming = futures.map { $0.toRecord() }.sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
     }
 
     var openCount: Int { tasks.filter { !$0.isDone }.count }

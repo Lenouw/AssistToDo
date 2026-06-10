@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notifications: NotificationManager!
     private var toast: ToastController!
     private var capture: CaptureCoordinator!
+    private var onboarding: OnboardingController!
     private var pressStart: TimeInterval?
     private static let tapThreshold: TimeInterval = 0.25
 
@@ -62,5 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.capture.end()           // appui long → transcription
             }
         }
+
+        // Onboarding au tout premier lancement.
+        onboarding = OnboardingController()
+        if onboarding.shouldShow { onboarding.show() }
     }
 }

@@ -45,8 +45,14 @@ Décisions clés et pourquoi :
 - [ ] Benchmarker les modèles Whisper `tiny`/`base`/`small` sur le MacBook Air réel
 - [ ] Tests rollover heure d'été (UTC+2) et hiver (UTC+1)
 
+## Idées / backlog (à explorer plus tard)
+- [ ] **Connexion Apple Reminders** (sync bidirectionnelle via EventKit) — l'utilisateur veut pouvoir relier ses tâches AssistToDo à l'app Rappels d'Apple. Faisabilité à rechercher plus tard (EventKit `EKReminder`, permission Rappels). Pas urgent.
+- [ ] Récurrence vocale ("tous les lundis"), projets/recherche, récap matinal, extension Raycast, companion Apple Watch.
+- [ ] Undo capture : re-presser le raccourci dans les 3s annule la dernière tâche.
+- [ ] Benchmark Whisper tiny/base/small sur le MacBook Air, figer le défaut.
+
 ## Problemes connus
-Aucun (pas encore de code).
+Aucun bloquant. App fonctionnelle de bout en bout.
 
 ## Notes pour la prochaine session
 - Le spec de référence : `docs/superpowers/specs/2026-06-10-assisttodo-design.md` (tout le design détaillé y est).
