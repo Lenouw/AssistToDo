@@ -1,15 +1,24 @@
 import Foundation
 
 public enum ParsePromptBuilder {
-    public static func systemPrompt(now: Date) -> String {
+    public static func systemPrompt(now: Date, calendars: [String] = [], reminderLists: [String] = []) -> String {
         let f = ISO8601DateFormatter()
         f.timeZone = ParisCalendar.tz
         f.formatOptions = [.withInternetDateTime]
         let nowStr = f.string(from: now)
+
+        var routing = ""
+        if !calendars.isEmpty {
+            routing += "\nCalendriers disponibles : \(calendars.joined(separator: ", ")). Pour destination=calendar, mets dans calendarName celui qui colle le mieux au contexte (perso, boulot/pro, famille/couple...). Si aucun ne correspond clairement, calendarName=null."
+        }
+        if !reminderLists.isEmpty {
+            routing += "\nListes de Rappels disponibles : \(reminderLists.joined(separator: ", ")). Pour destination=reminders, mets dans listName la liste pertinente, sinon null."
+        }
+
         return """
         Tu transformes une phrase dictée en français en tâches JSON.
         Réponds UNIQUEMENT en JSON, sans texte autour, au format :
-        {"tasks":[{"text":"...","destination":"local|reminders|calendar","remindAt":"ISO8601 avec offset ou null","dueDate":"YYYY-MM-DD ou null","durationMinutes":60,"listName":"nom de liste Rappels ou null","priority":"bas|moyen|haut ou null","notify":true|false,"tags":[]}]}
+        {"tasks":[{"text":"...","destination":"local|reminders|calendar","remindAt":"ISO8601 avec offset ou null","dueDate":"YYYY-MM-DD ou null","durationMinutes":60,"calendarName":"nom de calendrier ou null","listName":"nom de liste Rappels ou null","priority":"bas|moyen|haut ou null","notify":true|false,"tags":[]}]}
         Maintenant = \(nowStr) (Europe/Paris). Calcule les temps relatifs par rapport à cet instant.
         notify=true uniquement si une heure précise est demandée (ex "dans 2h", "à 18h").
         Découpe les phrases multi-tâches en plusieurs items. Nettoie le texte (orthographe, majuscule initiale).
@@ -23,7 +32,7 @@ public enum ParsePromptBuilder {
         - "dans mon calendrier", "mets ça dans l'agenda", "ajoute un événement" => calendar
         - "dans mes rappels", "dans Rappels", "dans ma liste X" => reminders (listName = "X")
         - "note rapide", "juste une note", "dans l'app" => local
-        En cas de doute => "local".
+        En cas de doute => "local".\(routing)
         """
     }
 

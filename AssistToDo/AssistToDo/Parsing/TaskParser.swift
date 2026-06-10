@@ -16,13 +16,15 @@ struct RoutedTask {
     let destination: Destination
     let durationMinutes: Int?
     let listName: String?
+    let calendarName: String?
 }
 
 struct TaskParser {
     let client: OpenRouterClient
 
-    func parse(transcript: String, now: Date) async -> [RoutedTask] {
-        let system = ParsePromptBuilder.systemPrompt(now: now)
+    func parse(transcript: String, now: Date,
+               calendars: [String] = [], reminderLists: [String] = []) async -> [RoutedTask] {
+        let system = ParsePromptBuilder.systemPrompt(now: now, calendars: calendars, reminderLists: reminderLists)
         do {
             let content = try await client.complete(system: system, user: transcript)
             let parsed = try ParseResponseDecoder.decode(content)
@@ -57,7 +59,7 @@ struct TaskParser {
         // Un événement calendrier sans heure de début n'a pas de sens → retombe en local.
         let destination: Destination = (p.destination == .calendar && remind == nil) ? .local : p.destination
         return RoutedTask(record: record, destination: destination,
-                          durationMinutes: p.durationMinutes, listName: p.listName)
+                          durationMinutes: p.durationMinutes, listName: p.listName, calendarName: p.calendarName)
     }
 
     private func rawFallback(_ transcript: String, now: Date) -> RoutedTask {
@@ -69,7 +71,7 @@ struct TaskParser {
                 rawTranscript: transcript,
                 parseStatus: .rawOnly
             ),
-            destination: .local, durationMinutes: nil, listName: nil
+            destination: .local, durationMinutes: nil, listName: nil, calendarName: nil
         )
     }
 

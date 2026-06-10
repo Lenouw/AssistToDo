@@ -32,10 +32,11 @@ final class ParseResponseDecoderTests: XCTestCase {
     }
 
     func test_decode_destination_calendar_avec_duree() throws {
-        let raw = #"{"tasks":[{"text":"Rdv médecin","destination":"calendar","remindAt":"2026-06-12T14:00:00+02:00","dueDate":null,"durationMinutes":30,"listName":null,"priority":null,"notify":true,"tags":[]}]}"#
+        let raw = #"{"tasks":[{"text":"Rdv médecin","destination":"calendar","remindAt":"2026-06-12T14:00:00+02:00","dueDate":null,"durationMinutes":30,"calendarName":"Perso","listName":null,"priority":null,"notify":true,"tags":[]}]}"#
         let tasks = try ParseResponseDecoder.decode(raw)
         XCTAssertEqual(tasks[0].destination, .calendar)
         XCTAssertEqual(tasks[0].durationMinutes, 30)
+        XCTAssertEqual(tasks[0].calendarName, "Perso")
     }
 
     func test_decode_destination_reminders_avec_liste() throws {

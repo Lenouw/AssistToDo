@@ -9,6 +9,7 @@ public enum ParseResponseDecoder {
         let dueDate: String?
         let durationMinutes: Int?
         let listName: String?
+        let calendarName: String?
         let priority: String?
         let notify: Bool?
         let tags: [String]?
@@ -29,6 +30,7 @@ public enum ParseResponseDecoder {
                 dueDateRaw: nullable(rt.dueDate),
                 durationMinutes: rt.durationMinutes,
                 listName: nullable(rt.listName),
+                calendarName: nullable(rt.calendarName),
                 priority: Priority(rawValue: nullable(rt.priority) ?? ""),
                 notify: rt.notify ?? false,
                 tags: rt.tags ?? []

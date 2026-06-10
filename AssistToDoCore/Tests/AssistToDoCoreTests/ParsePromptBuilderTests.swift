@@ -9,4 +9,15 @@ final class ParsePromptBuilderTests: XCTestCase {
         XCTAssertTrue(sys.lowercased().contains("json"))
         XCTAssertTrue(sys.contains("Europe/Paris"))
     }
+
+    func test_injecte_les_calendriers_et_listes() {
+        let now = ISO8601DateFormatter().date(from: "2026-06-10T15:30:00+02:00")!
+        let sys = ParsePromptBuilder.systemPrompt(now: now,
+                                                  calendars: ["Perso", "BoulouFlo", "Marion et Flo"],
+                                                  reminderLists: ["Courses"])
+        XCTAssertTrue(sys.contains("BoulouFlo"))
+        XCTAssertTrue(sys.contains("Marion et Flo"))
+        XCTAssertTrue(sys.contains("Courses"))
+        XCTAssertTrue(sys.contains("calendarName"))
+    }
 }

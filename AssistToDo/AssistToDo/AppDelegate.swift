@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         store = TaskStore()                       // ouvre SwiftData + applique le rollover au lancement
+        EventKitService.shared.refreshCachedNames()   // pré-charge les noms de calendriers/listes si déjà autorisé
         listController = ListWindowController(store: store)
 
         menuBar = MenuBarController(

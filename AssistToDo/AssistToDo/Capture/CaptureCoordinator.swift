@@ -87,18 +87,29 @@ final class CaptureCoordinator {
             hide()
 
             // Parsing → routage par destination → toast.
-            let routed = await parser.parse(transcript: t.text, now: Date())
+            let routingOn = UserDefaults.standard.object(forKey: "routingEnabled") as? Bool ?? true
+            let defaultCalendar = UserDefaults.standard.string(forKey: "defaultCalendar")
+            let defaultList = UserDefaults.standard.string(forKey: "defaultReminderList")
+            let routed = await parser.parse(
+                transcript: t.text, now: Date(),
+                calendars: routingOn ? EventKitService.shared.calendarTitles : [],
+                reminderLists: routingOn ? EventKitService.shared.reminderListTitles : []
+            )
             var localRecords: [TaskRecord] = []
             var toastItems: [ToastItem] = []
 
             for var item in routed {
-                switch item.destination {
+                // Si le routage est coupé, tout va en local.
+                let destination = routingOn ? item.destination : .local
+                switch destination {
                 case .calendar:
                     do {
                         try await EventKitService.shared.createEvent(
                             title: item.record.text,
                             start: item.record.remindAt ?? Date(),
-                            durationMinutes: item.durationMinutes ?? 60
+                            durationMinutes: item.durationMinutes ?? 60,
+                            calendarName: item.calendarName,
+                            defaultCalendarName: defaultCalendar
                         )
                         toastItems.append(ToastItem(record: item.record, destination: .calendar, fellBack: false))
                     } catch {
@@ -112,7 +123,8 @@ final class CaptureCoordinator {
                         try await EventKitService.shared.createReminder(
                             title: item.record.text,
                             due: item.record.remindAt ?? item.record.dueDate,
-                            listName: item.listName
+                            listName: item.listName,
+                            defaultListName: defaultList
                         )
                         toastItems.append(ToastItem(record: item.record, destination: .reminders, fellBack: false))
                     } catch {
