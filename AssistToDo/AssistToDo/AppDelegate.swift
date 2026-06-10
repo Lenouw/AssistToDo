@@ -18,8 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         store = TaskStore()                       // ouvre SwiftData + applique le rollover au lancement
-        listController = ListWindowController(store: store)
         settingsController = SettingsWindowController()
+        listController = ListWindowController(store: store) { [weak self] in
+            self?.settingsController.show()
+        }
 
         menuBar = MenuBarController(
             store: store,

@@ -10,11 +10,21 @@ import AssistToDoCore
 
 struct ListView: View {
     @ObservedObject var store: TaskStore
+    var onOpenSettings: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Aujourd'hui")
-                .font(.headline)
+            HStack {
+                Text("Aujourd'hui")
+                    .font(.headline)
+                Spacer()
+                Button(action: onOpenSettings) {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(.plain)
+                .help("Réglages")
+                .accessibilityLabel("Ouvrir les réglages")
+            }
 
             if store.tasks.isEmpty {
                 Text("Aucune tâche")
