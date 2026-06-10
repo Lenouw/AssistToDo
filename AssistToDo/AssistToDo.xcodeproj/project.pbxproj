@@ -107,7 +107,7 @@
 			mainGroup = 167B43DD2FD9DCD400350027;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "../../AssistToDoCore" */,
+				167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "../AssistToDoCore" */,
 				167B43F82FD9DD6C00350027 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				167B43FB2FD9DD8300350027 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 			);
@@ -350,9 +350,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "../../AssistToDoCore" */ = {
+		167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "../AssistToDoCore" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../AssistToDoCore;
+			relativePath = ../AssistToDoCore;
 		};
 /* End XCLocalSwiftPackageReference section */
 
