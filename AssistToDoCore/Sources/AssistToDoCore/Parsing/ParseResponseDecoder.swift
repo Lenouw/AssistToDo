@@ -4,8 +4,11 @@ public enum ParseResponseDecoder {
     struct Wrapper: Decodable { let tasks: [RawTask] }
     struct RawTask: Decodable {
         let text: String
+        let destination: String?
         let remindAt: String?
         let dueDate: String?
+        let durationMinutes: Int?
+        let listName: String?
         let priority: String?
         let notify: Bool?
         let tags: [String]?
@@ -20,8 +23,12 @@ public enum ParseResponseDecoder {
         return wrapper.tasks.map { rt in
             ParsedTask(
                 text: rt.text,
+                // Champ absent ou valeur inconnue → local (jamais de capture perdue).
+                destination: Destination(rawValue: nullable(rt.destination) ?? "") ?? .local,
                 remindAtRaw: nullable(rt.remindAt),
                 dueDateRaw: nullable(rt.dueDate),
+                durationMinutes: rt.durationMinutes,
+                listName: nullable(rt.listName),
                 priority: Priority(rawValue: nullable(rt.priority) ?? ""),
                 notify: rt.notify ?? false,
                 tags: rt.tags ?? []

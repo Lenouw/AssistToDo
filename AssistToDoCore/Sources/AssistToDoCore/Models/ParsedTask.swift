@@ -1,16 +1,28 @@
 import Foundation
 
+/// Destination d'une capture : liste locale, app Rappels Apple, ou Calendrier Apple.
+public enum Destination: String, Codable, Sendable {
+    case local, reminders, calendar
+}
+
 public struct ParsedTask: Equatable, Sendable {
     public var text: String
+    public var destination: Destination
     public var remindAtRaw: String?
     public var dueDateRaw: String?
+    public var durationMinutes: Int?
+    public var listName: String?
     public var priority: Priority?
     public var notify: Bool
     public var tags: [String]
 
-    public init(text: String, remindAtRaw: String? = nil, dueDateRaw: String? = nil,
+    public init(text: String, destination: Destination = .local,
+                remindAtRaw: String? = nil, dueDateRaw: String? = nil,
+                durationMinutes: Int? = nil, listName: String? = nil,
                 priority: Priority? = nil, notify: Bool = false, tags: [String] = []) {
-        self.text = text; self.remindAtRaw = remindAtRaw; self.dueDateRaw = dueDateRaw
+        self.text = text; self.destination = destination
+        self.remindAtRaw = remindAtRaw; self.dueDateRaw = dueDateRaw
+        self.durationMinutes = durationMinutes; self.listName = listName
         self.priority = priority; self.notify = notify; self.tags = tags
     }
 }

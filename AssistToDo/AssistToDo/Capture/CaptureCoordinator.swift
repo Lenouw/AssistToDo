@@ -86,15 +86,50 @@ final class CaptureCoordinator {
             try? await Task.sleep(nanoseconds: 600_000_000)
             hide()
 
-            // Parsing → tâche(s) → notifs → persistance → toast.
-            var records = await parser.parse(transcript: t.text, now: Date())
-            for i in records.indices {
-                if let id = notifications.schedule(for: records[i]) {
-                    records[i].notificationId = id
+            // Parsing → routage par destination → toast.
+            let routed = await parser.parse(transcript: t.text, now: Date())
+            var localRecords: [TaskRecord] = []
+            var toastItems: [ToastItem] = []
+
+            for var item in routed {
+                switch item.destination {
+                case .calendar:
+                    do {
+                        try await EventKitService.shared.createEvent(
+                            title: item.record.text,
+                            start: item.record.remindAt ?? Date(),
+                            durationMinutes: item.durationMinutes ?? 60
+                        )
+                        toastItems.append(ToastItem(record: item.record, destination: .calendar, fellBack: false))
+                    } catch {
+                        print("Calendrier indisponible (\(error)), fallback local")
+                        item.record.notificationId = notifications.schedule(for: item.record)
+                        localRecords.append(item.record)
+                        toastItems.append(ToastItem(record: item.record, destination: .calendar, fellBack: true))
+                    }
+                case .reminders:
+                    do {
+                        try await EventKitService.shared.createReminder(
+                            title: item.record.text,
+                            due: item.record.remindAt ?? item.record.dueDate,
+                            listName: item.listName
+                        )
+                        toastItems.append(ToastItem(record: item.record, destination: .reminders, fellBack: false))
+                    } catch {
+                        print("Rappels indisponibles (\(error)), fallback local")
+                        item.record.notificationId = notifications.schedule(for: item.record)
+                        localRecords.append(item.record)
+                        toastItems.append(ToastItem(record: item.record, destination: .reminders, fellBack: true))
+                    }
+                case .local:
+                    item.record.notificationId = notifications.schedule(for: item.record)
+                    localRecords.append(item.record)
+                    toastItems.append(ToastItem(record: item.record, destination: .local, fellBack: false))
                 }
             }
-            store.add(records)
-            toast.show(records)
+
+            if !localRecords.isEmpty { store.add(localRecords) }
+            toast.show(toastItems)
         }
     }
 

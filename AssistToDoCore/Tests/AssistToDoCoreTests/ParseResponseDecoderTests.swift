@@ -30,4 +30,25 @@ final class ParseResponseDecoderTests: XCTestCase {
     func test_json_invalide_jette() {
         XCTAssertThrowsError(try ParseResponseDecoder.decode("pas du json"))
     }
+
+    func test_decode_destination_calendar_avec_duree() throws {
+        let raw = #"{"tasks":[{"text":"Rdv médecin","destination":"calendar","remindAt":"2026-06-12T14:00:00+02:00","dueDate":null,"durationMinutes":30,"listName":null,"priority":null,"notify":true,"tags":[]}]}"#
+        let tasks = try ParseResponseDecoder.decode(raw)
+        XCTAssertEqual(tasks[0].destination, .calendar)
+        XCTAssertEqual(tasks[0].durationMinutes, 30)
+    }
+
+    func test_decode_destination_reminders_avec_liste() throws {
+        let raw = #"{"tasks":[{"text":"Acheter du lait","destination":"reminders","remindAt":null,"dueDate":"2026-06-13","listName":"Courses","priority":null,"notify":false,"tags":[]}]}"#
+        let tasks = try ParseResponseDecoder.decode(raw)
+        XCTAssertEqual(tasks[0].destination, .reminders)
+        XCTAssertEqual(tasks[0].listName, "Courses")
+    }
+
+    func test_destination_absente_ou_inconnue_donne_local() throws {
+        let raw = #"{"tasks":[{"text":"a","remindAt":null,"dueDate":null,"priority":null,"notify":false,"tags":[]},{"text":"b","destination":"galaxie","remindAt":null,"dueDate":null,"priority":null,"notify":false,"tags":[]}]}"#
+        let tasks = try ParseResponseDecoder.decode(raw)
+        XCTAssertEqual(tasks[0].destination, .local)   // champ absent
+        XCTAssertEqual(tasks[1].destination, .local)   // valeur inconnue
+    }
 }

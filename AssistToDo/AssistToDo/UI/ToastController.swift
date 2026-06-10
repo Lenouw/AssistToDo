@@ -17,13 +17,13 @@ final class ToastController {
     private var hideTask: Task<Void, Never>?
     private let width: CGFloat = 300
 
-    func show(_ records: [TaskRecord]) {
-        guard !records.isEmpty else { return }
-        model.records = records
+    func show(_ items: [ToastItem]) {
+        guard !items.isEmpty else { return }
+        model.items = items
         if panel == nil { build() }
         guard let p = panel else { return }
 
-        let height = estimatedHeight(records.count)
+        let height = estimatedHeight(items.count)
         positionTopRight(height: height)
         p.alphaValue = 0
         p.orderFrontRegardless()
