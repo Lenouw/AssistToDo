@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsController: SettingsWindowController!
     private var hotkey: HotkeyManager!
     private var transcriber: Transcriber!
+    private var notifications: NotificationManager!
+    private var toast: ToastController!
     private var capture: CaptureCoordinator!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -31,10 +33,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onOpenSettings: { [weak self] in self?.settingsController.show() }
         )
 
-        // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription.
-        let model = UserDefaults.standard.string(forKey: "whisperModel") ?? "base"
-        transcriber = Transcriber(model: model)   // pré-charge le modèle au lancement
-        capture = CaptureCoordinator(transcriber: transcriber)
+        // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription + parsing.
+        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "base"
+        let llmModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"
+        transcriber = Transcriber(model: whisper)   // pré-charge le modèle au lancement
+        notifications = NotificationManager()
+        toast = ToastController()
+        let parser = TaskParser(client: OpenRouterClient(model: llmModel))
+        capture = CaptureCoordinator(
+            transcriber: transcriber, parser: parser, store: store,
+            notifications: notifications, toast: toast
+        )
         hotkey = HotkeyManager()
         hotkey.onPressStart = { [weak self] in self?.capture.begin() }
         hotkey.onPressEnd = { [weak self] in self?.capture.end() }

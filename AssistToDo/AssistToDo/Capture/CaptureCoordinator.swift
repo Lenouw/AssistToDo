@@ -2,9 +2,8 @@
 //  CaptureCoordinator.swift
 //  AssistToDo
 //
-//  Orchestration de la capture : keyDown → arme le micro + HUD,
-//  keyUp → stop → transcription WhisperKit → affichage dans le HUD.
-//  (parsing OpenRouter + création de tâche = étape suivante)
+//  Pipeline complet : keyDown → micro + HUD ; keyUp → stop → transcription
+//  → parsing OpenRouter → création de tâche(s) + notifs + toast de confirmation.
 //
 
 import AppKit
@@ -14,12 +13,22 @@ import AssistToDoCore
 final class CaptureCoordinator {
     let audio = AudioCapture()
     let model = CaptureModel()
+
     private let transcriber: Transcriber
+    private let parser: TaskParser
+    private let store: TaskStore
+    private let notifications: NotificationManager
+    private let toast: ToastController
     private let panel: CapturePanelController
     private var activity: NSObjectProtocol?
 
-    init(transcriber: Transcriber) {
+    init(transcriber: Transcriber, parser: TaskParser, store: TaskStore,
+         notifications: NotificationManager, toast: ToastController) {
         self.transcriber = transcriber
+        self.parser = parser
+        self.store = store
+        self.notifications = notifications
+        self.toast = toast
         panel = CapturePanelController(audio: audio, model: model)
     }
 
@@ -52,16 +61,25 @@ final class CaptureCoordinator {
             let verdict = HallucinationFilter.evaluate(
                 transcript: t.text, audioDuration: result.duration, avgLogProb: Double(t.avgLogProb)
             )
-            switch verdict {
-            case .accept:
-                model.transcript = t.text
-                print("Transcript : \(t.text)")
-                // Prochaine étape : parsing OpenRouter → création de tâche → toast.
-                try? await Task.sleep(nanoseconds: 2_500_000_000)
-                hide()
-            case .reject(let reason):
-                flashAndHide("Ignoré (\(reason))", beep: true)
+            guard case .accept = verdict else {
+                if case .reject(let reason) = verdict { flashAndHide("Ignoré (\(reason))", beep: true) }
+                return
             }
+
+            // Affiche brièvement la transcription dans le HUD, puis ferme.
+            model.transcript = t.text
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            hide()
+
+            // Parsing → tâche(s) → notifs → persistance → toast.
+            var records = await parser.parse(transcript: t.text, now: Date())
+            for i in records.indices {
+                if let id = notifications.schedule(for: records[i]) {
+                    records[i].notificationId = id
+                }
+            }
+            store.add(records)
+            toast.show(records)
         }
     }
 
