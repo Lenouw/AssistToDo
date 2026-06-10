@@ -10,7 +10,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: TaskStore!
     private var menuBar: MenuBarController!
     private var listController: ListWindowController!
-    private var settingsController: SettingsWindowController!
     private var hotkey: HotkeyManager!
     private var transcriber: Transcriber!
     private var notifications: NotificationManager!
@@ -25,15 +24,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         store = TaskStore()                       // ouvre SwiftData + applique le rollover au lancement
-        settingsController = SettingsWindowController()
-        listController = ListWindowController(store: store) { [weak self] in
-            self?.settingsController.show()
-        }
+        listController = ListWindowController(store: store)
 
         menuBar = MenuBarController(
             store: store,
             onOpenList: { [weak self] in self?.listController.show() },
-            onOpenSettings: { [weak self] in self?.settingsController.show() }
+            onOpenSettings: { [weak self] in self?.listController.showSettings() }
         )
 
         // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription + parsing.
@@ -42,6 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         transcriber = Transcriber(model: whisper)   // pré-charge le modèle au lancement
         notifications = NotificationManager(store: store)
         notifications.onOpenList = { [weak self] in self?.listController.show() }
+        // Le store annule/replanifie les notifs lors des suppressions et reports (swipe).
+        store.onCancelNotification = { [weak self] id in self?.notifications.cancel(id: id) }
+        store.onScheduleReminder = { [weak self] record in self?.notifications.schedule(for: record) }
         toast = ToastController()
         let parser = TaskParser(client: OpenRouterClient(model: llmModel))
         capture = CaptureCoordinator(

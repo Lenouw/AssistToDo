@@ -87,6 +87,39 @@ final class TaskStore: ObservableObject {
         save(); reload()
     }
 
+    // Câblés par l'AppDelegate (le store ne dépend pas du NotificationManager).
+    var onCancelNotification: ((String) -> Void)?
+    var onScheduleReminder: ((TaskRecord) -> String?)?
+
+    func delete(id: UUID) {
+        guard let e = fetchAll().first(where: { $0.id == id }) else { return }
+        if let nid = e.notificationId { onCancelNotification?(nid) }
+        context.delete(e)
+        save(); reload()
+    }
+
+    func updateText(id: UUID, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let e = fetchAll().first(where: { $0.id == id }) else { return }
+        e.text = trimmed
+        save(); reload()
+    }
+
+    /// Reporte la tâche à demain (Paris). Décale aussi le rappel de 24h s'il y en a un.
+    func postponeToTomorrow(id: UUID) {
+        guard let e = fetchAll().first(where: { $0.id == id }) else { return }
+        let todayStart = ParisCalendar.startOfDay(for: Date())
+        e.dueDate = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: todayStart)
+        if let remind = e.remindAt {
+            if let nid = e.notificationId { onCancelNotification?(nid) }
+            let newRemind = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: remind) ?? remind
+            e.remindAt = newRemind
+            e.notify = true
+            e.notificationId = onScheduleReminder?(e.toRecord())
+        }
+        save(); reload()
+    }
+
     // MARK: - Rollover idempotent
 
     /// Reporte au jour courant (Paris) les tâches en retard non faites. Idempotent par jour.

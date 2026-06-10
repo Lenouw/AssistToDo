@@ -2,35 +2,87 @@
 //  ListWindowController.swift
 //  AssistToDo
 //
-//  Panneau liste façon Copy History / Maccy : apparaît par le bas de l'écran,
-//  se ferme tout seul dès qu'il perd le focus (clic ailleurs) ou sur Échap.
+//  Panneau colonne (droite de l'écran) à deux modes : liste des tâches, ou Réglages
+//  affichés DANS le même panneau (pas de fenêtre séparée). Auto-fermeture au clic
+//  ailleurs ou sur Échap.
 //
 
 import AppKit
 import SwiftUI
 
-/// Panneau qui peut devenir key (pour cocher) et se ferme sur Échap.
+/// Panneau qui peut devenir key (pour cocher/éditer) et se ferme sur Échap.
 final class AutoDismissPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override func cancelOperation(_ sender: Any?) { orderOut(nil) } // Échap = fermer
 }
 
+enum PanelMode {
+    case list, settings
+}
+
+@MainActor
+final class PanelModeModel: ObservableObject {
+    @Published var mode: PanelMode = .list
+}
+
+/// Contenu du panneau : bascule liste ↔ réglages dans la même fenêtre.
+struct PanelRootView: View {
+    @ObservedObject var store: TaskStore
+    @ObservedObject var modeModel: PanelModeModel
+
+    var body: some View {
+        switch modeModel.mode {
+        case .list:
+            ListView(store: store, onOpenSettings: { modeModel.mode = .settings })
+        case .settings:
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Button {
+                        modeModel.mode = .list
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Retour à la liste")
+                    Text("Réglages").font(.headline)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 4)
+
+                SettingsView()
+            }
+        }
+    }
+}
+
 @MainActor
 final class ListWindowController: NSObject, NSWindowDelegate {
     private let store: TaskStore
-    private let onOpenSettings: () -> Void
+    private let modeModel = PanelModeModel()
     private var panel: AutoDismissPanel?
     private let width: CGFloat = 340
 
-    init(store: TaskStore, onOpenSettings: @escaping () -> Void) {
+    init(store: TaskStore) {
         self.store = store
-        self.onOpenSettings = onOpenSettings
         super.init()
     }
 
     func show() {
+        modeModel.mode = .list
+        present()
+    }
+
+    func showSettings() {
+        modeModel.mode = .settings
+        present()
+    }
+
+    private func present() {
         if panel == nil { build() }
         guard let p = panel else { return }
+        if p.isKeyWindow { return }   // déjà visible : juste changer de mode, pas de re-animation
         let target = rightFrame()
         // Démarre hors écran à droite puis glisse vers l'intérieur.
         let start = NSRect(x: target.maxX, y: target.minY, width: target.width, height: target.height)
@@ -45,7 +97,7 @@ final class ListWindowController: NSObject, NSWindowDelegate {
     }
 
     private func build() {
-        let hosting = NSHostingController(rootView: ListView(store: store, onOpenSettings: onOpenSettings))
+        let hosting = NSHostingController(rootView: PanelRootView(store: store, modeModel: modeModel))
         let p = AutoDismissPanel(contentViewController: hosting)
         p.styleMask = [.titled, .fullSizeContentView]
         p.titlebarAppearsTransparent = true

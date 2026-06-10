@@ -2,8 +2,8 @@
 //  ListView.swift
 //  AssistToDo
 //
-//  Liste des tâches : sections Aujourd'hui / À venir / Faites,
-//  accent couleur par priorité, horaires de rappel.
+//  Liste des tâches : sections Aujourd'hui / À venir / Faites, couleurs de priorité,
+//  horaires, swipe (fait / demain / supprimer / modifier), édition inline.
 //
 
 import SwiftUI
@@ -13,6 +13,10 @@ struct ListView: View {
     @ObservedObject var store: TaskStore
     var onOpenSettings: () -> Void = {}
 
+    @State private var editingId: UUID?
+    @State private var editText = ""
+    @FocusState private var editFocused: Bool
+
     private var todayActive: [TaskRecord] { store.tasks.filter { !$0.isDone } }
     private var todayDone: [TaskRecord] { store.tasks.filter { $0.isDone } }
 
@@ -20,6 +24,12 @@ struct ListView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Mes tâches").font(.headline)
+                if !todayActive.isEmpty {
+                    Text("\(todayActive.count)")
+                        .font(.caption.bold())
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(.quaternary, in: Capsule())
+                }
                 Spacer()
                 Button(action: onOpenSettings) { Image(systemName: "gearshape") }
                     .buttonStyle(.plain)
@@ -32,9 +42,17 @@ struct ListView: View {
 
             if store.tasks.isEmpty && store.upcoming.isEmpty {
                 Spacer()
-                Text("Aucune tâche")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
+                VStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal")
+                        .font(.largeTitle)
+                        .foregroundStyle(.tertiary)
+                    Text("Tout est fait")
+                        .foregroundStyle(.secondary)
+                    Text("Maintiens ⌃⌥Espace pour capturer une tâche")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity)
                 Spacer()
             } else {
                 List {
@@ -55,6 +73,7 @@ struct ListView: View {
                     }
                 }
                 .listStyle(.inset)
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: store.tasks)
             }
 
             Text("Build \(BuildInfo.date)")
@@ -66,8 +85,85 @@ struct ListView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
+    // MARK: - Lignes
+
+    @ViewBuilder
     private func row(_ task: TaskRecord, showDay: Bool = false) -> some View {
-        TaskRow(task: task, showDay: showDay) { store.toggleDone(id: task.id) }
+        if editingId == task.id {
+            editRow(task)
+        } else {
+            TaskRow(task: task, showDay: showDay) {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    store.toggleDone(id: task.id)
+                }
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(role: .destructive) {
+                    store.delete(id: task.id)
+                } label: {
+                    Label("Supprimer", systemImage: "trash")
+                }
+                Button {
+                    store.postponeToTomorrow(id: task.id)
+                } label: {
+                    Label("Demain", systemImage: "arrow.uturn.forward")
+                }
+                .tint(.orange)
+            }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        store.toggleDone(id: task.id)
+                    }
+                } label: {
+                    Label(task.isDone ? "Pas faite" : "Fait", systemImage: task.isDone ? "arrow.uturn.backward.circle" : "checkmark.circle")
+                }
+                .tint(.green)
+                Button {
+                    startEditing(task)
+                } label: {
+                    Label("Modifier", systemImage: "pencil")
+                }
+                .tint(.blue)
+            }
+            .contextMenu {
+                Button(task.isDone ? "Marquer non faite" : "Marquer faite") {
+                    store.toggleDone(id: task.id)
+                }
+                Button("Modifier") { startEditing(task) }
+                Button("Reporter à demain") { store.postponeToTomorrow(id: task.id) }
+                Divider()
+                Button("Supprimer", role: .destructive) { store.delete(id: task.id) }
+            }
+            .onTapGesture(count: 2) { startEditing(task) }
+        }
+    }
+
+    private func editRow(_ task: TaskRecord) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "pencil")
+                .foregroundStyle(.blue)
+            TextField("Tâche", text: $editText)
+                .textFieldStyle(.plain)
+                .focused($editFocused)
+                .onSubmit { commitEdit(task) }
+            Button("OK") { commitEdit(task) }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        }
+        .padding(.vertical, 3)
+        .onExitCommand { editingId = nil }   // Échap annule
+    }
+
+    private func startEditing(_ task: TaskRecord) {
+        editText = task.text
+        editingId = task.id
+        editFocused = true
+    }
+
+    private func commitEdit(_ task: TaskRecord) {
+        store.updateText(id: task.id, text: editText)
+        editingId = nil
     }
 }
 
@@ -111,7 +207,10 @@ private struct TaskRow: View {
                         .foregroundStyle(Self.priorityColor(task.priority))
                 }
                 if task.rolloverCount >= 3 {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text("×\(task.rolloverCount)")
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(.orange.opacity(0.15), in: Capsule())
                         .foregroundStyle(.orange)
                         .help("Reportée \(task.rolloverCount) fois")
                 }

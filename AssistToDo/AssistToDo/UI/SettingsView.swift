@@ -71,7 +71,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 520)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear(perform: refresh)
     }
 
