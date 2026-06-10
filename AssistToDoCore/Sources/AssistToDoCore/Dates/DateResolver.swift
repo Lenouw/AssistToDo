@@ -91,8 +91,13 @@ public enum DateResolver {
         return Int((t as NSString).substring(with: m.range(at: 1)))
     }
 
+    /// Pose l'heure d'horloge sur aujourd'hui ; si l'instant est déjà passé, reporte au lendemain.
     private static func setTime(now: Date, hour: Int, minute: Int) -> Date {
-        cal.date(bySettingHour: hour, minute: minute, second: 0, of: now) ?? now
+        let today = cal.date(bySettingHour: hour, minute: minute, second: 0, of: now) ?? now
+        if today <= now {
+            return cal.date(byAdding: .day, value: 1, to: today) ?? today
+        }
+        return today
     }
 
     /// Prochain jour de semaine strictement après aujourd'hui (Paris).

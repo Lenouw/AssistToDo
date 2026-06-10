@@ -45,4 +45,32 @@ final class DateResolverTests: XCTestCase {
         let now = date("2026-06-10T15:30:00+02:00")
         XCTAssertNil(DateResolver.resolveRemind(text: "acheter du pain", now: now))
     }
+
+    func test_heure_passee_reporte_au_lendemain() {
+        // il est 15:30, "à 8h" → demain 08:00 (pas aujourd'hui 08:00 déjà passé)
+        let now = date("2026-06-10T15:30:00+02:00")
+        let r = DateResolver.resolveRemind(text: "à 8h faire le point", now: now)
+        XCTAssertEqual(r, date("2026-06-11T08:00:00+02:00"))
+    }
+
+    func test_heure_future_reste_aujourdhui() {
+        // il est 15:30, "à 18h" → aujourd'hui 18:00 (inchangé)
+        let now = date("2026-06-10T15:30:00+02:00")
+        let r = DateResolver.resolveRemind(text: "à 18h acheter du pain", now: now)
+        XCTAssertEqual(r, date("2026-06-10T18:00:00+02:00"))
+    }
+
+    func test_ce_soir_passe_reporte_au_lendemain() {
+        // il est 22:00, "ce soir" (18h) déjà passé → demain 18:00
+        let now = date("2026-06-10T22:00:00+02:00")
+        let r = DateResolver.resolveRemind(text: "ce soir", now: now)
+        XCTAssertEqual(r, date("2026-06-11T18:00:00+02:00"))
+    }
+
+    func test_delai_relatif_inchange() {
+        // "dans deux heures" reste +2h même tard le soir (pas de report)
+        let now = date("2026-06-10T23:00:00+02:00")
+        let r = DateResolver.resolveRemind(text: "dans deux heures", now: now)
+        XCTAssertEqual(r, date("2026-06-11T01:00:00+02:00"))
+    }
 }
