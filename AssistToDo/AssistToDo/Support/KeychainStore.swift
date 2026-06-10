@@ -23,6 +23,8 @@ enum KeychainStore {
         guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return }
         var add = base
         add[kSecValueData as String] = data
+        // Lisible après le premier déverrouillage de session (app au démarrage, avant interaction).
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
         SecItemAdd(add as CFDictionary, nil)
     }
 

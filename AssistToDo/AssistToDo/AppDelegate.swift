@@ -40,7 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "base"
         let llmModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"
         transcriber = Transcriber(model: whisper)   // pré-charge le modèle au lancement
-        notifications = NotificationManager()
+        notifications = NotificationManager(store: store)
+        notifications.onOpenList = { [weak self] in self?.listController.show() }
         toast = ToastController()
         let parser = TaskParser(client: OpenRouterClient(model: llmModel))
         capture = CaptureCoordinator(

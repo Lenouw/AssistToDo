@@ -70,6 +70,23 @@ final class TaskStore: ObservableObject {
         save(); reload()
     }
 
+    func markDone(id: UUID) {
+        guard let e = fetchAll().first(where: { $0.id == id }), !e.isDone else { return }
+        e.isDone = true
+        e.doneAt = Date()
+        save(); reload()
+    }
+
+    /// Met à jour le rappel d'une tâche (report depuis une notif). Aligne aussi la date du jour.
+    func updateReminder(id: UUID, remindAt: Date?, notificationId: String?) {
+        guard let e = fetchAll().first(where: { $0.id == id }) else { return }
+        e.remindAt = remindAt
+        e.notify = remindAt != nil
+        e.notificationId = notificationId
+        if let remindAt { e.dueDate = ParisCalendar.startOfDay(for: remindAt) }
+        save(); reload()
+    }
+
     // MARK: - Rollover idempotent
 
     /// Reporte au jour courant (Paris) les tâches en retard non faites. Idempotent par jour.

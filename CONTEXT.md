@@ -14,6 +14,8 @@ Cible : MacBook Air Apple Silicon, macOS 15.5 (Sequoia).
 2026-06-10
 
 ## Ce qu'on a fait
+- 2026-06-10 (soir, suite) : app complète testée de bout en bout (capture vocale → tâche). Polish : liste en panneau auto-fermant depuis la droite (tap=liste, hold=capture), sections Aujourd'hui/À venir/Faites + couleurs priorité + horaires, onboarding 1er lancement, README. Corrections : auto-gain audio (normalisation au pic avant Whisper, seuil VAD 0.004) pour micro faible ; Keychain `kSecAttrAccessibleAfterFirstUnlock` (+ note signature stable pour éviter re-prompt). Notifications interactives : boutons report 5/10/15/30 min + À demain + Fait ✓ (UNNotificationCategory + delegate). Backlog : connexion Apple Reminders (EventKit) à explorer plus tard.
+
 - 2026-06-10 (après-midi) : implémentation Phase 0 + Phase 1 sur branche `feat/assisttodo-v1`, en subagent-driven (un sous-agent par tâche, TDD). Package SwiftPM `AssistToDoCore` créé avec tout le cœur métier testé : modèles (Priority, ParsedTask, TaskRecord), ParisCalendar (helpers TZ), DateResolver (dates/heures relatives FR déterministes), ParseResponseDecoder (JSON LLM), ParsePromptBuilder, HallucinationFilter, RolloverEngine idempotent. **26 tests verts** (`swift test`). Revue finale faite : 1 bug corrigé (DateResolver renvoyait une heure passée pour "à 8h" quand déjà dépassée → reporte au lendemain). Clé OpenRouter validée, modèle `google/gemini-2.5-flash` testé et figé.
 - 2026-06-10 (matin) : init projet (git + .gitignore Swift/Xcode). Brainstorming complet. 3 agents (recherche libs, idées produit, stress-test design). Design v1 validé + spec écrit. Plan d'implémentation écrit (`docs/superpowers/plans/2026-06-10-assisttodo-v1.md`).
 
