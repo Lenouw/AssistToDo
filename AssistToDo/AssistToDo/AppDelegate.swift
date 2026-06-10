@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var listController: ListWindowController!
     private var settingsController: SettingsWindowController!
     private var hotkey: HotkeyManager!
+    private var capture: CaptureCoordinator!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // App accessoire : pas d'icône Dock, vit dans la barre de menus.
@@ -29,13 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onOpenSettings: { [weak self] in self?.settingsController.show() }
         )
 
-        // Raccourci global. Capture vocale câblée à la prochaine étape ;
-        // pour l'instant, relâcher ouvre la liste (preuve que le raccourci fonctionne).
+        // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop.
+        capture = CaptureCoordinator()
         hotkey = HotkeyManager()
-        hotkey.onPressStart = { print("Raccourci maintenu (début capture)") }
-        hotkey.onPressEnd = { [weak self] in
-            print("Raccourci relâché (fin capture)")
-            self?.listController.show()
-        }
+        hotkey.onPressStart = { [weak self] in self?.capture.begin() }
+        hotkey.onPressEnd = { [weak self] in self?.capture.end() }
     }
 }
