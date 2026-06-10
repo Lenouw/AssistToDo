@@ -10,6 +10,7 @@ public enum ParseResponseDecoder {
         let durationMinutes: Int?
         let listName: String?
         let calendarName: String?
+        let noteName: String?
         let priority: String?
         let notify: Bool?
         let tags: [String]?
@@ -31,6 +32,7 @@ public enum ParseResponseDecoder {
                 durationMinutes: rt.durationMinutes,
                 listName: nullable(rt.listName),
                 calendarName: nullable(rt.calendarName),
+                noteName: nullable(rt.noteName),
                 priority: Priority(rawValue: nullable(rt.priority) ?? ""),
                 notify: rt.notify ?? false,
                 tags: rt.tags ?? []

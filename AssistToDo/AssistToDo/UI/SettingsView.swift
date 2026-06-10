@@ -17,6 +17,7 @@ struct SettingsView: View {
     @AppStorage("routingEnabled") private var routingEnabled: Bool = true
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
+    @AppStorage("defaultNote") private var defaultNote: String = "Courses"
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
@@ -83,7 +84,12 @@ struct SettingsView: View {
                             ForEach(reminderLists, id: \.self) { Text($0).tag($0) }
                         }
                     }
-                    Text("Dicte « dans mon calendrier BoulouFlo » ou « dans ma liste Courses » pour cibler précisément.")
+                    // Notes (liste de courses)
+                    TextField("Note de courses par défaut", text: $defaultNote)
+                    Text("Les articles de courses dictés sont ajoutés à cette note Apple (créée si absente). Dicte « ajoute du lait » ou « sur la liste de courses ».")
+                        .font(.caption).foregroundStyle(.secondary)
+
+                    Text("Cible précise possible à la voix : « dans mon calendrier BoulouFlo », « dans ma liste Courses », « dans ma note Maison ».")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

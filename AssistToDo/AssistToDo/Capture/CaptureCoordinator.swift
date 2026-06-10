@@ -90,6 +90,7 @@ final class CaptureCoordinator {
             let routingOn = UserDefaults.standard.object(forKey: "routingEnabled") as? Bool ?? true
             let defaultCalendar = UserDefaults.standard.string(forKey: "defaultCalendar")
             let defaultList = UserDefaults.standard.string(forKey: "defaultReminderList")
+            let defaultNote = UserDefaults.standard.string(forKey: "defaultNote") ?? "Courses"
             let routed = await parser.parse(
                 transcript: t.text, now: Date(),
                 calendars: routingOn ? EventKitService.shared.calendarTitles : [],
@@ -132,6 +133,19 @@ final class CaptureCoordinator {
                         item.record.notificationId = notifications.schedule(for: item.record)
                         localRecords.append(item.record)
                         toastItems.append(ToastItem(record: item.record, destination: .reminders, fellBack: true))
+                    }
+                case .notes:
+                    do {
+                        try await NotesService.shared.append(
+                            item: item.record.text,
+                            noteName: item.noteName ?? defaultNote
+                        )
+                        toastItems.append(ToastItem(record: item.record, destination: .notes, fellBack: false))
+                    } catch {
+                        print("Notes indisponibles (\(error)), fallback local")
+                        item.record.notificationId = notifications.schedule(for: item.record)
+                        localRecords.append(item.record)
+                        toastItems.append(ToastItem(record: item.record, destination: .notes, fellBack: true))
                     }
                 case .local:
                     item.record.notificationId = notifications.schedule(for: item.record)

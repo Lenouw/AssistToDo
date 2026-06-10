@@ -17,6 +17,7 @@ struct RoutedTask {
     let durationMinutes: Int?
     let listName: String?
     let calendarName: String?
+    let noteName: String?
 }
 
 struct TaskParser {
@@ -59,7 +60,8 @@ struct TaskParser {
         // Un événement calendrier sans heure de début n'a pas de sens → retombe en local.
         let destination: Destination = (p.destination == .calendar && remind == nil) ? .local : p.destination
         return RoutedTask(record: record, destination: destination,
-                          durationMinutes: p.durationMinutes, listName: p.listName, calendarName: p.calendarName)
+                          durationMinutes: p.durationMinutes, listName: p.listName,
+                          calendarName: p.calendarName, noteName: p.noteName)
     }
 
     private func rawFallback(_ transcript: String, now: Date) -> RoutedTask {
@@ -71,7 +73,7 @@ struct TaskParser {
                 rawTranscript: transcript,
                 parseStatus: .rawOnly
             ),
-            destination: .local, durationMinutes: nil, listName: nil, calendarName: nil
+            destination: .local, durationMinutes: nil, listName: nil, calendarName: nil, noteName: nil
         )
     }
 

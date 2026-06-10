@@ -46,6 +46,13 @@ final class ParseResponseDecoderTests: XCTestCase {
         XCTAssertEqual(tasks[0].listName, "Courses")
     }
 
+    func test_decode_destination_notes_avec_note() throws {
+        let raw = #"{"tasks":[{"text":"Lait","destination":"notes","noteName":"Courses","remindAt":null,"dueDate":null,"priority":null,"notify":false,"tags":[]}]}"#
+        let tasks = try ParseResponseDecoder.decode(raw)
+        XCTAssertEqual(tasks[0].destination, .notes)
+        XCTAssertEqual(tasks[0].noteName, "Courses")
+    }
+
     func test_destination_absente_ou_inconnue_donne_local() throws {
         let raw = #"{"tasks":[{"text":"a","remindAt":null,"dueDate":null,"priority":null,"notify":false,"tags":[]},{"text":"b","destination":"galaxie","remindAt":null,"dueDate":null,"priority":null,"notify":false,"tags":[]}]}"#
         let tasks = try ParseResponseDecoder.decode(raw)

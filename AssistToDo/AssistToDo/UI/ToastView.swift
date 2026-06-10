@@ -61,6 +61,7 @@ struct ToastView: View {
         case .local: parts.append("Ma liste")
         case .reminders: parts.append("Rappels Apple")
         case .calendar: parts.append("Calendrier")
+        case .notes: parts.append("Notes")
         }
         if let remind = item.record.remindAt {
             parts.append(Self.timeFormatter.string(from: remind))
@@ -74,6 +75,7 @@ struct ToastView: View {
         case .local: return "checklist"
         case .reminders: return "list.bullet.circle"
         case .calendar: return "calendar"
+        case .notes: return "note.text"
         }
     }
 
