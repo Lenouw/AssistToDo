@@ -21,6 +21,7 @@ final class CaptureCoordinator {
     private let toast: ToastController
     private let panel: CapturePanelController
     private var activity: NSObjectProtocol?
+    private var showTask: Task<Void, Never>?
 
     init(transcriber: Transcriber, parser: TaskParser, store: TaskStore,
          notifications: NotificationManager, toast: ToastController) {
@@ -37,10 +38,24 @@ final class CaptureCoordinator {
         model.transcript = ""
         model.state = transcriber.isReady ? .listening : .preparing
         audio.start()
-        panel.show()
+        // Affiche le HUD seulement après un court délai : un appui bref (tap) n'affiche rien.
+        showTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            self?.panel.show()
+        }
+    }
+
+    /// Appui bref : on jette la capture, rien n'est transcrit ni créé.
+    func cancel() {
+        showTask?.cancel()
+        _ = audio.stop()
+        endActivity()
+        hide()
     }
 
     func end() {
+        showTask?.cancel()
         let result = audio.stop()
         endActivity()
 

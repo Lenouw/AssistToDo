@@ -20,7 +20,7 @@ final class ListWindowController: NSObject, NSWindowDelegate {
     private let store: TaskStore
     private let onOpenSettings: () -> Void
     private var panel: AutoDismissPanel?
-    private let size = NSSize(width: 360, height: 440)
+    private let width: CGFloat = 340
 
     init(store: TaskStore, onOpenSettings: @escaping () -> Void) {
         self.store = store
@@ -31,18 +31,16 @@ final class ListWindowController: NSObject, NSWindowDelegate {
     func show() {
         if panel == nil { build() }
         guard let p = panel else { return }
-        let target = topFrame()
-        // Démarre collé au bord haut (hors écran) puis descend en place.
-        let start = NSRect(x: target.minX, y: target.maxY, width: target.width, height: target.height)
+        let target = rightFrame()
+        // Démarre hors écran à droite puis glisse vers l'intérieur.
+        let start = NSRect(x: target.maxX, y: target.minY, width: target.width, height: target.height)
         p.setFrame(start, display: false)
-        p.alphaValue = 0
         NSApp.activate(ignoringOtherApps: true)
         p.makeKeyAndOrderFront(nil)
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
+            ctx.duration = 0.22
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             p.animator().setFrame(target, display: true)
-            p.animator().alphaValue = 1
         }
     }
 
@@ -59,17 +57,16 @@ final class ListWindowController: NSObject, NSWindowDelegate {
         p.level = .floating
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
-        p.setContentSize(size)
         p.delegate = self
         panel = p
     }
 
-    /// Position finale : en haut, centrée, juste sous la barre de menus.
-    private func topFrame() -> NSRect {
+    /// Position finale : colonne verticale collée au bord droit, pleine hauteur.
+    private func rightFrame() -> NSRect {
         let vf = screenUnderCursor().visibleFrame
-        let x = vf.midX - size.width / 2
-        let y = vf.maxY - size.height - 8
-        return NSRect(x: x, y: y, width: size.width, height: size.height)
+        let x = vf.maxX - width
+        let y = vf.minY
+        return NSRect(x: x, y: y, width: width, height: vf.height)
     }
 
     private func screenUnderCursor() -> NSScreen {

@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notifications: NotificationManager!
     private var toast: ToastController!
     private var capture: CaptureCoordinator!
+    private var pressStart: TimeInterval?
+    private static let tapThreshold: TimeInterval = 0.25
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // App accessoire : pas d'icône Dock, vit dans la barre de menus.
@@ -45,7 +47,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             notifications: notifications, toast: toast
         )
         hotkey = HotkeyManager()
-        hotkey.onPressStart = { [weak self] in self?.capture.begin() }
-        hotkey.onPressEnd = { [weak self] in self?.capture.end() }
+        hotkey.onPressStart = { [weak self] in
+            self?.pressStart = ProcessInfo.processInfo.systemUptime
+            self?.capture.begin()
+        }
+        hotkey.onPressEnd = { [weak self] in
+            guard let self else { return }
+            let held = self.pressStart.map { ProcessInfo.processInfo.systemUptime - $0 } ?? 0
+            self.pressStart = nil
+            if held < Self.tapThreshold {
+                self.capture.cancel()        // appui bref → ouvre la liste
+                self.listController.show()
+            } else {
+                self.capture.end()           // appui long → transcription
+            }
+        }
     }
 }

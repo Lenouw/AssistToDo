@@ -44,7 +44,7 @@ struct ListView: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(12)
-        .frame(width: 360, height: 440)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
