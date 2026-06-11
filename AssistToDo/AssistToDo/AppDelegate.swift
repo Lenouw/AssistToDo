@@ -20,6 +20,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let tapThreshold: TimeInterval = 0.25
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Mono-instance : tue toute autre copie d'AssistToDo AVANT d'enregistrer le raccourci global.
+        // Évite qu'une vieille instance (build précédente, login item) garde un raccourci fantôme
+        // et interfère avec d'autres apps (ex: Wispr Flow).
+        terminateOtherInstances()
+
         // App accessoire : pas d'icône Dock, vit dans la barre de menus.
         NSApp.setActivationPolicy(.accessory)
 
@@ -68,5 +73,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Onboarding au tout premier lancement.
         onboarding = OnboardingController()
         if onboarding.shouldShow { onboarding.show() }
+    }
+
+    /// Force la fermeture de toute autre instance d'AssistToDo (même bundle id), puis attend
+    /// qu'elles aient libéré leur raccourci global.
+    private func terminateOtherInstances() {
+        guard let bundleId = Bundle.main.bundleIdentifier else { return }
+        let me = ProcessInfo.processInfo.processIdentifier
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
+            .filter { $0.processIdentifier != me }
+        guard !others.isEmpty else { return }
+        for app in others { app.forceTerminate() }
+        // Laisse le temps à la libération du Carbon hotkey (sinon notre enregistrement échoue).
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline,
+              NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).contains(where: { $0.processIdentifier != me }) {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
     }
 }
