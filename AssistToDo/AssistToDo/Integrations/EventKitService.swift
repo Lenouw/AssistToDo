@@ -9,6 +9,15 @@
 
 import Foundation
 import EventKit
+import AssistToDoCore
+
+/// Ligne d'agenda du jour (lecture seule) affichée en bas du panneau.
+struct TodayItem: Identifiable {
+    let id: String
+    let title: String
+    let date: Date?     // début (event) ou échéance (rappel) ; nil = journée entière
+    let isEvent: Bool   // true = Calendrier, false = Rappel
+}
 
 final class EventKitService {
     static let shared = EventKitService()
@@ -123,6 +132,46 @@ final class EventKitService {
         }
         try store.save(event, span: .thisEvent, commit: true)
         return event.eventIdentifier
+    }
+
+    // MARK: - Lecture de l'agenda du jour (zone du bas, lecture seule)
+
+    /// Événements du jour (Paris). Vide si accès lecture non accordé (writeOnly ne lit pas).
+    func fetchTodayEvents() -> [TodayItem] {
+        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else { return [] }
+        let start = ParisCalendar.startOfDay(for: Date())
+        guard let end = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+        let pred = store.predicateForEvents(withStart: start, end: end, calendars: nil)
+        return store.events(matching: pred)
+            .sorted { lhs, rhs in
+                if lhs.isAllDay != rhs.isAllDay { return lhs.isAllDay }   // journée entière en premier
+                return lhs.startDate < rhs.startDate
+            }
+            .map { TodayItem(id: $0.eventIdentifier ?? UUID().uuidString,
+                             title: $0.title ?? "Sans titre",
+                             date: $0.isAllDay ? nil : $0.startDate,
+                             isEvent: true) }
+    }
+
+    /// Rappels Apple dus aujourd'hui (Paris), non complétés. Vide si accès non accordé.
+    func fetchTodayReminders() async -> [TodayItem] {
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return [] }
+        let lists = store.calendars(for: .reminder)
+        let pred = store.predicateForReminders(in: lists)
+        let reminders: [EKReminder] = await withCheckedContinuation { cont in
+            store.fetchReminders(matching: pred) { cont.resume(returning: $0 ?? []) }
+        }
+        let start = ParisCalendar.startOfDay(for: Date())
+        guard let end = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+        return reminders
+            .filter { !$0.isCompleted }
+            .compactMap { r -> TodayItem? in
+                guard let comps = r.dueDateComponents,
+                      let due = ParisCalendar.calendar.date(from: comps),
+                      due >= start, due < end else { return nil }
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false)
+            }
+            .sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
     }
 
     // MARK: - Modification d'items existants (depuis le panneau)

@@ -16,9 +16,12 @@ final class TaskStore: ObservableObject {
     let container: ModelContainer
     private var context: ModelContext { container.mainContext }
 
-    @Published private(set) var localTasks: [TaskRecord] = []      // "Rappels rapides"
-    @Published private(set) var reminderTasks: [TaskRecord] = []   // "Rappels" (Apple)
-    @Published private(set) var recentEvents: [TaskRecord] = []    // confirmations calendrier < 24h
+    /// Flux des pensées vocales ancrées dans l'app (second cerveau), journal permanent.
+    /// Tout sauf le calendrier (les events vivent dans le Calendrier Apple), du plus récent au plus ancien.
+    @Published private(set) var thoughts: [TaskRecord] = []
+    /// Agenda du jour, lecture seule, lu en direct d'iCloud.
+    @Published private(set) var todayEvents: [TodayItem] = []
+    @Published private(set) var todayReminders: [TodayItem] = []
     @Published private(set) var badgeCount: Int = 0
 
     private let lastRolloverKey = "lastRolloverDay"
@@ -50,21 +53,25 @@ final class TaskStore: ObservableObject {
     // MARK: - Lecture
 
     func reload() {
-        purgeOldEventMirrors()
+        purgeCalendarMirrors()
         let all = fetchAll().map { $0.toRecord() }
-        localTasks = all.filter { $0.destination == .local }.sorted(by: Self.localOrder)
-        reminderTasks = all.filter { $0.destination == .reminders }.sorted(by: Self.appleOrder)
-        let cutoff = Date().addingTimeInterval(-86400)   // 24h
-        recentEvents = all.filter { $0.destination == .calendar && $0.createdAt >= cutoff }
-            .sorted { $0.createdAt > $1.createdAt }
-        badgeCount = localTasks.filter { !$0.isDone }.count + reminderTasks.filter { !$0.isDone }.count
+        thoughts = all.filter { $0.destination != .calendar }
+            .sorted { $0.createdAt > $1.createdAt }   // journal : plus récent en haut
+        badgeCount = thoughts.filter { !$0.isDone }.count
     }
 
-    /// Supprime les COPIES LOCALES d'événements calendrier de plus de 24h.
+    /// Recharge l'agenda du jour (Calendrier + Rappels) en direct d'iCloud, lecture seule.
+    func refreshToday() async {
+        let events = EventKitService.shared.fetchTodayEvents()
+        let reminders = await EventKitService.shared.fetchTodayReminders()
+        todayEvents = events
+        todayReminders = reminders
+    }
+
+    /// Le calendrier n'est plus affiché dans l'app : on purge les miroirs locaux d'events.
     /// L'événement reste dans le Calendrier Apple (on ne touche jamais l'EKEvent ici).
-    private func purgeOldEventMirrors() {
-        let cutoff = Date().addingTimeInterval(-86400)
-        let old = fetchAll().filter { $0.destinationRaw == "calendar" && $0.createdAt < cutoff }
+    private func purgeCalendarMirrors() {
+        let old = fetchAll().filter { $0.destinationRaw == "calendar" }
         guard !old.isEmpty else { return }
         for e in old { context.delete(e) }
         save()
@@ -136,15 +143,6 @@ final class TaskStore: ObservableObject {
         save(); reload()
     }
 
-    /// Réordonne les Rappels rapides (locaux) : applique le nouvel ordre affiché.
-    func moveLocal(orderedIds: [UUID]) {
-        let byId = Dictionary(uniqueKeysWithValues: fetchAll().map { ($0.id, $0) })
-        for (index, id) in orderedIds.enumerated() {
-            byId[id]?.orderIndex = index
-        }
-        save(); reload()
-    }
-
     /// Reporte une tâche locale à demain (Paris).
     func postponeToTomorrow(id: UUID) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
@@ -192,19 +190,5 @@ final class TaskStore: ObservableObject {
 
     private func save() {
         do { try context.save() } catch { print("SwiftData save error: \(error)") }
-    }
-
-    /// Locaux : ordre manuel (orderIndex), faites en dernier.
-    private static func localOrder(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
-        if a.isDone != b.isDone { return !a.isDone }
-        return a.orderIndex < b.orderIndex
-    }
-
-    /// Apple : par heure (rappel / début), faites en dernier.
-    private static func appleOrder(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
-        if a.isDone != b.isDone { return !a.isDone }
-        let da = a.remindAt ?? a.dueDate ?? a.createdAt
-        let db = b.remindAt ?? b.dueDate ?? b.createdAt
-        return da < db
     }
 }

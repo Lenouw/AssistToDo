@@ -181,8 +181,9 @@ final class CaptureCoordinator {
                         defaultCalendarName: defaultCalendar,
                         alarmOffsets: offsets
                     )
+                    // Le calendrier n'est pas affiché dans l'app (les events vivent dans le Calendrier
+                    // Apple) : on confirme dans l'îlot mais on ne stocke aucun miroir local.
                     var r = item.record; r.destination = .calendar; r.externalId = extId
-                    toStore.append(r)
                     items.append(ToastItem(record: r, destination: .calendar, fellBack: false))
                 } catch {
                     print("Calendrier indisponible (\(error)), fallback local")
@@ -208,7 +209,9 @@ final class CaptureCoordinator {
             case .notes:
                 do {
                     try await NotesService.shared.append(item: item.record.text, noteName: item.noteName ?? defaultNote)
-                    items.append(ToastItem(record: item.record, destination: .notes, fellBack: false))
+                    var r = item.record; r.destination = .notes   // miroir local → visible dans le flux
+                    toStore.append(r)
+                    items.append(ToastItem(record: r, destination: .notes, fellBack: false))
                 } catch {
                     print("Notes indisponibles (\(error)), fallback local")
                     toStore.append(keepLocal(item.record))
