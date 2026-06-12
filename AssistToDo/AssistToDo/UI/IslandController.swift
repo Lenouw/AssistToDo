@@ -66,8 +66,8 @@ final class IslandController {
         model.topInset = topInset
 
         let content = Self.contentSize(for: state, items: items)
-        // + chrome (padding horizontal 16, padding bas 8) pour loger l'ombre du pill.
-        let size = NSSize(width: content.width + 16, height: topInset + content.height + 8)
+        // + marge (padding horizontal 20, padding bas 10) pour loger l'ombre.
+        let size = NSSize(width: content.width + 20, height: topInset + content.height + 10)
         let vf = screen.frame                // frame complet → ancrage au bord haut (encoche)
         let x = vf.midX - size.width / 2
         let y = vf.maxY - size.height

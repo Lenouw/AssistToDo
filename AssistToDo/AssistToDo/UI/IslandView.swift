@@ -2,8 +2,8 @@
 //  IslandView.swift
 //  AssistToDo
 //
-//  Îlot compact en verre dépoli (matériau translucide + flou), ancré sous l'encoche.
-//  Morphe entre écoute (ondes) → transcription → texte → ✓ ajouté.
+//  Îlot type Dynamic Island : noir translucide + flou, part de l'encoche (haut plat),
+//  s'arrondit en bas, et grandit selon l'état. Écoute (ondes) → texte → ✓ ajouté.
 //
 
 import SwiftUI
@@ -13,28 +13,33 @@ struct IslandView: View {
     @ObservedObject var audio: AudioCapture
     @ObservedObject var model: CaptureModel
 
+    private var shape: some Shape {
+        UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 22,
+                               bottomTrailingRadius: 22, topTrailingRadius: 0, style: .continuous)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Zone transparente derrière l'encoche (rien dessiné dessus).
+            // Zone derrière l'encoche : couverte par le fond noir (effet "ça sort du notch").
             Color.clear.frame(height: model.topInset)
-            pill
-                .padding(.horizontal, 8)
-                .padding(.bottom, 8)
+            content
         }
+        .frame(maxWidth: .infinity)
+        .background {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)   // flou
+                Rectangle().fill(.black.opacity(0.55)) // teinte noire translucide
+            }
+            .environment(\.colorScheme, .dark)
+        }
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(.white.opacity(0.10)))
+        .shadow(color: .black.opacity(0.35), radius: 12, y: 5)
+        .padding(.horizontal, 10)
+        .padding(.bottom, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: model.state)
         .animation(.spring(response: 0.4, dampingFraction: 0.82), value: model.addedItems.count)
-    }
-
-    private var pill: some View {
-        content
-            .frame(maxWidth: .infinity)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(.primary.opacity(0.08))
-            )
-            .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
     }
 
     @ViewBuilder
@@ -46,40 +51,40 @@ struct IslandView: View {
             HStack(spacing: 10) {
                 Circle().fill(.green).frame(width: 7, height: 7)
                 Waveform(level: audio.level).frame(height: 18)
-                Text("Parle…").font(.caption).foregroundStyle(.secondary)
+                Text("Parle…").font(.caption).foregroundStyle(.white.opacity(0.75))
             }
-            .padding(.horizontal, 14).padding(.vertical, 8)
+            .padding(.horizontal, 16).padding(.vertical, 9)
         case .transcribing:
             HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text("Traitement…").font(.caption).foregroundStyle(.secondary)
+                ProgressView().controlSize(.small).tint(.white)
+                Text("Traitement…").font(.caption).foregroundStyle(.white.opacity(0.75))
             }
-            .padding(.horizontal, 14).padding(.vertical, 8)
+            .padding(.horizontal, 16).padding(.vertical, 9)
         case .result:
             HStack(spacing: 8) {
-                Image(systemName: "text.quote").font(.caption).foregroundStyle(.tertiary)
+                Image(systemName: "text.quote").font(.caption).foregroundStyle(.white.opacity(0.5))
                 Text(model.transcript)
-                    .font(.callout).foregroundStyle(.primary)
+                    .font(.callout).foregroundStyle(.white)
                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 14).padding(.vertical, 9)
+            .padding(.horizontal, 16).padding(.vertical, 10)
         case .added:
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 7) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                         .symbolEffect(.bounce, value: model.addedItems.count)
                     Text(model.addedItems.count > 1 ? "\(model.addedItems.count) tâches ajoutées" : "Tâche ajoutée")
-                        .font(.callout.weight(.medium)).foregroundStyle(.primary)
+                        .font(.callout.weight(.medium)).foregroundStyle(.white)
                 }
                 ForEach(model.addedItems) { item in
                     HStack(spacing: 6) {
                         Image(systemName: Self.icon(item.destination))
-                            .font(.caption2).foregroundStyle(item.fellBack ? .orange : .secondary)
-                        Text(label(item)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            .font(.caption2).foregroundStyle(item.fellBack ? .orange : .white.opacity(0.6))
+                        Text(label(item)).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
                     }
                 }
             }
-            .padding(.horizontal, 14).padding(.vertical, 9)
+            .padding(.horizontal, 16).padding(.vertical, 10)
         case .ignored:
             row(dot: .gray, text: "Rien à ajouter")
         case .error:
@@ -90,9 +95,9 @@ struct IslandView: View {
     private func row(dot: Color, text: String) -> some View {
         HStack(spacing: 8) {
             Circle().fill(dot).frame(width: 7, height: 7)
-            Text(text).font(.caption).foregroundStyle(.secondary)
+            Text(text).font(.caption).foregroundStyle(.white.opacity(0.8))
         }
-        .padding(.horizontal, 14).padding(.vertical, 8)
+        .padding(.horizontal, 16).padding(.vertical, 9)
     }
 
     private func label(_ item: ToastItem) -> String {
@@ -117,7 +122,7 @@ struct IslandView: View {
     }
 }
 
-/// Ondes centrées réagissant au volume, teintées accent.
+/// Ondes centrées réagissant au volume.
 private struct Waveform: View {
     var level: Float
     private let barCount = 15
@@ -125,7 +130,7 @@ private struct Waveform: View {
     var body: some View {
         HStack(spacing: 2.5) {
             ForEach(0..<barCount, id: \.self) { i in
-                Capsule().fill(Color.accentColor.opacity(0.9)).frame(width: 2.5, height: barHeight(i))
+                Capsule().fill(.white.opacity(0.92)).frame(width: 2.5, height: barHeight(i))
             }
         }
         .animation(.easeOut(duration: 0.08), value: level)
