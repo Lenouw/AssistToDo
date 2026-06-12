@@ -28,7 +28,9 @@ public enum ParsePromptBuilder {
         notify=true uniquement si une heure précise est demandée (ex "dans 2h", "à 18h").
         Découpe les phrases multi-tâches en plusieurs items. Une plage de plusieurs jours (« du 20 au 25 », « du lundi au vendredi ») => un item par jour (une date par item). Nettoie le texte (orthographe, majuscule initiale).
         N'INVENTE JAMAIS de date ni d'heure. Si un item n'a aucune date/heure dictée, laisse remindAt=null ET dueDate=null (ne mets surtout pas la date du jour par défaut).
-        Une date ou une heure dictée pour UN item ne se propage PAS aux autres items de la phrase, sauf si l'utilisateur l'indique explicitement (« ... tous les deux lundi », « le même jour »). Ex : « lundi rdv kiné à 6h, et rdv dentiste, et voir Marion » => SEUL le kiné est lundi 6h ; le dentiste et Marion n'ont aucune date (dueDate=null, remindAt=null).
+        Associe CHAQUE jour/heure dicté à l'item qu'il précède ou qu'il suit immédiatement (chaque item garde SA propre date). Une date dictée pour un item ne se propage pas aux autres, sauf mention explicite (« tous les deux lundi », « le même jour »).
+        Ex « lundi rdv kiné à 6h, mardi rdv dentiste, dimanche voir Marion » => 3 items : kiné=lundi 06:00 ; dentiste=mardi ; Marion=dimanche.
+        Ex « lundi rdv kiné à 6h, et rdv dentiste, et voir Marion » => kiné=lundi 06:00 ; dentiste et Marion SANS date (dueDate=null, remindAt=null).
         Utilise la valeur JSON null (pas la chaîne "null") quand un champ est absent.
         Si la phrase n'est PAS une vraie tâche ou intention claire (bruit, hésitation type "euh", mots incompréhensibles, déclenchement accidentel, phrase vide de sens, ou l'utilisateur annule / dit que ce n'est rien), renvoie une liste vide : {"tasks":[]}. Ne force JAMAIS la création d'une tâche pour rien.
 
