@@ -24,3 +24,4 @@ xcuserdata/
 
 # Node (si outillage annexe)
 node_modules/
+dist/

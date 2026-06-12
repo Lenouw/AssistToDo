@@ -71,6 +71,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Onboarding au tout premier lancement.
         onboarding = OnboardingController()
         if onboarding.shouldShow { onboarding.show() }
+
+        // Vérifie discrètement s'il existe une version plus récente sur GitHub (silencieux si à jour).
+        UpdateChecker.check()
     }
 
     /// Force la fermeture de toute autre instance d'AssistToDo (même bundle id), puis attend

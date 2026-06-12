@@ -143,6 +143,15 @@ struct SettingsView: View {
                 permissionRow("Notifications", granted: notifAuthorized) { requestNotifications() }
             }
 
+            Section("À propos") {
+                HStack {
+                    Text("Version")
+                    Spacer()
+                    Text(UpdateChecker.currentVersion).foregroundStyle(.secondary)
+                }
+                Button("Vérifier les mises à jour") { UpdateChecker.check(manual: true) }
+            }
+
             Section("Sauvegarde des préférences") {
                 HStack {
                     Button("Exporter…") { PreferencesService.export() }
