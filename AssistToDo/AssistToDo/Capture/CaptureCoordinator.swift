@@ -37,9 +37,9 @@ final class CaptureCoordinator {
         model.addedItems = []
         model.state = transcriber.isReady ? .listening : .preparing
         audio.start()
-        // Affiche l'îlot après un court délai : un appui bref (tap) n'affiche rien.
+        // Affiche l'îlot seulement après le seuil tap/hold (0,5s) : un appui bref (tap) n'affiche rien.
         showTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 250_000_000)
+            try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
             self?.island.show()
         }

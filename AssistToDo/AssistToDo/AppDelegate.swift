@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var capture: CaptureCoordinator!
     private var onboarding: OnboardingController!
     private var pressStart: TimeInterval?
-    private static let tapThreshold: TimeInterval = 0.25
+    private static let tapThreshold: TimeInterval = 0.5
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Mono-instance : tue toute autre copie d'AssistToDo AVANT d'enregistrer le raccourci global.
