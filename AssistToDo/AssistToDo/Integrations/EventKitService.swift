@@ -59,14 +59,20 @@ final class EventKitService {
     }
 
     private func refreshCalendars() {
-        calendarTitles = store.calendars(for: .event)
+        calendarTitles = Self.uniqued(store.calendars(for: .event)
             .filter { $0.allowsContentModifications }
-            .map { $0.title }
+            .map { $0.title })
     }
     private func refreshReminderLists() {
-        reminderListTitles = store.calendars(for: .reminder)
+        reminderListTitles = Self.uniqued(store.calendars(for: .reminder)
             .filter { $0.allowsContentModifications }
-            .map { $0.title }
+            .map { $0.title })
+    }
+
+    /// Dédoublonne en gardant l'ordre (deux agendas de même nom → un seul dans les pickers).
+    private static func uniqued(_ arr: [String]) -> [String] {
+        var seen = Set<String>()
+        return arr.filter { seen.insert($0).inserted }
     }
 
     // MARK: - Création

@@ -107,7 +107,9 @@ final class AudioCapture: ObservableObject {
 
         // Auto-gain : remonte le signal au pic cible (capé), seulement si parole.
         let gain = (speech && peak > 0) ? min(maxGain, targetPeak / peak) : 1
-        print("AudioCapture: pic RMS = \(peak) (seuil \(speechThreshold)), gain ×\(String(format: "%.1f", gain)), parole=\(speech), durée=\(String(format: "%.1f", duration))s")
+        if duration > 0.1 {  // pas de log pour les taps (durée ~0)
+            print("AudioCapture: pic RMS = \(peak) (seuil \(speechThreshold)), gain ×\(String(format: "%.1f", gain)), parole=\(speech), durée=\(String(format: "%.1f", duration))s")
+        }
 
         let url = speech ? writeNormalizedFile(captured, gain: gain) : nil
         return Result(duration: duration, didDetectSpeech: speech, fileURL: url)
