@@ -18,6 +18,9 @@ struct SettingsView: View {
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
     @AppStorage("defaultNote") private var defaultNote: String = "Courses"
+    @AppStorage("calendar_perso") private var calendarPerso: String = ""
+    @AppStorage("calendar_commun") private var calendarCommun: String = ""
+    @AppStorage("calendar_pro") private var calendarPro: String = ""
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
@@ -71,10 +74,12 @@ struct SettingsView: View {
                     // Calendrier
                     permissionRow("Accès Calendrier", granted: calendarAccess) { requestCalendar() }
                     if calendarAccess && !calendars.isEmpty {
-                        Picker("Calendrier par défaut", selection: $defaultCalendar) {
-                            Text("Calendrier système").tag("")
-                            ForEach(calendars, id: \.self) { Text($0).tag($0) }
-                        }
+                        Picker("Agenda perso", selection: $calendarPerso) { calendarOptions() }
+                        Picker("Agenda commun", selection: $calendarCommun) { calendarOptions() }
+                        Picker("Agenda pro", selection: $calendarPro) { calendarOptions() }
+                        Picker("Agenda par défaut", selection: $defaultCalendar) { calendarOptions() }
+                        Text("Le LLM classe chaque rdv (perso / commun / pro) et l'ajoute à l'agenda choisi ici.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     // Rappels
                     permissionRow("Accès Rappels", granted: remindersAccess) { requestReminders() }
@@ -107,6 +112,12 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear(perform: refresh)
+    }
+
+    @ViewBuilder
+    private func calendarOptions() -> some View {
+        Text("Aucun / système").tag("")
+        ForEach(calendars, id: \.self) { Text($0).tag($0) }
     }
 
     @ViewBuilder

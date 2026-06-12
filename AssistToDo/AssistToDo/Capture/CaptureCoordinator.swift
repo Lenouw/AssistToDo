@@ -112,11 +112,15 @@ final class CaptureCoordinator {
                 switch destination {
                 case .calendar:
                     do {
+                        // Agenda cible : nom explicite dicté, sinon mapping de la catégorie (perso/commun/pro).
+                        let categoryCalendar = item.calendarCategory.flatMap { cat in
+                            UserDefaults.standard.string(forKey: "calendar_\(cat.rawValue)")
+                        }
                         let extId = try await EventKitService.shared.createEvent(
                             title: item.record.text,
                             start: item.record.remindAt ?? Date(),
                             durationMinutes: item.durationMinutes ?? 60,
-                            calendarName: item.calendarName,
+                            calendarName: item.calendarName ?? categoryCalendar,
                             defaultCalendarName: defaultCalendar
                         )
                         var r = item.record; r.destination = .calendar; r.externalId = extId

@@ -46,6 +46,18 @@ final class ParseResponseDecoderTests: XCTestCase {
         XCTAssertEqual(tasks[0].listName, "Courses")
     }
 
+    func test_decode_calendar_category() throws {
+        let raw = #"{"tasks":[{"text":"Réunion client","destination":"calendar","calendarCategory":"pro","remindAt":"2026-06-12T10:00:00+02:00","dueDate":null,"priority":null,"notify":true,"tags":[]}]}"#
+        let tasks = try ParseResponseDecoder.decode(raw)
+        XCTAssertEqual(tasks[0].calendarCategory, .pro)
+    }
+
+    func test_calendar_category_absente_ou_inconnue_donne_nil() throws {
+        let raw = #"{"tasks":[{"text":"x","destination":"calendar","calendarCategory":"galaxie","remindAt":null,"dueDate":null,"priority":null,"notify":false,"tags":[]}]}"#
+        let tasks = try ParseResponseDecoder.decode(raw)
+        XCTAssertNil(tasks[0].calendarCategory)
+    }
+
     func test_decode_destination_notes_avec_note() throws {
         let raw = #"{"tasks":[{"text":"Lait","destination":"notes","noteName":"Courses","remindAt":null,"dueDate":null,"priority":null,"notify":false,"tags":[]}]}"#
         let tasks = try ParseResponseDecoder.decode(raw)
