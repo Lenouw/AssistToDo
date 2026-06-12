@@ -74,7 +74,12 @@ final class AudioCapture: ObservableObject {
             if rms > self.speechThreshold { self.didDetectSpeech = true }
             self.lock.unlock()
 
-            DispatchQueue.main.async { self.level = min(1, rms * 30) }
+            // Enveloppe : monte vite, descend doucement → ondes fluides (pas de clignotement
+            // quand le volume retombe entre deux syllabes).
+            let target = min(1, rms * 30)
+            DispatchQueue.main.async {
+                self.level = max(target, self.level * 0.82)
+            }
         }
 
         engine.prepare()

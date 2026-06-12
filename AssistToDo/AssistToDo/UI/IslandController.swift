@@ -45,7 +45,7 @@ final class IslandController {
             backing: .buffered, defer: false
         )
         p.isFloatingPanel = true
-        p.level = .statusBar               // au-dessus de la barre de menus (encoche)
+        p.level = .popUpMenu               // au-dessus de la barre de menus / encoche (évite le clignotement)
         p.titleVisibility = .hidden
         p.titlebarAppearsTransparent = true
         p.isOpaque = false
