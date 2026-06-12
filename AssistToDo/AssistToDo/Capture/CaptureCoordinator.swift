@@ -139,12 +139,15 @@ final class CaptureCoordinator {
                     let categoryCalendar = item.calendarCategory.flatMap { cat in
                         UserDefaults.standard.string(forKey: "calendar_\(cat.rawValue)")
                     }
+                    let alarmsOn = UserDefaults.standard.object(forKey: "eventAlarmsEnabled") as? Bool ?? true
+                    let offsets: [TimeInterval] = alarmsOn ? [-3600, -86400] : []  // 1h + 1 jour avant
                     let extId = try await EventKitService.shared.createEvent(
                         title: item.record.text,
                         start: item.record.remindAt ?? Date(),
                         durationMinutes: item.durationMinutes ?? 60,
                         calendarName: item.calendarName ?? categoryCalendar,
-                        defaultCalendarName: defaultCalendar
+                        defaultCalendarName: defaultCalendar,
+                        alarmOffsets: offsets
                     )
                     var r = item.record; r.destination = .calendar; r.externalId = extId
                     toStore.append(r)

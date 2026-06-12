@@ -94,7 +94,8 @@ final class EventKitService {
     /// Crée l'événement et retourne son identifiant.
     @discardableResult
     func createEvent(title: String, start: Date, durationMinutes: Int,
-                     calendarName: String?, defaultCalendarName: String?) async throws -> String {
+                     calendarName: String?, defaultCalendarName: String?,
+                     alarmOffsets: [TimeInterval]) async throws -> String {
         guard try await ensureCalendarAccess() else { throw RoutingError.accessDenied }
 
         let event = EKEvent(eventStore: store)
@@ -105,7 +106,9 @@ final class EventKitService {
             throw RoutingError.noCalendar
         }
         event.calendar = cal
-        event.addAlarm(EKAlarm(relativeOffset: -600))
+        for offset in alarmOffsets {
+            event.addAlarm(EKAlarm(relativeOffset: offset))   // offset négatif = avant le début
+        }
         try store.save(event, span: .thisEvent, commit: true)
         return event.eventIdentifier
     }

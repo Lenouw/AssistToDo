@@ -18,6 +18,7 @@ struct SettingsView: View {
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
     @AppStorage("defaultNote") private var defaultNote: String = "Courses"
+    @AppStorage("eventAlarmsEnabled") private var eventAlarmsEnabled: Bool = true
     @AppStorage("calendar_perso") private var calendarPerso: String = ""
     @AppStorage("calendar_commun") private var calendarCommun: String = ""
     @AppStorage("calendar_pro") private var calendarPro: String = ""
@@ -32,6 +33,8 @@ struct SettingsView: View {
     @State private var calendarAccess = false
     @State private var remindersAccess = false
     @State private var importMessage: String?
+    @State private var noteNames: [String] = []
+    @State private var loadingNotes = false
     @State private var calendars: [String] = []
     @State private var reminderLists: [String] = []
 
@@ -81,7 +84,8 @@ struct SettingsView: View {
                         Picker("Agenda pro", selection: $calendarPro) { calendarOptions() }
                         Picker("Agenda studio podcast", selection: $calendarStudio) { calendarOptions() }
                         Picker("Agenda par défaut", selection: $defaultCalendar) { calendarOptions() }
-                        Text("Le LLM classe chaque rdv (perso / commun / pro) et l'ajoute à l'agenda choisi ici.")
+                        Toggle("Rappels auto sur les événements (1h + 1 jour avant)", isOn: $eventAlarmsEnabled)
+                        Text("Le LLM classe chaque rdv (perso / commun / pro / studio) et l'ajoute à l'agenda choisi ici.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     // Rappels
@@ -93,8 +97,14 @@ struct SettingsView: View {
                         }
                     }
                     // Notes (liste de courses)
-                    TextField("Note de courses par défaut", text: $defaultNote)
-                    Text("Les articles de courses dictés sont ajoutés à cette note Apple (créée si absente). Dicte « ajoute du lait » ou « sur la liste de courses ».")
+                    HStack {
+                        Picker("Note de courses", selection: $defaultNote) {
+                            ForEach(noteOptions, id: \.self) { Text($0.isEmpty ? "Courses" : $0).tag($0) }
+                        }
+                        Button(loadingNotes ? "…" : "Charger") { loadNotes() }
+                            .disabled(loadingNotes)
+                    }
+                    Text("Les courses dictées sont ajoutées à cette note Apple. « Charger » liste tes notes (demande l'accès à Notes).")
                         .font(.caption).foregroundStyle(.secondary)
 
                     Text("Cible précise possible à la voix : « dans mon calendrier BoulouFlo », « dans ma liste Courses », « dans ma note Maison ».")
@@ -132,6 +142,24 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear(perform: refresh)
+    }
+
+    private var noteOptions: [String] {
+        var opts = noteNames
+        if !defaultNote.isEmpty && !opts.contains(defaultNote) { opts.insert(defaultNote, at: 0) }
+        if opts.isEmpty { opts = ["Courses"] }
+        return opts
+    }
+
+    private func loadNotes() {
+        loadingNotes = true
+        Task {
+            let names = await NotesService.shared.listNoteNames()
+            await MainActor.run {
+                noteNames = names
+                loadingNotes = false
+            }
+        }
     }
 
     @ViewBuilder

@@ -18,6 +18,35 @@ final class NotesService {
         case runFailed(code: Int, message: String)
     }
 
+    /// Liste les titres de notes (1re ligne) pour les proposer dans les Réglages.
+    /// Déclenche la permission Automation au premier appel.
+    func listNoteNames() async -> [String] {
+        await Task.detached(priority: .userInitiated) { () -> [String] in
+            let source = """
+            set out to ""
+            tell application "Notes"
+                set acc to missing value
+                try
+                    set acc to account "iCloud"
+                end try
+                if acc is missing value then set acc to account 1
+                repeat with n in notes of acc
+                    set out to out & (name of n) & linefeed
+                end repeat
+            end tell
+            return out
+            """
+            guard let script = NSAppleScript(source: source) else { return [] }
+            var err: NSDictionary?
+            let result = script.executeAndReturnError(&err)
+            if err != nil { return [] }
+            let raw = result.stringValue ?? ""
+            let names = raw.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            return Array(Set(names)).sorted()
+        }.value
+    }
+
     /// Ajoute `item` à la note `noteName` (créée si absente). Synchrone et bloquant → appeler hors main thread.
     func append(item: String, noteName: String) async throws {
         try await Task.detached(priority: .userInitiated) {
