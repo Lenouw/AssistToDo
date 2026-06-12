@@ -68,10 +68,10 @@ final class TaskStore: ObservableObject {
         badgeCount = thoughts.filter { !$0.isDone }.count
     }
 
-    /// Synchronisable avec Toudou (liste inbox) = to-do "vide-tête" : locale, sans rappel minuté,
-    /// et sous-liste "braindump". La liste "code" attend l'extension du contrat Toudou (2e liste).
+    /// Synchronisable avec Toudou = to-do locale sans rappel minuté. Les deux sous-listes
+    /// (braindump, code) se synchronisent, chacune vers son slug Toudou (canal dédié).
     static func isSyncable(_ e: TaskEntity) -> Bool {
-        e.destinationRaw == "local" && e.remindAt == nil && e.localListRaw == "braindump"
+        e.destinationRaw == "local" && e.remindAt == nil
     }
 
     /// Déplace une tâche locale d'une sous-liste à l'autre (vidage de cerveau ↔ code).
@@ -248,12 +248,12 @@ final class TaskStore: ObservableObject {
 
     // MARK: - Synchronisation Toudou
 
-    /// Dérive les ops à pousser depuis les tâches "dirty". Purge au passage les tombstones
+    /// Dérive les ops à pousser pour UNE liste (slug Toudou). Purge au passage les tombstones
     /// jamais connues du serveur (rien à propager).
-    func collectPendingOps() -> [SyncOp] {
+    func collectPendingOps(for list: LocalList) -> [SyncOp] {
         var ops: [SyncOp] = []
         var toDelete: [TaskEntity] = []
-        for e in fetchAll() where e.syncDirty {
+        for e in fetchAll() where e.syncDirty && e.localListRaw == list.rawValue {
             if e.tombstone {
                 if e.remoteKnown {
                     ops.append(SyncOp(kind: .delete, id: e.id.uuidString, text: nil, done: nil, updatedAt: e.updatedAt))
@@ -288,8 +288,8 @@ final class TaskStore: ObservableObject {
         save(); reload()
     }
 
-    /// Applique un delta reçu de Toudou (source de vérité) au miroir local.
-    func applyPulled(_ tasks: [WireTask]) {
+    /// Applique un delta reçu de Toudou (source de vérité) au miroir local, pour une liste donnée.
+    func applyPulled(_ tasks: [WireTask], forList list: LocalList) {
         guard !tasks.isEmpty else { return }
         let byId = Dictionary(fetchAll().map { ($0.id.uuidString, $0) }, uniquingKeysWith: { a, _ in a })
         let today = ParisCalendar.startOfDay(for: Date())
@@ -316,6 +316,7 @@ final class TaskStore: ObservableObject {
                                    isDone: w.done, doneAt: w.done ? Date() : nil, rolloverCount: 0,
                                    rawTranscript: w.text, parseStatusRaw: "parsed",
                                    destinationRaw: "local", externalId: nil, orderIndex: nextOrder)
+                e.localListRaw = list.rawValue   // place le miroir dans la bonne sous-liste (braindump/code)
                 e.updatedAt = w.updatedAt
                 e.remoteKnown = true
                 e.syncDirty = false

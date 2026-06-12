@@ -64,10 +64,12 @@ final class ToudouClient {
 
     // MARK: - Pull (delta)
 
-    func pull(since: Date?) async throws -> (serverTime: Date, tasks: [WireTask]) {
+    func pull(list: String, since: Date?) async throws -> (serverTime: Date, tasks: [WireTask]) {
         guard isConfigured else { throw SyncError.notConfigured }
         guard var comps = URLComponents(string: endpoint("/api/sync")) else { throw SyncError.badURL }
-        if let since { comps.queryItems = [URLQueryItem(name: "since", value: Self.formatDate(since))] }
+        var items = [URLQueryItem(name: "list", value: list)]
+        if let since { items.append(URLQueryItem(name: "since", value: Self.formatDate(since))) }
+        comps.queryItems = items
         guard let url = comps.url else { throw SyncError.badURL }
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -91,7 +93,7 @@ final class ToudouClient {
 
     // MARK: - Push (ops)
 
-    func push(_ ops: [SyncOp]) async throws -> (serverTime: Date, applied: [AppliedResult]) {
+    func push(list: String, _ ops: [SyncOp]) async throws -> (serverTime: Date, applied: [AppliedResult]) {
         guard isConfigured else { throw SyncError.notConfigured }
         guard let url = URL(string: endpoint("/api/sync")) else { throw SyncError.badURL }
         var req = URLRequest(url: url, timeoutInterval: 20)
@@ -105,7 +107,7 @@ final class ToudouClient {
             if let dn = op.done { d["done"] = dn }
             return d
         }
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["ops": opsJSON])
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["list": list, "ops": opsJSON])
 
         let (data, resp) = try await URLSession.shared.data(for: req)
         try Self.checkStatus(resp)
