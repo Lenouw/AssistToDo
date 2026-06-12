@@ -71,7 +71,9 @@ final class EventKitService {
 
     // MARK: - Création
 
-    func createReminder(title: String, due: Date?, listName: String?, defaultListName: String?) async throws {
+    /// Crée le rappel et retourne son identifiant (pour le miroir local).
+    @discardableResult
+    func createReminder(title: String, due: Date?, listName: String?, defaultListName: String?) async throws -> String {
         guard try await ensureRemindersAccess() else { throw RoutingError.accessDenied }
 
         let reminder = EKReminder(eventStore: store)
@@ -86,10 +88,13 @@ final class EventKitService {
             reminder.addAlarm(EKAlarm(absoluteDate: due))
         }
         try store.save(reminder, commit: true)
+        return reminder.calendarItemIdentifier
     }
 
+    /// Crée l'événement et retourne son identifiant.
+    @discardableResult
     func createEvent(title: String, start: Date, durationMinutes: Int,
-                     calendarName: String?, defaultCalendarName: String?) async throws {
+                     calendarName: String?, defaultCalendarName: String?) async throws -> String {
         guard try await ensureCalendarAccess() else { throw RoutingError.accessDenied }
 
         let event = EKEvent(eventStore: store)
@@ -102,6 +107,31 @@ final class EventKitService {
         event.calendar = cal
         event.addAlarm(EKAlarm(relativeOffset: -600))
         try store.save(event, span: .thisEvent, commit: true)
+        return event.eventIdentifier
+    }
+
+    // MARK: - Modification d'items existants (depuis le panneau)
+
+    /// Marque un rappel Apple comme complété/non complété.
+    func setReminderCompleted(id: String, completed: Bool) {
+        guard let reminder = store.calendarItem(withIdentifier: id) as? EKReminder else { return }
+        reminder.isCompleted = completed
+        try? store.save(reminder, commit: true)
+    }
+
+    func deleteReminder(id: String) {
+        guard let reminder = store.calendarItem(withIdentifier: id) as? EKReminder else { return }
+        try? store.remove(reminder, commit: true)
+    }
+
+    func deleteEvent(id: String) {
+        guard let event = store.event(withIdentifier: id) else { return }
+        try? store.remove(event, span: .thisEvent, commit: true)
+    }
+
+    /// État de complétion live d'un rappel (nil si introuvable).
+    func isReminderCompleted(id: String) -> Bool? {
+        (store.calendarItem(withIdentifier: id) as? EKReminder)?.isCompleted
     }
 
     // MARK: - Sélection (nom exact, sinon défaut système)

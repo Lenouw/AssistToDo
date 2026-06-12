@@ -96,42 +96,51 @@ final class CaptureCoordinator {
                 calendars: routingOn ? EventKitService.shared.calendarTitles : [],
                 reminderLists: routingOn ? EventKitService.shared.reminderListTitles : []
             )
-            var localRecords: [TaskRecord] = []
+            // Le miroir local de chaque item (sauf Notes) est persisté pour le panneau.
+            var toStore: [TaskRecord] = []
             var toastItems: [ToastItem] = []
 
-            for var item in routed {
-                // Si le routage est coupé, tout va en local.
+            func keepLocal(_ rec: TaskRecord) -> TaskRecord {
+                var r = rec
+                r.destination = .local
+                r.notificationId = notifications.schedule(for: r)
+                return r
+            }
+
+            for item in routed {
                 let destination = routingOn ? item.destination : .local
                 switch destination {
                 case .calendar:
                     do {
-                        try await EventKitService.shared.createEvent(
+                        let extId = try await EventKitService.shared.createEvent(
                             title: item.record.text,
                             start: item.record.remindAt ?? Date(),
                             durationMinutes: item.durationMinutes ?? 60,
                             calendarName: item.calendarName,
                             defaultCalendarName: defaultCalendar
                         )
-                        toastItems.append(ToastItem(record: item.record, destination: .calendar, fellBack: false))
+                        var r = item.record; r.destination = .calendar; r.externalId = extId
+                        toStore.append(r)
+                        toastItems.append(ToastItem(record: r, destination: .calendar, fellBack: false))
                     } catch {
                         print("Calendrier indisponible (\(error)), fallback local")
-                        item.record.notificationId = notifications.schedule(for: item.record)
-                        localRecords.append(item.record)
+                        toStore.append(keepLocal(item.record))
                         toastItems.append(ToastItem(record: item.record, destination: .calendar, fellBack: true))
                     }
                 case .reminders:
                     do {
-                        try await EventKitService.shared.createReminder(
+                        let extId = try await EventKitService.shared.createReminder(
                             title: item.record.text,
                             due: item.record.remindAt ?? item.record.dueDate,
                             listName: item.listName,
                             defaultListName: defaultList
                         )
-                        toastItems.append(ToastItem(record: item.record, destination: .reminders, fellBack: false))
+                        var r = item.record; r.destination = .reminders; r.externalId = extId
+                        toStore.append(r)
+                        toastItems.append(ToastItem(record: r, destination: .reminders, fellBack: false))
                     } catch {
                         print("Rappels indisponibles (\(error)), fallback local")
-                        item.record.notificationId = notifications.schedule(for: item.record)
-                        localRecords.append(item.record)
+                        toStore.append(keepLocal(item.record))
                         toastItems.append(ToastItem(record: item.record, destination: .reminders, fellBack: true))
                     }
                 case .notes:
@@ -140,21 +149,20 @@ final class CaptureCoordinator {
                             item: item.record.text,
                             noteName: item.noteName ?? defaultNote
                         )
+                        // Note ajoutée à Apple Notes : pas de miroir local (juste le toast).
                         toastItems.append(ToastItem(record: item.record, destination: .notes, fellBack: false))
                     } catch {
                         print("Notes indisponibles (\(error)), fallback local")
-                        item.record.notificationId = notifications.schedule(for: item.record)
-                        localRecords.append(item.record)
+                        toStore.append(keepLocal(item.record))
                         toastItems.append(ToastItem(record: item.record, destination: .notes, fellBack: true))
                     }
                 case .local:
-                    item.record.notificationId = notifications.schedule(for: item.record)
-                    localRecords.append(item.record)
+                    toStore.append(keepLocal(item.record))
                     toastItems.append(ToastItem(record: item.record, destination: .local, fellBack: false))
                 }
             }
 
-            if !localRecords.isEmpty { store.add(localRecords) }
+            if !toStore.isEmpty { store.add(toStore) }
             toast.show(toastItems)
         }
     }

@@ -2,8 +2,9 @@
 //  TaskStore.swift
 //  AssistToDo
 //
-//  Source unique de vérité des tâches. Toutes les mutations passent par ici,
-//  puis `tasks` (publié) est rechargé → liste + badge restent synchronisés.
+//  Source unique de vérité. Stocke un miroir local de TOUTES les captures
+//  (locales + Rappels Apple + Calendrier), groupées par type pour le panneau.
+//  Les actions sur les items Apple (cocher/supprimer) se répercutent via EventKit.
 //
 
 import Foundation
@@ -15,21 +16,32 @@ final class TaskStore: ObservableObject {
     let container: ModelContainer
     private var context: ModelContext { container.mainContext }
 
-    /// Tâches du jour (après rollover), triées. Pilote la liste et le badge.
-    @Published private(set) var tasks: [TaskRecord] = []
-
-    /// Tâches à échéance future (non faites), pour la section "À venir".
-    @Published private(set) var upcoming: [TaskRecord] = []
+    @Published private(set) var localTasks: [TaskRecord] = []      // "Rappels rapides"
+    @Published private(set) var reminderTasks: [TaskRecord] = []   // "Rappels" (Apple)
+    @Published private(set) var eventTasks: [TaskRecord] = []      // "Rendez-vous" (Calendrier)
+    @Published private(set) var badgeCount: Int = 0
 
     private let lastRolloverKey = "lastRolloverDay"
 
+    // Câblés par l'AppDelegate (notifs locales).
+    var onCancelNotification: ((String) -> Void)?
+    var onScheduleReminder: ((TaskRecord) -> String?)?
+
     init() {
+        let schema = Schema(versionedSchema: AssistToDoSchemaV1.self)
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
-            let schema = Schema(versionedSchema: AssistToDoSchemaV1.self)
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
-            fatalError("Échec init SwiftData: \(error)")
+            // Migration impossible (ancien store incompatible) : on repart propre plutôt que crasher.
+            print("Migration SwiftData échouée (\(error)), recréation du store.")
+            if let url = config.url as URL? {
+                try? FileManager.default.removeItem(at: url)
+                try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("store-shm"))
+                try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("store-wal"))
+            }
+            container = (try? ModelContainer(for: schema, configurations: config))
+                ?? { fatalError("Impossible de créer le store SwiftData") }()
         }
         runRolloverIfNeeded()
         reload()
@@ -37,36 +49,34 @@ final class TaskStore: ObservableObject {
 
     // MARK: - Lecture
 
-    /// Recharge `tasks` = tâches "du jour" : sans échéance, ou échéance <= aujourd'hui (Paris).
     func reload() {
-        let today = ParisCalendar.ymd(for: Date())
-        let all = fetchAll()
-        let todays = all.filter { e in
-            guard let due = e.dueDate else { return true }
-            return ParisCalendar.ymd(for: due) <= today
-        }
-        tasks = todays.map { $0.toRecord() }.sorted(by: Self.order)
-
-        let futures = all.filter { e in
-            guard !e.isDone, let due = e.dueDate else { return false }
-            return ParisCalendar.ymd(for: due) > today
-        }
-        upcoming = futures.map { $0.toRecord() }.sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
+        let all = fetchAll().map { $0.toRecord() }
+        localTasks = all.filter { $0.destination == .local }.sorted(by: Self.localOrder)
+        reminderTasks = all.filter { $0.destination == .reminders }.sorted(by: Self.appleOrder)
+        eventTasks = all.filter { $0.destination == .calendar }.sorted(by: Self.appleOrder)
+        badgeCount = localTasks.filter { !$0.isDone }.count + reminderTasks.filter { !$0.isDone }.count
     }
 
-    var openCount: Int { tasks.filter { !$0.isDone }.count }
-
-    // MARK: - Mutations
+    // MARK: - Création
 
     func add(_ records: [TaskRecord]) {
-        for r in records { context.insert(TaskEntity(record: r)) }
+        var nextOrder = (fetchAll().filter { $0.destinationRaw == "local" }.map { $0.orderIndex }.max() ?? -1) + 1
+        for var r in records {
+            if r.destination == .local { r.orderIndex = nextOrder; nextOrder += 1 }
+            context.insert(TaskEntity(record: r))
+        }
         save(); reload()
     }
+
+    // MARK: - Cocher / supprimer (répercuté sur Apple si besoin)
 
     func toggleDone(id: UUID) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         e.isDone.toggle()
         e.doneAt = e.isDone ? Date() : nil
+        if e.destinationRaw == "reminders", let ext = e.externalId {
+            EventKitService.shared.setReminderCompleted(id: ext, completed: e.isDone)
+        }
         save(); reload()
     }
 
@@ -74,27 +84,35 @@ final class TaskStore: ObservableObject {
         guard let e = fetchAll().first(where: { $0.id == id }), !e.isDone else { return }
         e.isDone = true
         e.doneAt = Date()
+        if e.destinationRaw == "reminders", let ext = e.externalId {
+            EventKitService.shared.setReminderCompleted(id: ext, completed: true)
+        }
         save(); reload()
     }
 
-    /// Met à jour le rappel d'une tâche (report depuis une notif). Aligne aussi la date du jour.
+    func delete(id: UUID) {
+        guard let e = fetchAll().first(where: { $0.id == id }) else { return }
+        switch Destination(rawValue: e.destinationRaw) ?? .local {
+        case .local:
+            if let nid = e.notificationId { onCancelNotification?(nid) }
+        case .reminders:
+            if let ext = e.externalId { EventKitService.shared.deleteReminder(id: ext) }
+        case .calendar:
+            if let ext = e.externalId { EventKitService.shared.deleteEvent(id: ext) }
+        case .notes:
+            break
+        }
+        context.delete(e)
+        save(); reload()
+    }
+
+    /// Met à jour le rappel d'une tâche (report depuis une notif locale). Aligne la date du jour.
     func updateReminder(id: UUID, remindAt: Date?, notificationId: String?) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         e.remindAt = remindAt
         e.notify = remindAt != nil
         e.notificationId = notificationId
         if let remindAt { e.dueDate = ParisCalendar.startOfDay(for: remindAt) }
-        save(); reload()
-    }
-
-    // Câblés par l'AppDelegate (le store ne dépend pas du NotificationManager).
-    var onCancelNotification: ((String) -> Void)?
-    var onScheduleReminder: ((TaskRecord) -> String?)?
-
-    func delete(id: UUID) {
-        guard let e = fetchAll().first(where: { $0.id == id }) else { return }
-        if let nid = e.notificationId { onCancelNotification?(nid) }
-        context.delete(e)
         save(); reload()
     }
 
@@ -105,7 +123,16 @@ final class TaskStore: ObservableObject {
         save(); reload()
     }
 
-    /// Reporte la tâche à demain (Paris). Décale aussi le rappel de 24h s'il y en a un.
+    /// Réordonne les Rappels rapides (locaux) : applique le nouvel ordre affiché.
+    func moveLocal(orderedIds: [UUID]) {
+        let byId = Dictionary(uniqueKeysWithValues: fetchAll().map { ($0.id, $0) })
+        for (index, id) in orderedIds.enumerated() {
+            byId[id]?.orderIndex = index
+        }
+        save(); reload()
+    }
+
+    /// Reporte une tâche locale à demain (Paris).
     func postponeToTomorrow(id: UUID) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         let todayStart = ParisCalendar.startOfDay(for: Date())
@@ -120,16 +147,15 @@ final class TaskStore: ObservableObject {
         save(); reload()
     }
 
-    // MARK: - Rollover idempotent
+    // MARK: - Rollover idempotent (locaux uniquement)
 
-    /// Reporte au jour courant (Paris) les tâches en retard non faites. Idempotent par jour.
     func runRolloverIfNeeded() {
-        let all = fetchAll()
-        let records = all.map { $0.toRecord() }
+        let localEntities = fetchAll().filter { $0.destinationRaw == "local" }
+        let records = localEntities.map { $0.toRecord() }
         let last = UserDefaults.standard.string(forKey: lastRolloverKey)
         let result = RolloverEngine.apply(tasks: records, now: Date(), lastRolloverDay: last)
 
-        let byId = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
+        let byId = Dictionary(uniqueKeysWithValues: localEntities.map { ($0.id, $0) })
         for rec in result.tasks {
             if let e = byId[rec.id], e.toRecord() != rec { e.apply(rec) }
         }
@@ -139,7 +165,6 @@ final class TaskStore: ObservableObject {
         }
     }
 
-    /// Debug : oublie le dernier jour roulé puis relance le rollover (test en session).
     func forceRolloverForDebug() {
         UserDefaults.standard.removeObject(forKey: lastRolloverKey)
         runRolloverIfNeeded()
@@ -156,21 +181,17 @@ final class TaskStore: ObservableObject {
         do { try context.save() } catch { print("SwiftData save error: \(error)") }
     }
 
-    /// Tri : non faites avant faites, puis priorité décroissante, puis heure de rappel, puis création.
-    private static func order(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
+    /// Locaux : ordre manuel (orderIndex), faites en dernier.
+    private static func localOrder(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
         if a.isDone != b.isDone { return !a.isDone }
-        let pa = priorityRank(a.priority), pb = priorityRank(b.priority)
-        if pa != pb { return pa > pb }
-        switch (a.remindAt, b.remindAt) {
-        case let (x?, y?): if x != y { return x < y }
-        case (_?, nil): return true
-        case (nil, _?): return false
-        case (nil, nil): break
-        }
-        return a.createdAt < b.createdAt
+        return a.orderIndex < b.orderIndex
     }
 
-    private static func priorityRank(_ p: Priority?) -> Int {
-        switch p { case .haut: return 3; case .moyen: return 2; case .bas: return 1; case nil: return 0 }
+    /// Apple : par heure (rappel / début), faites en dernier.
+    private static func appleOrder(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
+        if a.isDone != b.isDone { return !a.isDone }
+        let da = a.remindAt ?? a.dueDate ?? a.createdAt
+        let db = b.remindAt ?? b.dueDate ?? b.createdAt
+        return da < db
     }
 }

@@ -31,15 +31,21 @@ final class TaskEntity {
     var rolloverCount: Int
     var rawTranscript: String
     var parseStatusRaw: String
+    // Valeurs par défaut → migration légère SwiftData automatique pour les anciens stores.
+    var destinationRaw: String = "local"
+    var externalId: String?
+    var orderIndex: Int = 0
 
     init(id: UUID, text: String, createdAt: Date, dueDate: Date?, remindAt: Date?,
          notify: Bool, notificationId: String?, priorityRaw: String?, tags: [String],
          isDone: Bool, doneAt: Date?, rolloverCount: Int, rawTranscript: String,
-         parseStatusRaw: String) {
+         parseStatusRaw: String, destinationRaw: String = "local",
+         externalId: String? = nil, orderIndex: Int = 0) {
         self.id = id; self.text = text; self.createdAt = createdAt; self.dueDate = dueDate
         self.remindAt = remindAt; self.notify = notify; self.notificationId = notificationId
         self.priorityRaw = priorityRaw; self.tags = tags; self.isDone = isDone; self.doneAt = doneAt
         self.rolloverCount = rolloverCount; self.rawTranscript = rawTranscript; self.parseStatusRaw = parseStatusRaw
+        self.destinationRaw = destinationRaw; self.externalId = externalId; self.orderIndex = orderIndex
     }
 }
 
@@ -49,7 +55,8 @@ extension TaskEntity {
                   remindAt: r.remindAt, notify: r.notify, notificationId: r.notificationId,
                   priorityRaw: r.priority?.rawValue, tags: r.tags, isDone: r.isDone,
                   doneAt: r.doneAt, rolloverCount: r.rolloverCount, rawTranscript: r.rawTranscript,
-                  parseStatusRaw: r.parseStatus.rawValue)
+                  parseStatusRaw: r.parseStatus.rawValue, destinationRaw: r.destination.rawValue,
+                  externalId: r.externalId, orderIndex: r.orderIndex)
     }
 
     func toRecord() -> TaskRecord {
@@ -58,7 +65,9 @@ extension TaskEntity {
                    priority: priorityRaw.flatMap(Priority.init(rawValue:)), tags: tags,
                    isDone: isDone, doneAt: doneAt, rolloverCount: rolloverCount,
                    rawTranscript: rawTranscript,
-                   parseStatus: TaskRecord.ParseStatus(rawValue: parseStatusRaw) ?? .parsed)
+                   parseStatus: TaskRecord.ParseStatus(rawValue: parseStatusRaw) ?? .parsed,
+                   destination: Destination(rawValue: destinationRaw) ?? .local,
+                   externalId: externalId, orderIndex: orderIndex)
     }
 
     /// Met à jour l'entité existante depuis un record (utilisé par le rollover).
@@ -67,5 +76,6 @@ extension TaskEntity {
         notificationId = r.notificationId; priorityRaw = r.priority?.rawValue; tags = r.tags
         isDone = r.isDone; doneAt = r.doneAt; rolloverCount = r.rolloverCount
         rawTranscript = r.rawTranscript; parseStatusRaw = r.parseStatus.rawValue
+        destinationRaw = r.destination.rawValue; externalId = r.externalId; orderIndex = r.orderIndex
     }
 }

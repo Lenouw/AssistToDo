@@ -24,10 +24,10 @@ final class MenuBarController {
         self.onOpenSettings = onOpenSettings
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         buildMenu()
-        cancellable = store.$tasks.sink { [weak self] tasks in
-            self?.updateBadge(openCount: tasks.filter { !$0.isDone }.count)
+        cancellable = store.$badgeCount.sink { [weak self] count in
+            self?.updateBadge(openCount: count)
         }
-        updateBadge(openCount: store.openCount)
+        updateBadge(openCount: store.badgeCount)
     }
 
     private func updateBadge(openCount: Int) {

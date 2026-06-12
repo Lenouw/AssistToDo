@@ -2,8 +2,10 @@
 //  ListView.swift
 //  AssistToDo
 //
-//  Liste des tâches : sections Aujourd'hui / À venir / Faites, couleurs de priorité,
-//  horaires, swipe (fait / demain / supprimer / modifier), édition inline.
+//  Panneau groupé par TYPE :
+//   - Rappels rapides (locaux) : réordonnables (glisser), swipe, édition inline
+//   - Rappels (Apple) : cocher = complété dans Rappels Apple, supprimer = retiré
+//   - Rendez-vous (Calendrier) : supprimer = retiré du calendrier
 //
 
 import SwiftUI
@@ -15,150 +17,138 @@ struct ListView: View {
 
     @State private var editingId: UUID?
     @State private var editText = ""
-    @FocusState private var editFocused: Bool
-
-    private var todayActive: [TaskRecord] { store.tasks.filter { !$0.isDone } }
-    private var todayDone: [TaskRecord] { store.tasks.filter { $0.isDone } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Mes tâches").font(.headline)
-                if !todayActive.isEmpty {
-                    Text("\(todayActive.count)")
+                if store.badgeCount > 0 {
+                    Text("\(store.badgeCount)")
                         .font(.caption.bold())
                         .padding(.horizontal, 7).padding(.vertical, 2)
                         .background(.quaternary, in: Capsule())
                 }
                 Spacer()
                 Button(action: onOpenSettings) { Image(systemName: "gearshape") }
-                    .buttonStyle(.plain)
-                    .help("Réglages")
+                    .buttonStyle(.plain).help("Réglages")
                     .accessibilityLabel("Ouvrir les réglages")
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 14)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 8)
 
-            if store.tasks.isEmpty && store.upcoming.isEmpty {
-                Spacer()
-                VStack(spacing: 8) {
-                    Image(systemName: "checkmark.seal")
-                        .font(.largeTitle)
-                        .foregroundStyle(.tertiary)
-                    Text("Tout est fait")
-                        .foregroundStyle(.secondary)
-                    Text("Maintiens ⌃⌥Espace pour capturer une tâche")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                .frame(maxWidth: .infinity)
-                Spacer()
+            if isEmpty {
+                emptyState
             } else {
                 List {
-                    if !todayActive.isEmpty {
-                        Section("Aujourd'hui") {
-                            ForEach(todayActive) { row($0) }
+                    if !store.localTasks.isEmpty {
+                        Section("Rappels rapides") {
+                            ForEach(store.localTasks) { localRow($0) }
+                                .onMove(perform: moveLocal)
                         }
                     }
-                    if !store.upcoming.isEmpty {
-                        Section("À venir") {
-                            ForEach(store.upcoming) { row($0, showDay: true) }
+                    if !store.reminderTasks.isEmpty {
+                        Section("Rappels") {
+                            ForEach(store.reminderTasks) { appleRow($0, isEvent: false) }
                         }
                     }
-                    if !todayDone.isEmpty {
-                        Section("Faites") {
-                            ForEach(todayDone) { row($0) }
+                    if !store.eventTasks.isEmpty {
+                        Section("Rendez-vous") {
+                            ForEach(store.eventTasks) { appleRow($0, isEvent: true) }
                         }
                     }
                 }
                 .listStyle(.inset)
-                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: store.tasks)
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: store.localTasks)
             }
 
             Text("Build \(BuildInfo.date)")
-                .font(.system(size: 9))
-                .foregroundStyle(.tertiary)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 8)
+                .font(.system(size: 9)).foregroundStyle(.tertiary)
+                .padding(.horizontal, 14).padding(.bottom, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    // MARK: - Lignes
+    private var isEmpty: Bool {
+        store.localTasks.isEmpty && store.reminderTasks.isEmpty && store.eventTasks.isEmpty
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Spacer()
+            Image(systemName: "checkmark.seal").font(.largeTitle).foregroundStyle(.tertiary)
+            Text("Tout est fait").foregroundStyle(.secondary)
+            Text("Maintiens ⌃⌥Espace pour capturer").font(.caption).foregroundStyle(.tertiary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Rangées locales (réordonnables + éditables)
 
     @ViewBuilder
-    private func row(_ task: TaskRecord, showDay: Bool = false) -> some View {
+    private func localRow(_ task: TaskRecord) -> some View {
         if editingId == task.id {
             editRow(task)
         } else {
-            TaskRow(task: task, showDay: showDay) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                    store.toggleDone(id: task.id)
+            TaskRow(task: task, kind: .local) { store.toggleDone(id: task.id) }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) { store.delete(id: task.id) } label: { Label("Supprimer", systemImage: "trash") }
+                    Button { store.postponeToTomorrow(id: task.id) } label: { Label("Demain", systemImage: "arrow.uturn.forward") }.tint(.orange)
                 }
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button { store.toggleDone(id: task.id) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
+                    Button { startEditing(task) } label: { Label("Modifier", systemImage: "pencil") }.tint(.blue)
+                }
+                .contextMenu {
+                    Button(task.isDone ? "Marquer non faite" : "Marquer faite") { store.toggleDone(id: task.id) }
+                    Button("Modifier") { startEditing(task) }
+                    Button("Reporter à demain") { store.postponeToTomorrow(id: task.id) }
+                    Divider()
+                    Button("Supprimer", role: .destructive) { store.delete(id: task.id) }
+                }
+                .onTapGesture(count: 2) { startEditing(task) }
+        }
+    }
+
+    // MARK: - Rangées Apple (cocher = sync Apple, supprimer = retiré)
+
+    private func appleRow(_ task: TaskRecord, isEvent: Bool) -> some View {
+        TaskRow(task: task, kind: isEvent ? .event : .reminder) {
+            store.toggleDone(id: task.id)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) { store.delete(id: task.id) } label: { Label("Supprimer", systemImage: "trash") }
+        }
+        .contextMenu {
+            if !isEvent {
+                Button(task.isDone ? "Marquer non faite" : "Marquer faite") { store.toggleDone(id: task.id) }
             }
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button(role: .destructive) {
-                    store.delete(id: task.id)
-                } label: {
-                    Label("Supprimer", systemImage: "trash")
-                }
-                Button {
-                    store.postponeToTomorrow(id: task.id)
-                } label: {
-                    Label("Demain", systemImage: "arrow.uturn.forward")
-                }
-                .tint(.orange)
-            }
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                        store.toggleDone(id: task.id)
-                    }
-                } label: {
-                    Label(task.isDone ? "Pas faite" : "Fait", systemImage: task.isDone ? "arrow.uturn.backward.circle" : "checkmark.circle")
-                }
-                .tint(.green)
-                Button {
-                    startEditing(task)
-                } label: {
-                    Label("Modifier", systemImage: "pencil")
-                }
-                .tint(.blue)
-            }
-            .contextMenu {
-                Button(task.isDone ? "Marquer non faite" : "Marquer faite") {
-                    store.toggleDone(id: task.id)
-                }
-                Button("Modifier") { startEditing(task) }
-                Button("Reporter à demain") { store.postponeToTomorrow(id: task.id) }
-                Divider()
-                Button("Supprimer", role: .destructive) { store.delete(id: task.id) }
-            }
-            .onTapGesture(count: 2) { startEditing(task) }
+            Button("Supprimer", role: .destructive) { store.delete(id: task.id) }
         }
     }
 
     private func editRow(_ task: TaskRecord) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "pencil")
-                .foregroundStyle(.blue)
+            Image(systemName: "pencil").foregroundStyle(.blue)
             TextField("Tâche", text: $editText)
                 .textFieldStyle(.plain)
-                .focused($editFocused)
                 .onSubmit { commitEdit(task) }
-            Button("OK") { commitEdit(task) }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+            Button("OK") { commitEdit(task) }.buttonStyle(.borderedProminent).controlSize(.small)
         }
         .padding(.vertical, 3)
-        .onExitCommand { editingId = nil }   // Échap annule
+        .onExitCommand { editingId = nil }
+    }
+
+    // MARK: - Actions
+
+    private func moveLocal(from offsets: IndexSet, to destination: Int) {
+        var ids = store.localTasks.map { $0.id }
+        ids.move(fromOffsets: offsets, toOffset: destination)
+        store.moveLocal(orderedIds: ids)
     }
 
     private func startEditing(_ task: TaskRecord) {
         editText = task.text
         editingId = task.id
-        editFocused = true
     }
 
     private func commitEdit(_ task: TaskRecord) {
@@ -167,18 +157,18 @@ struct ListView: View {
     }
 }
 
+enum RowKind { case local, reminder, event }
+
 private struct TaskRow: View {
     let task: TaskRecord
-    var showDay: Bool = false
+    let kind: RowKind
     let onToggle: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            // Accent couleur de priorité.
             RoundedRectangle(cornerRadius: 2)
                 .fill(Self.priorityColor(task.priority))
-                .frame(width: 3)
-                .frame(maxHeight: .infinity)
+                .frame(width: 3).frame(maxHeight: .infinity)
 
             Button(action: onToggle) {
                 Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
@@ -195,7 +185,6 @@ private struct TaskRow: View {
                     Text(sub).font(.caption).foregroundStyle(.secondary)
                 }
             }
-
             Spacer(minLength: 4)
 
             VStack(alignment: .trailing, spacing: 4) {
@@ -206,7 +195,7 @@ private struct TaskRow: View {
                         .background(Self.priorityColor(task.priority).opacity(0.15), in: Capsule())
                         .foregroundStyle(Self.priorityColor(task.priority))
                 }
-                if task.rolloverCount >= 3 {
+                if kind == .local && task.rolloverCount >= 3 {
                     Text("×\(task.rolloverCount)")
                         .font(.caption2.bold())
                         .padding(.horizontal, 5).padding(.vertical, 1)
@@ -219,10 +208,11 @@ private struct TaskRow: View {
         .padding(.vertical, 3)
     }
 
-    /// Badge horaire : heure de rappel, ou jour d'échéance pour la section "À venir".
     private var timeBadge: String? {
-        if let remind = task.remindAt { return "🔔 " + Self.hm.string(from: remind) }
-        if showDay, let due = task.dueDate { return Self.day.string(from: due) }
+        if let remind = task.remindAt {
+            return (kind == .event ? "" : "🔔 ") + Self.hm.string(from: remind)
+        }
+        if let due = task.dueDate, kind != .local { return Self.day.string(from: due) }
         return nil
     }
 
@@ -244,17 +234,12 @@ private struct TaskRow: View {
 
     private static let hm: DateFormatter = {
         let f = DateFormatter()
-        f.timeZone = TimeZone(identifier: "Europe/Paris")
-        f.locale = Locale(identifier: "fr_FR")
-        f.dateFormat = "HH:mm"
-        return f
+        f.timeZone = TimeZone(identifier: "Europe/Paris"); f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "HH:mm"; return f
     }()
-
     private static let day: DateFormatter = {
         let f = DateFormatter()
-        f.timeZone = TimeZone(identifier: "Europe/Paris")
-        f.locale = Locale(identifier: "fr_FR")
-        f.dateFormat = "EEE d MMM"
-        return f
+        f.timeZone = TimeZone(identifier: "Europe/Paris"); f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "EEE d MMM"; return f
     }()
 }

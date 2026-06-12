@@ -15,6 +15,12 @@ public struct TaskRecord: Identifiable, Equatable, Sendable {
     public var rolloverCount: Int
     public var rawTranscript: String
     public var parseStatus: ParseStatus
+    /// Où vit la tâche : liste locale, Rappels Apple, Calendrier Apple, Notes.
+    public var destination: Destination
+    /// Identifiant Apple (EKReminder.calendarItemIdentifier / EKEvent.eventIdentifier) si applicable.
+    public var externalId: String?
+    /// Ordre manuel dans sa section (plus petit = plus haut).
+    public var orderIndex: Int
 
     public enum ParseStatus: String, Codable, Sendable { case parsed, rawOnly, pending }
 
@@ -22,10 +28,12 @@ public struct TaskRecord: Identifiable, Equatable, Sendable {
                 remindAt: Date? = nil, notify: Bool = false, notificationId: String? = nil,
                 priority: Priority? = nil, tags: [String] = [], isDone: Bool = false,
                 doneAt: Date? = nil, rolloverCount: Int = 0, rawTranscript: String = "",
-                parseStatus: ParseStatus = .parsed) {
+                parseStatus: ParseStatus = .parsed, destination: Destination = .local,
+                externalId: String? = nil, orderIndex: Int = 0) {
         self.id = id; self.text = text; self.createdAt = createdAt; self.dueDate = dueDate
         self.remindAt = remindAt; self.notify = notify; self.notificationId = notificationId
         self.priority = priority; self.tags = tags; self.isDone = isDone; self.doneAt = doneAt
         self.rolloverCount = rolloverCount; self.rawTranscript = rawTranscript; self.parseStatus = parseStatus
+        self.destination = destination; self.externalId = externalId; self.orderIndex = orderIndex
     }
 }
