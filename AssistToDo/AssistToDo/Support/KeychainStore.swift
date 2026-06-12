@@ -2,7 +2,8 @@
 //  KeychainStore.swift
 //  AssistToDo
 //
-//  Stockage de la clé API OpenRouter en Keychain (jamais en clair dans UserDefaults).
+//  Stockage des secrets en Keychain (jamais en clair dans UserDefaults) :
+//  clé API OpenRouter + token de synchronisation Toudou.
 //
 
 import Foundation
@@ -10,9 +11,12 @@ import Security
 
 enum KeychainStore {
     private static let service = "com.assisttodo.openrouter"
-    private static let account = "api-key"
+    private static let apiKeyAccount = "api-key"
+    private static let toudouTokenAccount = "toudou-token"
 
-    static func setAPIKey(_ value: String) {
+    // MARK: - Générique
+
+    private static func set(_ value: String, account: String) {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -28,7 +32,7 @@ enum KeychainStore {
         SecItemAdd(add as CFDictionary, nil)
     }
 
-    static func apiKey() -> String {
+    private static func get(account: String) -> String {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -43,5 +47,15 @@ enum KeychainStore {
         return value
     }
 
+    // MARK: - OpenRouter
+
+    static func setAPIKey(_ value: String) { set(value, account: apiKeyAccount) }
+    static func apiKey() -> String { get(account: apiKeyAccount) }
     static var hasAPIKey: Bool { !apiKey().isEmpty }
+
+    // MARK: - Token de synchronisation Toudou
+
+    static func setToudouToken(_ value: String) { set(value, account: toudouTokenAccount) }
+    static func toudouToken() -> String { get(account: toudouTokenAccount) }
+    static var hasToudouToken: Bool { !toudouToken().isEmpty }
 }

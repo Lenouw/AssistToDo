@@ -26,9 +26,12 @@ struct SettingsView: View {
     @AppStorage("calendar_studio") private var calendarStudio: String = ""
     @AppStorage("studioBlockStart") private var studioBlockStart: Int = 8
     @AppStorage("studioBlockEnd") private var studioBlockEnd: Int = 20
+    @AppStorage("toudouBaseURL") private var toudouBaseURL: String = ""
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
+    @State private var toudouToken: String = ""
+    @State private var toudouTokenSaved: Bool = false
     @State private var launchAtLogin: Bool = false
     @State private var micStatus: AVAuthorizationStatus = .notDetermined
     @State private var notifAuthorized: Bool = false
@@ -143,6 +146,25 @@ struct SettingsView: View {
                 permissionRow("Notifications", granted: notifAuthorized) { requestNotifications() }
             }
 
+            Section("Synchronisation Toudou") {
+                TextField("URL de l'API Toudou (https://…)", text: $toudouBaseURL)
+                    .textContentType(.URL)
+                    .autocorrectionDisabled()
+                SecureField("Token Bearer", text: $toudouToken)
+                HStack {
+                    Button("Enregistrer le token") {
+                        KeychainStore.setToudouToken(toudouToken)
+                        toudouTokenSaved = KeychainStore.hasToudouToken
+                    }
+                    if toudouTokenSaved {
+                        Label("Token enregistré", systemImage: "checkmark.seal.fill")
+                            .font(.caption).foregroundStyle(.green)
+                    }
+                }
+                Text("Synchronise ta liste de to-do « vide-tête » (sans date) avec Toudou. URL + token fournis par Toudou. Le client de synchronisation arrive (en attente de la spec d'API).")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Section("À propos") {
                 HStack {
                     Text("Version")
@@ -216,6 +238,8 @@ struct SettingsView: View {
     private func refresh() {
         apiKeySaved = KeychainStore.hasAPIKey
         if apiKey.isEmpty { apiKey = KeychainStore.apiKey() }
+        toudouTokenSaved = KeychainStore.hasToudouToken
+        if toudouToken.isEmpty { toudouToken = KeychainStore.toudouToken() }
         launchAtLogin = SMAppService.mainApp.status == .enabled
         micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
         UNUserNotificationCenter.current().getNotificationSettings { s in
