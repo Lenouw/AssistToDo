@@ -50,25 +50,48 @@ struct ListView: View {
                             ForEach(store.reminderTasks) { appleRow($0, isEvent: false) }
                         }
                     }
-                    if !store.eventTasks.isEmpty {
-                        Section("Rendez-vous") {
-                            ForEach(store.eventTasks) { appleRow($0, isEvent: true) }
-                        }
-                    }
                 }
                 .listStyle(.inset)
                 .animation(.spring(response: 0.35, dampingFraction: 0.85), value: store.localTasks)
             }
 
+            // Confirmation discrète des événements calendrier ajoutés via l'app (auto-nettoyée après 24h).
+            if !store.recentEvents.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("AJOUTÉS AU CALENDRIER (24 H)")
+                        .font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
+                        .tracking(0.5)
+                    ForEach(store.recentEvents) { event in
+                        HStack(spacing: 6) {
+                            Image(systemName: "calendar").font(.caption2).foregroundStyle(.secondary)
+                            Text(event.text).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Spacer(minLength: 4)
+                            if let due = event.remindAt ?? event.dueDate {
+                                Text(Self.eventDay.string(from: due))
+                                    .font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 14).padding(.vertical, 6)
+                .background(.quaternary.opacity(0.4))
+            }
+
             Text("Build \(BuildInfo.date)")
                 .font(.system(size: 9)).foregroundStyle(.tertiary)
-                .padding(.horizontal, 14).padding(.bottom, 8)
+                .padding(.horizontal, 14).padding(.bottom, 8).padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
+    private static let eventDay: DateFormatter = {
+        let f = DateFormatter()
+        f.timeZone = TimeZone(identifier: "Europe/Paris"); f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "EEE d MMM HH:mm"; return f
+    }()
+
     private var isEmpty: Bool {
-        store.localTasks.isEmpty && store.reminderTasks.isEmpty && store.eventTasks.isEmpty
+        store.localTasks.isEmpty && store.reminderTasks.isEmpty && store.recentEvents.isEmpty
     }
 
     private var emptyState: some View {

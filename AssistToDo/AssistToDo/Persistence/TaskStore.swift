@@ -18,7 +18,7 @@ final class TaskStore: ObservableObject {
 
     @Published private(set) var localTasks: [TaskRecord] = []      // "Rappels rapides"
     @Published private(set) var reminderTasks: [TaskRecord] = []   // "Rappels" (Apple)
-    @Published private(set) var eventTasks: [TaskRecord] = []      // "Rendez-vous" (Calendrier)
+    @Published private(set) var recentEvents: [TaskRecord] = []    // confirmations calendrier < 24h
     @Published private(set) var badgeCount: Int = 0
 
     private let lastRolloverKey = "lastRolloverDay"
@@ -50,11 +50,24 @@ final class TaskStore: ObservableObject {
     // MARK: - Lecture
 
     func reload() {
+        purgeOldEventMirrors()
         let all = fetchAll().map { $0.toRecord() }
         localTasks = all.filter { $0.destination == .local }.sorted(by: Self.localOrder)
         reminderTasks = all.filter { $0.destination == .reminders }.sorted(by: Self.appleOrder)
-        eventTasks = all.filter { $0.destination == .calendar }.sorted(by: Self.appleOrder)
+        let cutoff = Date().addingTimeInterval(-86400)   // 24h
+        recentEvents = all.filter { $0.destination == .calendar && $0.createdAt >= cutoff }
+            .sorted { $0.createdAt > $1.createdAt }
         badgeCount = localTasks.filter { !$0.isDone }.count + reminderTasks.filter { !$0.isDone }.count
+    }
+
+    /// Supprime les COPIES LOCALES d'événements calendrier de plus de 24h.
+    /// L'événement reste dans le Calendrier Apple (on ne touche jamais l'EKEvent ici).
+    private func purgeOldEventMirrors() {
+        let cutoff = Date().addingTimeInterval(-86400)
+        let old = fetchAll().filter { $0.destinationRaw == "calendar" && $0.createdAt < cutoff }
+        guard !old.isEmpty else { return }
+        for e in old { context.delete(e) }
+        save()
     }
 
     // MARK: - Création
