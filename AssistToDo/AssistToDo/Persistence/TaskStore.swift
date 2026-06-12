@@ -110,8 +110,10 @@ final class TaskStore: ObservableObject {
         context.insert(copy)
 
         if let nid = e.notificationId { onCancelNotification?(nid) }
-        if from == .braindump, e.remoteKnown {
-            e.tombstone = true; e.syncDirty = true; e.updatedAt = Date()   // retiré de l'inbox Toudou
+        // Si la source était déjà connue de Toudou (peu importe la sous-liste), on tombstone pour
+        // propager le delete sur SON slug (la tombstone garde son localListRaw). Sinon suppression dure.
+        if e.remoteKnown {
+            e.tombstone = true; e.syncDirty = true; e.updatedAt = Date()
         } else {
             context.delete(e)
         }
@@ -320,6 +322,7 @@ final class TaskStore: ObservableObject {
                     e.text = w.text
                     e.isDone = w.done
                     e.doneAt = w.done ? (e.doneAt ?? Date()) : nil
+                    e.localListRaw = list.rawValue   // la version serveur fait foi sur la sous-liste
                     e.updatedAt = w.updatedAt
                     e.remoteKnown = true
                     e.syncDirty = false

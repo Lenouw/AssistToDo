@@ -1,3 +1,24 @@
+# TODO — Affinage détection voix + écriture des tâches (session test 2026-06-13)
+
+Phase de TEST en cours (Florian dicte des captures réelles, on relève les patterns). Fixes à appliquer ensuite.
+
+## Bug A — deadline arrachée du texte (À FIXER, priorité)
+Cas réel : dicté « fais-moi penser à annuler mon abonnement TeuxDeux avant le 9 juillet » → écrit « Annuler abonnement application T2 » (le « avant le 9 juillet » a disparu).
+- Attendu : tâche **locale**, deadline gardée **littéralement dans le texte** (« ...avant le 9 juillet »), **aucun** event calendrier ni rappel timé.
+- Cause : `ParsePromptBuilder.systemPrompt` extrait toute date en `dueDate`/`remindAt` + « Nettoie le texte » → la mention de date est retirée du `text`. Et un « quand » explicite pousse vers `reminders`.
+- Fix : nouvelle règle prompt → quand l'intention est « fais-moi penser à X avant/pour [date] » SANS demande de rappel à une heure précise, rester `local` ET **conserver la mention de date dans le texte** (ne pas l'extraire). Le « avant le 9 juillet » fait partie du libellé que Florian doit lire.
+- Fichier : [ParsePromptBuilder.swift](AssistToDoCore/Sources/AssistToDoCore/Parsing/ParsePromptBuilder.swift). Penser à ajouter un test dans `ParsePromptBuilderTests`.
+
+## Bug C — compréhension faible (mots rares écrasés par mots fréquents)
+Cas réel : « récupérer un colis Amazon » → transcrit « récupérer le courrier » (Whisper `base` biaise vers les n-grams fréquents).
+- Pas un bug de prompt : transcription. Le LLM ne peut pas corriger (temp déjà 0, « colis » même présent dans le prompt).
+- Lever principal : **monter le modèle Whisper** (`base` → `small` ou `large-v3-turbo`). Le picker Réglages ne propose que tiny/base/small ([SettingsView.swift](AssistToDo/AssistToDo/UI/SettingsView.swift) ligne 47). Ajouter les modèles supérieurs + tester la latence sur le Mac de Florian.
+
+## Bug B — noms propres / marques mal transcrits (« TeuxDeux » → « T2 »)
+NON PRIORITAIRE (décision Florian) : les noms propres bugueront toujours, acceptable. Pas de dico de correction pour l'instant.
+
+---
+
 # TODO — Refonte panneau "second cerveau"
 
 Design validé (maquette) : flux de pensées vocales (75%) + zone "Aujourd'hui · iCloud" (25%).

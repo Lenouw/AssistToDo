@@ -60,12 +60,12 @@ struct ListView: View {
             pane(title: "Vidage de cerveau", systemImage: "brain", count: store.thoughts.count, height: bH) {
                 taskList(store.thoughts, move: moveBrain)
             }
-            handle(base: $dragBaseBrain, value: $brainH, lower: minPane, upper: avail - CGFloat(todayH) - minPane)
+            handle(base: $dragBaseBrain, value: $brainH, lower: minPane, upper: avail - tH - minPane)
             pane(title: "Claude Code", systemImage: "chevron.left.forwardslash.chevron.right", count: store.codeTasks.count, height: cH) {
                 if store.codeTasks.isEmpty { paneHint("Dicte « Claude Code : … » pour ajouter ici") }
                 else { taskList(store.codeTasks, move: moveCode) }
             }
-            handle(base: $dragBaseToday, value: $todayH, lower: minPane, upper: avail - CGFloat(brainH) - minPane, inverted: true)
+            handle(base: $dragBaseToday, value: $todayH, lower: minPane, upper: avail - bH - minPane, inverted: true)
             pane(title: "Aujourd'hui · iCloud", systemImage: "calendar", count: store.todayEvents.count + store.todayReminders.count, height: tH) {
                 todayContent
             }
@@ -104,14 +104,18 @@ struct ListView: View {
         .frame(height: handleH)
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
-        .onHover { NSCursor.resizeUpDown.set(); if !$0 { NSCursor.arrow.set() } }
+        .onHover { inside in
+            if inside { NSCursor.resizeUpDown.set() }
+            else if base.wrappedValue == nil { NSCursor.arrow.set() }   // ne pas réinitialiser pendant un drag
+        }
         .gesture(
             DragGesture()
                 .onChanged { v in
                     if base.wrappedValue == nil { base.wrappedValue = value.wrappedValue }
                     let delta = Double(inverted ? -v.translation.height : v.translation.height)
                     let proposed = (base.wrappedValue ?? value.wrappedValue) + delta
-                    value.wrappedValue = min(max(proposed, Double(lower)), Double(upper))
+                    let hi = max(Double(lower), Double(upper))   // garde-fou : upper ne passe jamais sous lower
+                    value.wrappedValue = min(max(proposed, Double(lower)), hi)
                 }
                 .onEnded { _ in base.wrappedValue = nil }
         )
