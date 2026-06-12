@@ -30,4 +30,6 @@ final class CaptureModel: ObservableObject {
     @Published var state: IslandState = .preparing
     @Published var transcript: String = ""       // texte reconnu ou message
     @Published var addedItems: [ToastItem] = []
+    /// Hauteur de l'encoche : le contenu est poussé sous cette zone pour rester visible.
+    @Published var topInset: CGFloat = 0
 }

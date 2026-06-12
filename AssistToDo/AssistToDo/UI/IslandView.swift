@@ -14,15 +14,21 @@ struct IslandView: View {
     @ObservedObject var model: CaptureModel
 
     var body: some View {
-        content
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.black, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(.white.opacity(0.06))
-            )
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: model.state)
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: model.addedItems.count)
+        VStack(spacing: 0) {
+            // Zone derrière l'encoche physique : laissée vide.
+            Color.clear.frame(height: model.topInset)
+            // Contenu visible, centré dans la partie sous l'encoche.
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.black, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(.white.opacity(0.06))
+        )
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: model.state)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: model.addedItems.count)
     }
 
     @ViewBuilder

@@ -59,10 +59,17 @@ final class IslandController {
 
     private func layout(for state: IslandState, items: Int) {
         guard let p = panel else { return }
-        let size = Self.size(for: state, items: items)
-        let vf = screenUnderCursor().frame   // frame complet → ancrage à l'encoche
+        let screen = screenUnderCursor()
+        // Hauteur de l'encoche (0 sur un écran sans notch). Le contenu est poussé en dessous.
+        // Si pas de notch, on garde une marge sous la barre de menus pour rester lisible.
+        let topInset = screen.safeAreaInsets.top > 0 ? screen.safeAreaInsets.top : 24
+        model.topInset = topInset
+
+        let content = Self.contentSize(for: state, items: items)
+        let size = NSSize(width: content.width, height: topInset + content.height)
+        let vf = screen.frame                // frame complet → ancrage au bord haut (encoche)
         let x = vf.midX - size.width / 2
-        let y = vf.maxY - size.height        // colle au bord haut
+        let y = vf.maxY - size.height
         let target = NSRect(x: x, y: y, width: size.width, height: size.height)
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.3
@@ -71,14 +78,15 @@ final class IslandController {
         }
     }
 
-    private static func size(for state: IslandState, items: Int) -> NSSize {
+    /// Taille de la zone de contenu (sous l'encoche).
+    private static func contentSize(for state: IslandState, items: Int) -> NSSize {
         switch state {
         case .preparing, .listening, .transcribing, .error:
-            return NSSize(width: 300, height: 44)
+            return NSSize(width: 320, height: 54)
         case .result:
-            return NSSize(width: 380, height: 84)
+            return NSSize(width: 380, height: 88)
         case .added:
-            return NSSize(width: 380, height: CGFloat(46 + max(1, items) * 22 + 12))
+            return NSSize(width: 380, height: CGFloat(50 + max(1, items) * 22 + 12))
         }
     }
 
