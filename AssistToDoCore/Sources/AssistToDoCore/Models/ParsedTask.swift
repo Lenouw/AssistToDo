@@ -7,7 +7,7 @@ public enum Destination: String, Codable, Sendable {
 
 /// Catégorie sémantique d'agenda (mappée à un vrai calendrier dans les Réglages).
 public enum CalendarCategory: String, Codable, Sendable {
-    case perso, commun, pro
+    case perso, commun, pro, studio
 }
 
 public struct ParsedTask: Equatable, Sendable {

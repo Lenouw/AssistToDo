@@ -21,6 +21,7 @@ struct SettingsView: View {
     @AppStorage("calendar_perso") private var calendarPerso: String = ""
     @AppStorage("calendar_commun") private var calendarCommun: String = ""
     @AppStorage("calendar_pro") private var calendarPro: String = ""
+    @AppStorage("calendar_studio") private var calendarStudio: String = ""
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
@@ -78,6 +79,7 @@ struct SettingsView: View {
                         Picker("Agenda perso", selection: $calendarPerso) { calendarOptions() }
                         Picker("Agenda commun", selection: $calendarCommun) { calendarOptions() }
                         Picker("Agenda pro", selection: $calendarPro) { calendarOptions() }
+                        Picker("Agenda studio podcast", selection: $calendarStudio) { calendarOptions() }
                         Picker("Agenda par défaut", selection: $defaultCalendar) { calendarOptions() }
                         Text("Le LLM classe chaque rdv (perso / commun / pro) et l'ajoute à l'agenda choisi ici.")
                             .font(.caption).foregroundStyle(.secondary)

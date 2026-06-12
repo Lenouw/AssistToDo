@@ -18,6 +18,7 @@ struct Preferences: Codable {
     var calendarPerso: String?
     var calendarCommun: String?
     var calendarPro: String?
+    var calendarStudio: String?
     var hotkey: String?       // valeur brute KeyboardShortcuts_capture
     var apiKey: String?       // clé OpenRouter (Keychain)
 }
@@ -37,6 +38,7 @@ enum PreferencesService {
             calendarPerso: d.string(forKey: "calendar_perso"),
             calendarCommun: d.string(forKey: "calendar_commun"),
             calendarPro: d.string(forKey: "calendar_pro"),
+            calendarStudio: d.string(forKey: "calendar_studio"),
             hotkey: d.string(forKey: hotkeyKey),
             apiKey: KeychainStore.apiKey().isEmpty ? nil : KeychainStore.apiKey()
         )
@@ -52,6 +54,7 @@ enum PreferencesService {
         if let v = p.calendarPerso { d.set(v, forKey: "calendar_perso") }
         if let v = p.calendarCommun { d.set(v, forKey: "calendar_commun") }
         if let v = p.calendarPro { d.set(v, forKey: "calendar_pro") }
+        if let v = p.calendarStudio { d.set(v, forKey: "calendar_studio") }
         if let v = p.hotkey { d.set(v, forKey: hotkeyKey) }
         if let v = p.apiKey, !v.isEmpty { KeychainStore.setAPIKey(v) }
     }
