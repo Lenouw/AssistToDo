@@ -143,12 +143,23 @@ final class CaptureCoordinator {
                     }
                     let alarmsOn = UserDefaults.standard.object(forKey: "eventAlarmsEnabled") as? Bool ?? true
                     let offsets: [TimeInterval] = alarmsOn ? [-3600, -86400] : []  // 1h + 1 jour avant
-                    let allDay = item.record.remindAt == nil          // pas d'heure → journée entière
-                    let start = item.record.remindAt ?? item.record.dueDate ?? Date()
+
+                    let day = item.record.dueDate ?? Date()
+                    var start = item.record.remindAt ?? day
+                    var duration = item.durationMinutes ?? 60
+                    var allDay = item.record.remindAt == nil
+                    // Fermeture studio sans heure → créneau timé configurable (bloque vraiment les réservations).
+                    if item.record.remindAt == nil, item.calendarCategory == .studio {
+                        let sh = UserDefaults.standard.object(forKey: "studioBlockStart") as? Int ?? 8
+                        let eh = UserDefaults.standard.object(forKey: "studioBlockEnd") as? Int ?? 20
+                        start = ParisCalendar.calendar.date(bySettingHour: sh, minute: 0, second: 0, of: day) ?? day
+                        duration = max(60, (eh - sh) * 60)
+                        allDay = false
+                    }
                     let extId = try await EventKitService.shared.createEvent(
                         title: item.record.text,
                         start: start,
-                        durationMinutes: item.durationMinutes ?? 60,
+                        durationMinutes: duration,
                         allDay: allDay,
                         calendarName: item.calendarName ?? categoryCalendar,
                         defaultCalendarName: defaultCalendar,

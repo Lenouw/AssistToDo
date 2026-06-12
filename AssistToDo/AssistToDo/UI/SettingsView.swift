@@ -24,6 +24,8 @@ struct SettingsView: View {
     @AppStorage("calendar_commun") private var calendarCommun: String = ""
     @AppStorage("calendar_pro") private var calendarPro: String = ""
     @AppStorage("calendar_studio") private var calendarStudio: String = ""
+    @AppStorage("studioBlockStart") private var studioBlockStart: Int = 8
+    @AppStorage("studioBlockEnd") private var studioBlockEnd: Int = 20
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
@@ -84,6 +86,16 @@ struct SettingsView: View {
                         Picker("Agenda commun", selection: $calendarCommun) { calendarOptions() }
                         Picker("Agenda pro", selection: $calendarPro) { calendarOptions() }
                         Picker("Agenda studio podcast", selection: $calendarStudio) { calendarOptions() }
+                        HStack {
+                            Picker("Fermeture studio : de", selection: $studioBlockStart) {
+                                ForEach(0..<24, id: \.self) { Text("\($0)h").tag($0) }
+                            }
+                            Picker("à", selection: $studioBlockEnd) {
+                                ForEach(0..<24, id: \.self) { Text("\($0)h").tag($0) }
+                            }
+                        }
+                        Text("Quand tu fermes le studio sans heure précise, l'événement bloque cette plage (créneau réel, pas journée entière → bloque vraiment les réservations).")
+                            .font(.caption).foregroundStyle(.secondary)
                         Picker("Agenda par défaut", selection: $defaultCalendar) { calendarOptions() }
                         Toggle("Rappels auto sur les événements (1h + 1 jour avant)", isOn: $eventAlarmsEnabled)
                         Text("Le LLM classe chaque rdv (perso / commun / pro / studio) et l'ajoute à l'agenda choisi ici.")
