@@ -21,6 +21,9 @@ final class CaptureCoordinator {
     private let island: IslandController
     private var activity: NSObjectProtocol?
     private var showTask: Task<Void, Never>?
+    private var workTask: Task<Void, Never>?
+    /// Incrémenté à chaque nouvelle capture : invalide les timers/états de la précédente.
+    private var generation = 0
 
     init(transcriber: Transcriber, parser: TaskParser, store: TaskStore,
          notifications: NotificationManager) {
@@ -32,22 +35,28 @@ final class CaptureCoordinator {
     }
 
     func begin() {
+        generation &+= 1               // nouvelle capture → invalide la précédente
+        showTask?.cancel()
+        workTask?.cancel()
         activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated], reason: "capture vocale")
         model.transcript = ""
         model.addedItems = []
         model.state = transcriber.isReady ? .listening : .preparing
         audio.start()
+        let gen = generation
         // Affiche l'îlot seulement après le seuil tap/hold (0,5s) : un appui bref (tap) n'affiche rien.
         showTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
-            guard !Task.isCancelled else { return }
-            self?.island.show()
+            guard let self, !Task.isCancelled, gen == self.generation else { return }
+            self.island.show()
         }
     }
 
     /// Appui bref : on jette la capture, rien n'est transcrit ni créé.
     func cancel() {
+        generation &+= 1
         showTask?.cancel()
+        workTask?.cancel()
         _ = audio.stop()
         endActivity()
         hide()
@@ -57,53 +66,60 @@ final class CaptureCoordinator {
         showTask?.cancel()
         let result = audio.stop()
         endActivity()
+        let gen = generation
 
         guard result.didDetectSpeech, let url = result.fileURL else {
-            flashError("Rien entendu", beep: true)
+            flashError("Rien entendu", beep: true, gen: gen)
             return
         }
 
         island.show()
         model.state = .transcribing
 
-        Task {
-            guard transcriber.isReady, let t = await transcriber.transcribe(path: url.path) else {
-                flashError("Transcription indisponible", beep: true)
+        workTask = Task { [weak self] in
+            guard let self else { return }
+            guard let t = await transcriber.transcribe(path: url.path), transcriber.isReady else {
+                self.flashError("Transcription indisponible", beep: true, gen: gen)
                 return
             }
+            guard gen == self.generation, !Task.isCancelled else { return }   // capture remplacée
 
             let verdict = HallucinationFilter.evaluate(
                 transcript: t.text, audioDuration: result.duration, avgLogProb: Double(t.avgLogProb)
             )
             guard case .accept = verdict else {
-                if case .reject(let reason) = verdict { flashError("Ignoré (\(reason))", beep: true) }
+                if case .reject(let reason) = verdict { self.flashError("Ignoré (\(reason))", beep: true, gen: gen) }
                 return
             }
 
             // 1) Affiche le texte transcrit.
-            model.transcript = t.text
-            model.state = .result
+            self.model.transcript = t.text
+            self.model.state = .result
 
             // 2) Routage (le texte reste visible pendant l'appel LLM).
-            let items = await route(transcript: t.text)
+            let items = await self.route(transcript: t.text)
+            guard gen == self.generation else { return }
 
             // 3) Garde le texte ~2s de plus.
             try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard gen == self.generation else { return }
 
-            // 4) Si rien à créer (LLM a jugé que ce n'est pas une vraie tâche) : on n'écrit rien.
+            // 4) Si rien à créer : on n'écrit rien.
             if items.isEmpty {
                 Self.appendDiscardedHistory(t.text)
-                model.state = .ignored
+                self.model.state = .ignored
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
-                hide()
+                guard gen == self.generation else { return }
+                self.hide()
                 return
             }
 
             // 5) Sinon, confirme l'ajout.
-            model.addedItems = items
-            model.state = .added
+            self.model.addedItems = items
+            self.model.state = .added
             try? await Task.sleep(nanoseconds: 2_200_000_000)
-            hide()
+            guard gen == self.generation else { return }
+            self.hide()
         }
     }
 
@@ -210,14 +226,16 @@ final class CaptureCoordinator {
 
     // MARK: - Privé
 
-    private func flashError(_ message: String, beep: Bool) {
+    private func flashError(_ message: String, beep: Bool, gen: Int) {
+        guard gen == generation else { return }
         if beep { NSSound.beep() }
         island.show()
         model.transcript = message
         model.state = .error
-        Task {
+        Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_800_000_000)
-            hide()
+            guard let self, gen == self.generation else { return }
+            self.hide()
         }
     }
 
