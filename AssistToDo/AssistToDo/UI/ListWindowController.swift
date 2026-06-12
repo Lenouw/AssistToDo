@@ -126,8 +126,11 @@ final class ListWindowController: NSObject, NSWindowDelegate {
         return NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main ?? NSScreen.screens[0]
     }
 
-    // Auto-fermeture quand le panneau perd le focus (clic ailleurs).
+    // Auto-fermeture au clic ailleurs UNIQUEMENT en mode liste.
+    // En Réglages, on reste ouvert (les dialogues de permission volent le focus).
     func windowDidResignKey(_ notification: Notification) {
-        panel?.orderOut(nil)
+        if modeModel.mode == .list {
+            panel?.orderOut(nil)
+        }
     }
 }
