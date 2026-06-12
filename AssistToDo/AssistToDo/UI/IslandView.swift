@@ -26,15 +26,13 @@ struct IslandView: View {
         }
         .frame(maxWidth: .infinity)
         .background {
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)   // flou
-                Rectangle().fill(.black.opacity(0.55)) // teinte noire translucide
-            }
-            .environment(\.colorScheme, .dark)
+            // Noir plein, opaque : l'îlot lit comme l'extension de l'encoche physique (pas un bouton gris).
+            Rectangle().fill(.black)
+                .environment(\.colorScheme, .dark)
         }
         .clipShape(shape)
-        .overlay(shape.strokeBorder(.white.opacity(0.10)))
-        .shadow(color: .black.opacity(0.35), radius: 12, y: 5)
+        .overlay(shape.strokeBorder(.white.opacity(0.06)))
+        .shadow(color: .black.opacity(0.45), radius: 12, y: 5)
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
