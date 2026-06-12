@@ -53,9 +53,11 @@ final class TaskStore: ObservableObject {
     // MARK: - Lecture
 
     func reload() {
-        purgeCalendarMirrors()
+        purgeExternalMirrors()
         let all = fetchAll().map { $0.toRecord() }
-        thoughts = all.filter { $0.destination != .calendar }
+        // Le second cerveau ne montre que les pensées ancrées dans l'app : rappels rapides (local)
+        // + vrais rappels (reminders). Courses (notes) et événements (calendar) vivent chez Apple.
+        thoughts = all.filter { $0.destination == .local || $0.destination == .reminders }
             .sorted { $0.createdAt > $1.createdAt }   // journal : plus récent en haut
         badgeCount = thoughts.filter { !$0.isDone }.count
     }
@@ -68,10 +70,10 @@ final class TaskStore: ObservableObject {
         todayReminders = reminders
     }
 
-    /// Le calendrier n'est plus affiché dans l'app : on purge les miroirs locaux d'events.
-    /// L'événement reste dans le Calendrier Apple (on ne touche jamais l'EKEvent ici).
-    private func purgeCalendarMirrors() {
-        let old = fetchAll().filter { $0.destinationRaw == "calendar" }
+    /// Calendrier et Notes ne sont plus affichés dans l'app : on purge leurs miroirs locaux.
+    /// Les items restent chez Apple (Calendrier / Notes) — on ne touche jamais l'original.
+    private func purgeExternalMirrors() {
+        let old = fetchAll().filter { $0.destinationRaw == "calendar" || $0.destinationRaw == "notes" }
         guard !old.isEmpty else { return }
         for e in old { context.delete(e) }
         save()

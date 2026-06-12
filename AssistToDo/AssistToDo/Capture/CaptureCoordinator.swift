@@ -212,26 +212,16 @@ final class CaptureCoordinator {
                     items.append(ToastItem(record: item.record, destination: .reminders, fellBack: true))
                 }
             case .notes:
-                let noteTarget = item.noteName ?? defaultNote
-                var noted = true
+                // La liste de courses vit UNIQUEMENT dans Apple Notes (pas dans l'app "second cerveau").
+                // On écrit dans la note configurée dans les Réglages (autoritaire) : on ignore le noteName
+                // deviné par le LLM, qui écrasait la note de l'utilisateur / en créait une parasite.
                 do {
-                    // Vraie bulle de checklist (simulation clavier).
-                    try await NotesService.shared.appendChecklistItem(item.record.text, noteName: noteTarget)
+                    try await NotesService.shared.append(item: item.record.text, noteName: defaultNote)
+                    items.append(ToastItem(record: item.record, destination: .notes, fellBack: false))
                 } catch {
-                    print("Checklist Notes KO (\(error)), fallback texte simple")
-                    do {
-                        try await NotesService.shared.append(item: item.record.text, noteName: noteTarget)
-                    } catch {
-                        print("Notes indisponibles (\(error)), fallback local")
-                        toStore.append(keepLocal(item.record))
-                        items.append(ToastItem(record: item.record, destination: .notes, fellBack: true))
-                        noted = false
-                    }
-                }
-                if noted {
-                    var r = item.record; r.destination = .notes   // miroir local → visible dans le flux
-                    toStore.append(r)
-                    items.append(ToastItem(record: r, destination: .notes, fellBack: false))
+                    print("Notes indisponibles (\(error)), fallback local")
+                    toStore.append(keepLocal(item.record))
+                    items.append(ToastItem(record: item.record, destination: .notes, fellBack: true))
                 }
             case .local:
                 toStore.append(keepLocal(item.record))

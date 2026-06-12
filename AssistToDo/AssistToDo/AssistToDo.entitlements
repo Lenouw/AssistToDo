@@ -15,7 +15,6 @@
 	<key>com.apple.security.temporary-exception.apple-events</key>
 	<array>
 		<string>com.apple.Notes</string>
-		<string>com.apple.systemevents</string>
 	</array>
 </dict>
 </plist>
