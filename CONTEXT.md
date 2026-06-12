@@ -48,6 +48,14 @@ Décisions clés et pourquoi :
 - [ ] Tests rollover heure d'été (UTC+2) et hiver (UTC+1)
 
 ## Idées / backlog (à explorer plus tard)
+- [ ] **Distribution + installateur GitHub + auto-update** (prochaine grosse session, demandé le 2026-06-12) :
+  - Build **Release** de l'app, versionner (MARKETING_VERSION / CURRENT_PROJECT_VERSION).
+  - Empaqueter en **DMG** (glisser vers /Applications) à mettre sur **GitHub Releases** pour le partager à un pote. Dépendances déjà statiquement liées dans le .app (pas de souci type FFMPEG).
+  - **Décision clé à trancher** : compte Apple Developer **payant** (99 $/an) ? Si OUI → **signer Developer ID + notariser** = le pote ouvre l'app sans alerte Gatekeeper. Si NON → app non notarisée, le pote doit faire clic-droit → Ouvrir (ou retirer la quarantaine). 
+  - **Modèle Whisper** : soit le bundler dans le .app (install 100% offline), soit garder le téléchargement au 1er run (réseau). À décider.
+  - Le pote devra entrer **sa propre clé OpenRouter** (config, pas une dépendance). Ou import du fichier de préférences.
+  - **Auto-update** : intégrer **Sparkle** (framework standard macOS) avec un **appcast** hébergé sur GitHub Releases (signature EdDSA des updates). Permet la MAJ auto + facile à publier.
+
 - [ ] **Connexion Apple Reminders** (sync bidirectionnelle via EventKit) — l'utilisateur veut pouvoir relier ses tâches AssistToDo à l'app Rappels d'Apple. Faisabilité à rechercher plus tard (EventKit `EKReminder`, permission Rappels). Pas urgent.
 - [ ] Récurrence vocale ("tous les lundis"), projets/recherche, récap matinal, extension Raycast, companion Apple Watch.
 - [ ] Undo capture : re-presser le raccourci dans les 3s annule la dernière tâche.
