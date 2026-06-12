@@ -150,7 +150,12 @@ final class CaptureCoordinator {
         }
 
         for item in routed {
-            let destination = routingOn ? item.destination : .local
+            var destination = routingOn ? item.destination : .local
+            // Filet de sécurité : un événement sans AUCUNE date/heure dictée ne va jamais
+            // sur "aujourd'hui" inventé. On le rétrograde en rappel (chose à ne pas oublier).
+            if destination == .calendar, item.record.dueDate == nil, item.record.remindAt == nil {
+                destination = .reminders
+            }
             switch destination {
             case .calendar:
                 do {
