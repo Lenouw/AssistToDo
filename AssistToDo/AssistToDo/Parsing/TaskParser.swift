@@ -47,7 +47,11 @@ struct TaskParser {
         let today = ParisCalendar.startOfDay(for: now)
         // LLM d'abord (calculé par tâche), DateResolver en filet sur le texte de la tâche.
         let remind = parseISODateTime(p.remindAtRaw) ?? DateResolver.resolveRemind(text: p.text, now: now)
-        let due = parseDay(p.dueDateRaw) ?? DateResolver.resolveDueDate(text: p.text, now: now) ?? today
+        let resolvedDue = parseDay(p.dueDateRaw) ?? DateResolver.resolveDueDate(text: p.text, now: now)
+        // On ne défaute à "aujourd'hui" QUE pour les tâches locales (liste du jour + rollover).
+        // Pour calendar/reminders/notes, dueDate reste nil si rien n'est dicté → pas de date inventée
+        // (et le filet de CaptureCoordinator peut rétrograder un event sans date en rappel).
+        let due = resolvedDue ?? (p.destination == .local ? today : nil)
         let notify = p.notify && remind != nil
 
         let record = TaskRecord(

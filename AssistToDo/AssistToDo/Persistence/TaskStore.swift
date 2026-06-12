@@ -46,6 +46,7 @@ final class TaskStore: ObservableObject {
             container = (try? ModelContainer(for: schema, configurations: config))
                 ?? { fatalError("Impossible de créer le store SwiftData") }()
         }
+        purgeExternalMirrors()   // nettoyage unique d'éventuels anciens miroirs calendar/notes
         runRolloverIfNeeded()
         reload()
     }
@@ -53,7 +54,6 @@ final class TaskStore: ObservableObject {
     // MARK: - Lecture
 
     func reload() {
-        purgeExternalMirrors()
         let all = fetchAll().map { $0.toRecord() }
         // Le second cerveau ne montre que les pensées ancrées dans l'app : rappels rapides (local)
         // + vrais rappels (reminders). Courses (notes) et événements (calendar) vivent chez Apple.

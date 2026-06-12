@@ -118,7 +118,9 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func snoozeTomorrow(_ taskId: UUID, _ title: String) {
-        guard let date = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: Date()) else { return }
+        // Demain 9h (Paris), pas "+24h à l'heure actuelle".
+        let tomorrow = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        guard let date = ParisCalendar.calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) else { return }
         let newId = scheduleNotification(taskId: taskId, title: title, at: date)
         Task { @MainActor in self.store.updateReminder(id: taskId, remindAt: date, notificationId: newId) }
     }

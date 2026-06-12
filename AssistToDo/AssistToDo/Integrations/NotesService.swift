@@ -88,11 +88,17 @@ final class NotesService {
         }
     }
 
-    /// Échappe le HTML (le body est interprété en HTML) + les guillemets de la string AppleScript.
+    /// Échappe pour insertion dans une string littérale AppleScript ET dans du HTML (body).
+    /// Ordre critique : backslash D'ABORD (sinon les `\` ajoutés par les autres étapes seraient ré-échappés),
+    /// puis guillemet (AppleScript), puis HTML, puis on neutralise les sauts de ligne (qui casseraient le source).
     private static func escape(_ s: String) -> String {
-        s.replacingOccurrences(of: "&", with: "&amp;")
+        s.replacingOccurrences(of: "\\", with: "\\\\")   // AppleScript : backslash
+         .replacingOccurrences(of: "\"", with: "\\\"")    // AppleScript : guillemet
+         .replacingOccurrences(of: "&", with: "&amp;")    // HTML
          .replacingOccurrences(of: "<", with: "&lt;")
          .replacingOccurrences(of: ">", with: "&gt;")
-         .replacingOccurrences(of: "\"", with: "\\\"")
+         .replacingOccurrences(of: "\r\n", with: " ")
+         .replacingOccurrences(of: "\n", with: " ")
+         .replacingOccurrences(of: "\r", with: " ")
     }
 }

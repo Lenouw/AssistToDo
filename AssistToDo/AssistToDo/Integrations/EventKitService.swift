@@ -97,8 +97,9 @@ final class EventKitService {
         guard reminder.calendar != nil else { throw RoutingError.noReminderList }
 
         if let due {
-            var comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: due)
-            comps.calendar = Calendar.current
+            var comps = ParisCalendar.calendar.dateComponents([.year, .month, .day, .hour, .minute], from: due)
+            comps.calendar = ParisCalendar.calendar
+            comps.timeZone = ParisCalendar.tz
             reminder.dueDateComponents = comps
             reminder.addAlarm(EKAlarm(absoluteDate: due))
         }
