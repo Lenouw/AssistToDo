@@ -84,16 +84,32 @@ final class ListWindowController: NSObject, NSWindowDelegate {
         guard let p = panel else { return }
         if p.isKeyWindow { return }   // déjà visible : juste changer de mode, pas de re-animation
         let target = rightFrame()
-        // Démarre hors écran à droite puis glisse vers l'intérieur.
-        let start = NSRect(x: target.maxX, y: target.minY, width: target.width, height: target.height)
+        // Démarre légèrement décalé à droite + transparent, puis glisse + fade en place.
+        let start = NSRect(x: target.minX + 28, y: target.minY, width: target.width, height: target.height)
         p.setFrame(start, display: false)
+        p.alphaValue = 0
         NSApp.activate(ignoringOtherApps: true)
         p.makeKeyAndOrderFront(nil)
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.22
+            ctx.duration = 0.28
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             p.animator().setFrame(target, display: true)
+            p.animator().alphaValue = 1
         }
+    }
+
+    /// Fade-out + slide léger vers la droite avant de masquer.
+    private func dismiss() {
+        guard let p = panel else { return }
+        let out = NSRect(x: p.frame.minX + 28, y: p.frame.minY, width: p.frame.width, height: p.frame.height)
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.2
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            p.animator().setFrame(out, display: true)
+            p.animator().alphaValue = 0
+        }, completionHandler: { [weak p] in
+            p?.orderOut(nil)
+        })
     }
 
     private func build() {
@@ -130,7 +146,7 @@ final class ListWindowController: NSObject, NSWindowDelegate {
     // En Réglages, on reste ouvert (les dialogues de permission volent le focus).
     func windowDidResignKey(_ notification: Notification) {
         if modeModel.mode == .list {
-            panel?.orderOut(nil)
+            dismiss()
         }
     }
 }
