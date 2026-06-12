@@ -46,12 +46,17 @@ final class SyncCoordinator {
             do {
                 // 1) Pousser les changements locaux (push avant pull, cf. spec §8).
                 let ops = self.store.collectPendingOps()
-                if !ops.isEmpty {
+                if ops.isEmpty {
+                    print("Sync Toudou: rien à pousser (0 op en attente)")
+                } else {
+                    print("Sync Toudou: push \(ops.count) op(s) → \(ops.map { "\($0.kind.rawValue):\($0.id.prefix(8))" }.joined(separator: ", "))")
                     let res = try await self.client.push(ops)
+                    print("Sync Toudou: réponse push \(res.applied.map { "\($0.id.prefix(8))=\($0.status)" }.joined(separator: ", "))")
                     self.store.applyPushApplied(res.applied)
                 }
                 // 2) Récupérer le delta serveur et l'appliquer au miroir local.
                 let pull = try await self.client.pull(since: self.lastServerTime)
+                if !pull.tasks.isEmpty { print("Sync Toudou: pull \(pull.tasks.count) tâche(s)") }
                 self.store.applyPulled(pull.tasks)
                 self.lastServerTime = pull.serverTime
             } catch {
