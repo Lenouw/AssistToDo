@@ -17,7 +17,7 @@ struct SettingsView: View {
     @AppStorage("routingEnabled") private var routingEnabled: Bool = true
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
-    @AppStorage("defaultNote") private var defaultNote: String = "Courses"
+    @AppStorage("defaultNote") private var defaultNote: String = "LISTE Courses MAISON 2026"
     @AppStorage("eventAlarmsEnabled") private var eventAlarmsEnabled: Bool = true
     @AppStorage("customRoutingRules") private var customRoutingRules: String = ""
     @AppStorage("calendar_perso") private var calendarPerso: String = ""

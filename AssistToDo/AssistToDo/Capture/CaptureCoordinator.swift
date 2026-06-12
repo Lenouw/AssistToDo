@@ -129,7 +129,7 @@ final class CaptureCoordinator {
         let routingOn = UserDefaults.standard.object(forKey: "routingEnabled") as? Bool ?? true
         let defaultCalendar = UserDefaults.standard.string(forKey: "defaultCalendar")
         let defaultList = UserDefaults.standard.string(forKey: "defaultReminderList")
-        let defaultNote = UserDefaults.standard.string(forKey: "defaultNote") ?? "Courses"
+        let defaultNote = UserDefaults.standard.string(forKey: "defaultNote") ?? "LISTE Courses MAISON 2026"
 
         let customRules = UserDefaults.standard.string(forKey: "customRoutingRules") ?? ""
         let routed = await parser.parse(
@@ -212,15 +212,26 @@ final class CaptureCoordinator {
                     items.append(ToastItem(record: item.record, destination: .reminders, fellBack: true))
                 }
             case .notes:
+                let noteTarget = item.noteName ?? defaultNote
+                var noted = true
                 do {
-                    try await NotesService.shared.append(item: item.record.text, noteName: item.noteName ?? defaultNote)
+                    // Vraie bulle de checklist (simulation clavier).
+                    try await NotesService.shared.appendChecklistItem(item.record.text, noteName: noteTarget)
+                } catch {
+                    print("Checklist Notes KO (\(error)), fallback texte simple")
+                    do {
+                        try await NotesService.shared.append(item: item.record.text, noteName: noteTarget)
+                    } catch {
+                        print("Notes indisponibles (\(error)), fallback local")
+                        toStore.append(keepLocal(item.record))
+                        items.append(ToastItem(record: item.record, destination: .notes, fellBack: true))
+                        noted = false
+                    }
+                }
+                if noted {
                     var r = item.record; r.destination = .notes   // miroir local → visible dans le flux
                     toStore.append(r)
                     items.append(ToastItem(record: r, destination: .notes, fellBack: false))
-                } catch {
-                    print("Notes indisponibles (\(error)), fallback local")
-                    toStore.append(keepLocal(item.record))
-                    items.append(ToastItem(record: item.record, destination: .notes, fellBack: true))
                 }
             case .local:
                 toStore.append(keepLocal(item.record))
