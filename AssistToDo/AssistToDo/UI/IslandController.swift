@@ -81,7 +81,7 @@ final class IslandController {
     /// Taille de la zone de contenu (sous l'encoche).
     private static func contentSize(for state: IslandState, items: Int) -> NSSize {
         switch state {
-        case .preparing, .listening, .transcribing, .error:
+        case .preparing, .listening, .transcribing, .error, .ignored:
             return NSSize(width: 320, height: 54)
         case .result:
             return NSSize(width: 380, height: 88)

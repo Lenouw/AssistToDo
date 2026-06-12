@@ -23,6 +23,7 @@ public enum ParsePromptBuilder {
         notify=true uniquement si une heure précise est demandée (ex "dans 2h", "à 18h").
         Découpe les phrases multi-tâches en plusieurs items. Nettoie le texte (orthographe, majuscule initiale).
         Utilise la valeur JSON null (pas la chaîne "null") quand un champ est absent.
+        Si la phrase n'est PAS une vraie tâche ou intention claire (bruit, hésitation type "euh", mots incompréhensibles, déclenchement accidentel, phrase vide de sens, ou l'utilisateur annule / dit que ce n'est rien), renvoie une liste vide : {"tasks":[]}. Ne force JAMAIS la création d'une tâche pour rien.
 
         Champ "destination", choisis par tâche :
         - "calendar" : rendez-vous, réunion, rdv (médecin, coiffeur...), appel planifié, événement avec un horaire de début précis. Renseigne remindAt = heure de début et durationMinutes (60 si inconnu). Classe-le avec calendarCategory : "pro" (travail, réunion, client, collègue, boulot), "commun" (couple, famille, conjoint, enfants, sortie à deux, partagé), "perso" (rendez-vous personnels : médecin, sport, administratif perso). Si l'utilisateur nomme un agenda explicite ("dans mon agenda X"), mets-le aussi dans calendarName.

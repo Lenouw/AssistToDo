@@ -76,6 +76,8 @@ struct IslandView: View {
                 }
             }
             .padding(.horizontal, 18).padding(.vertical, 10)
+        case .ignored:
+            row(dot: .gray, text: "Rien à ajouter")
         case .error:
             row(dot: .red, text: model.transcript.isEmpty ? "Rien entendu" : model.transcript)
         }

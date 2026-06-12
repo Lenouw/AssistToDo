@@ -14,6 +14,7 @@ enum IslandState {
     case transcribing // traitement
     case result       // texte transcrit affiché
     case added        // confirmation "ajouté"
+    case ignored      // pas une vraie tâche → rien créé
     case error        // rien entendu / échec
 }
 

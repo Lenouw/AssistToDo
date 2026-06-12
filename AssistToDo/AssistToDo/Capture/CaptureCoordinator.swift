@@ -87,12 +87,21 @@ final class CaptureCoordinator {
             // 2) Routage (le texte reste visible pendant l'appel LLM).
             let items = await route(transcript: t.text)
 
-            // 3) Garde le texte ~2s de plus, puis confirme l'ajout.
+            // 3) Garde le texte ~2s de plus.
             try? await Task.sleep(nanoseconds: 2_000_000_000)
+
+            // 4) Si rien à créer (LLM a jugé que ce n'est pas une vraie tâche) : on n'écrit rien.
+            if items.isEmpty {
+                Self.appendDiscardedHistory(t.text)
+                model.state = .ignored
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                hide()
+                return
+            }
+
+            // 5) Sinon, confirme l'ajout.
             model.addedItems = items
             model.state = .added
-
-            // 4) Laisse la confirmation visible, puis ferme.
             try? await Task.sleep(nanoseconds: 2_200_000_000)
             hide()
         }
@@ -205,5 +214,16 @@ final class CaptureCoordinator {
             ProcessInfo.processInfo.endActivity(activity)
             self.activity = nil
         }
+    }
+
+    /// Garde les captures ignorées en historique (texte), sans rien créer. Cappé à 50.
+    private static func appendDiscardedHistory(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var history = UserDefaults.standard.stringArray(forKey: "discardedHistory") ?? []
+        history.append(trimmed)
+        if history.count > 50 { history.removeFirst(history.count - 50) }
+        UserDefaults.standard.set(history, forKey: "discardedHistory")
+        print("Capture ignorée (rien créé) : \(trimmed)")
     }
 }

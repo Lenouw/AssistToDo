@@ -30,9 +30,10 @@ struct TaskParser {
         do {
             let content = try await client.complete(system: system, user: transcript)
             let parsed = try ParseResponseDecoder.decode(content)
-            guard !parsed.isEmpty else { return [rawFallback(transcript, now: now)] }
+            // Vide = le LLM a jugé que ce n'est pas une vraie tâche → on ne crée rien.
             return parsed.map { routed(from: $0, transcript: transcript, now: now) }
         } catch {
+            // Échec réseau/décodage : on ne peut pas juger → on garde le texte brut (jamais perdu).
             print("Parse échoué, fallback texte brut : \(error)")
             return [rawFallback(transcript, now: now)]
         }
