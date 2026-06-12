@@ -2,36 +2,32 @@
 //  CaptureModel.swift
 //  AssistToDo
 //
-//  État du HUD de capture (toujours doublé en texte pour l'accessibilité).
+//  État de l'îlot (notch) qui enchaîne écoute → transcription → ajout.
 //
 
 import SwiftUI
+import AssistToDoCore
 
-enum CaptureState {
-    case preparing   // micro en cours d'armement
-    case listening   // prêt, en écoute
-    case finishing   // relâché, traitement
+enum IslandState {
+    case preparing    // micro en armement
+    case listening    // écoute (ondes)
+    case transcribing // traitement
+    case result       // texte transcrit affiché
+    case added        // confirmation "ajouté"
+    case error        // rien entendu / échec
+}
 
-    var label: String {
-        switch self {
-        case .preparing: return "Préparation…"
-        case .listening: return "Parle, je t'écoute"
-        case .finishing: return "Traitement…"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .preparing: return .yellow
-        case .listening: return .green
-        case .finishing: return .orange
-        }
-    }
+/// Un item ajouté, avec sa destination (pour la confirmation dans l'îlot).
+struct ToastItem: Identifiable {
+    let id = UUID()
+    let record: TaskRecord
+    let destination: Destination
+    let fellBack: Bool
 }
 
 @MainActor
 final class CaptureModel: ObservableObject {
-    @Published var state: CaptureState = .preparing
-    /// Texte affiché dans le HUD (transcription ou message d'état).
-    @Published var transcript: String = ""
+    @Published var state: IslandState = .preparing
+    @Published var transcript: String = ""       // texte reconnu ou message
+    @Published var addedItems: [ToastItem] = []
 }

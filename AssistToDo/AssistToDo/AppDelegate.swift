@@ -13,7 +13,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkey: HotkeyManager!
     private var transcriber: Transcriber!
     private var notifications: NotificationManager!
-    private var toast: ToastController!
     private var capture: CaptureCoordinator!
     private var onboarding: OnboardingController!
     private var pressStart: TimeInterval?
@@ -47,11 +46,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Le store annule/replanifie les notifs lors des suppressions et reports (swipe).
         store.onCancelNotification = { [weak self] id in self?.notifications.cancel(id: id) }
         store.onScheduleReminder = { [weak self] record in self?.notifications.schedule(for: record) }
-        toast = ToastController()
         let parser = TaskParser(client: OpenRouterClient(model: llmModel))
         capture = CaptureCoordinator(
             transcriber: transcriber, parser: parser, store: store,
-            notifications: notifications, toast: toast
+            notifications: notifications
         )
         hotkey = HotkeyManager()
         hotkey.onPressStart = { [weak self] in
