@@ -65,6 +65,17 @@ final class NotesService {
         }.value
     }
 
+    /// Déclenche les invites TCC Automation (contrôler System Events + Notes) sans rien modifier.
+    func probeAccess() async {
+        await Task.detached(priority: .userInitiated) {
+            let src = """
+            tell application "System Events" to get name of first process
+            tell application "Notes" to count notes
+            """
+            if let s = NSAppleScript(source: src) { var e: NSDictionary?; s.executeAndReturnError(&e) }
+        }.value
+    }
+
     private static func runChecklist(item: String, noteName: String) throws {
         let title = asEscape(noteName)
         let line = asEscape(item)

@@ -7,6 +7,8 @@
 //
 
 import SwiftUI
+import AppKit
+import ApplicationServices
 import AVFoundation
 import ServiceManagement
 import UserNotifications
@@ -32,6 +34,7 @@ struct SettingsView: View {
     @State private var launchAtLogin: Bool = false
     @State private var micStatus: AVAuthorizationStatus = .notDetermined
     @State private var notifAuthorized: Bool = false
+    @State private var accessibilityTrusted: Bool = false
 
     @State private var calendarAccess = false
     @State private var remindersAccess = false
@@ -117,7 +120,17 @@ struct SettingsView: View {
                         Button(loadingNotes ? "…" : "Charger") { loadNotes() }
                             .disabled(loadingNotes)
                     }
-                    Text("Les courses dictées sont ajoutées à cette note Apple. « Charger » liste tes notes (demande l'accès à Notes).")
+                    Text("Les courses dictées sont ajoutées à cette note Apple comme de vraies cases à cocher. « Charger » liste tes notes (demande l'accès à Notes).")
+                        .font(.caption).foregroundStyle(.secondary)
+
+                    // Permissions spécifiques à la frappe en checklist (Accessibilité + Automation).
+                    permissionRow("Accessibilité (cases à cocher)", granted: accessibilityTrusted) { requestAccessibility() }
+                    HStack {
+                        Text("Automation Notes")
+                        Spacer()
+                        Button("Vérifier / autoriser") { probeNotesAutomation() }
+                    }
+                    Text("Pour écrire les courses en cases à cocher, l'app simule le clavier dans Notes : ça demande l'Accessibilité (frappe) et l'Automation (contrôler Notes). Autorise les deux, puis valide dans Réglages Système.")
                         .font(.caption).foregroundStyle(.secondary)
 
                     Text("Cible précise possible à la voix : « dans mon calendrier BoulouFlo », « dans ma liste Courses », « dans ma note Maison ».")
@@ -217,6 +230,29 @@ struct SettingsView: View {
         remindersAccess = EventKitService.shared.hasRemindersAccess
         calendars = EventKitService.shared.calendarTitles
         reminderLists = EventKitService.shared.reminderListTitles
+        accessibilityTrusted = AXIsProcessTrusted()
+    }
+
+    /// Demande l'accès Accessibilité (affiche l'invite système) et ouvre le panneau si refusé.
+    private func requestAccessibility() {
+        let key = kAXTrustedCheckOptionPrompt.takeRetainedValue() as String
+        let trusted = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+        accessibilityTrusted = trusted
+        if !trusted, let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// Déclenche les invites Automation (System Events + Notes) puis ouvre le panneau Automation.
+    private func probeNotesAutomation() {
+        Task {
+            await NotesService.shared.probeAccess()
+            await MainActor.run {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
     }
 
     private func requestCalendar() {
