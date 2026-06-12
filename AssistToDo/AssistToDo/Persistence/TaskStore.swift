@@ -61,11 +61,28 @@ final class TaskStore: ObservableObject {
         // Vidage de cerveau : local "braindump" + Rappels Apple. (Courses/notes et events vivent chez Apple.)
         thoughts = all.filter {
             ($0.destination == .local && $0.localList == .braindump) || $0.destination == .reminders
-        }.sorted { $0.createdAt > $1.createdAt }
+        }.sorted(by: Self.manualOrder)
         // To-do Claude Code : local "code".
         codeTasks = all.filter { $0.destination == .local && $0.localList == .code }
-            .sorted { $0.createdAt > $1.createdAt }
+            .sorted(by: Self.manualOrder)
         badgeCount = thoughts.filter { !$0.isDone }.count
+    }
+
+    /// Ordre d'affichage : ordre manuel (orderIndex croissant), à égalité le plus récent en haut.
+    private static func manualOrder(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
+        a.orderIndex != b.orderIndex ? a.orderIndex < b.orderIndex : a.createdAt > b.createdAt
+    }
+
+    /// Réordonne (glisser) une sous-liste locale : applique l'ordre affiché. Local-only (l'ordre ne se synchronise pas).
+    func reorderLocal(orderedIds: [UUID]) {
+        let byId = Dictionary(fetchAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        for (index, id) in orderedIds.enumerated() { byId[id]?.orderIndex = index }
+        save(); reload()
+    }
+
+    /// Prochain orderIndex pour insérer EN HAUT (plus petit que tous les locaux existants).
+    private func topOrderIndex() -> Int {
+        (fetchAll().filter { $0.destinationRaw == "local" }.map { $0.orderIndex }.min() ?? 0) - 1
     }
 
     /// Synchronisable avec Toudou = to-do locale sans rappel minuté. Les deux sous-listes
@@ -82,7 +99,7 @@ final class TaskStore: ObservableObject {
         let from = LocalList(rawValue: e.localListRaw) ?? .braindump
         guard from != list else { return }
 
-        let nextOrder = (fetchAll().filter { $0.destinationRaw == "local" }.map { $0.orderIndex }.max() ?? -1) + 1
+        let nextOrder = topOrderIndex()
         let copy = TaskEntity(id: UUID(), text: e.text, createdAt: e.createdAt, dueDate: e.dueDate, remindAt: nil,
                               notify: false, notificationId: nil, priorityRaw: e.priorityRaw, tags: e.tags,
                               isDone: e.isDone, doneAt: e.doneAt, rolloverCount: e.rolloverCount,
@@ -128,9 +145,9 @@ final class TaskStore: ObservableObject {
     // MARK: - Création
 
     func add(_ records: [TaskRecord]) {
-        var nextOrder = (fetchAll().filter { $0.destinationRaw == "local" }.map { $0.orderIndex }.max() ?? -1) + 1
+        var nextTop = topOrderIndex()   // nouvelles captures insérées en haut
         for var r in records {
-            if r.destination == .local { r.orderIndex = nextOrder; nextOrder += 1 }
+            if r.destination == .local { r.orderIndex = nextTop; nextTop -= 1 }
             let e = TaskEntity(record: r)
             context.insert(e)
             // Nouvelle to-do "vide-tête" → à créer sur Toudou (remoteKnown reste false → op create).
@@ -293,7 +310,7 @@ final class TaskStore: ObservableObject {
         guard !tasks.isEmpty else { return }
         let byId = Dictionary(fetchAll().map { ($0.id.uuidString, $0) }, uniquingKeysWith: { a, _ in a })
         let today = ParisCalendar.startOfDay(for: Date())
-        var nextOrder = (fetchAll().filter { $0.destinationRaw == "local" }.map { $0.orderIndex }.max() ?? -1) + 1
+        var nextTop = topOrderIndex()   // nouveaux miroirs Toudou insérés en haut
 
         for w in tasks {
             if let e = byId[w.id] {
@@ -315,13 +332,13 @@ final class TaskStore: ObservableObject {
                                    notify: false, notificationId: nil, priorityRaw: nil, tags: [],
                                    isDone: w.done, doneAt: w.done ? Date() : nil, rolloverCount: 0,
                                    rawTranscript: w.text, parseStatusRaw: "parsed",
-                                   destinationRaw: "local", externalId: nil, orderIndex: nextOrder)
+                                   destinationRaw: "local", externalId: nil, orderIndex: nextTop)
                 e.localListRaw = list.rawValue   // place le miroir dans la bonne sous-liste (braindump/code)
                 e.updatedAt = w.updatedAt
                 e.remoteKnown = true
                 e.syncDirty = false
                 context.insert(e)
-                nextOrder += 1
+                nextTop -= 1
             }
         }
         save(); reload()

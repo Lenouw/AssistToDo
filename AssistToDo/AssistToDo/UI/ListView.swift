@@ -2,13 +2,15 @@
 //  ListView.swift
 //  AssistToDo
 //
-//  Panneau "second cerveau" : flux permanent des pensées vocales ancrées dans l'app
-//  (📌 ma liste/idées · 🔔 rappels · 📝 notes), du plus récent au plus ancien.
-//  Le calendrier n'y figure jamais (les events vivent dans le Calendrier Apple).
-//  En bas, un agenda discret du jour (Rappels + Calendrier iCloud), lecture seule.
+//  Panneau "second cerveau" en 3 zones redimensionnables (séparateurs déplaçables,
+//  scroll interne par zone) :
+//   1. Vidage de cerveau (local braindump + Rappels Apple) — réordonnable au glisser
+//   2. To-do Claude Code (local code) — réordonnable au glisser
+//   3. Aujourd'hui · iCloud (events + rappels du jour, lecture seule)
 //
 
 import SwiftUI
+import AppKit
 import AssistToDoCore
 
 struct ListView: View {
@@ -18,37 +20,153 @@ struct ListView: View {
     @State private var editingId: UUID?
     @State private var editText = ""
 
+    // Hauteurs des zones (persistées). La zone du milieu (Code) prend le reste.
+    @AppStorage("paneBrainH") private var brainH: Double = 300
+    @AppStorage("paneTodayH") private var todayH: Double = 120
+    @State private var dragBaseBrain: Double?
+    @State private var dragBaseToday: Double?
+
+    private let handleH: CGFloat = 14
+    private let minPane: CGFloat = 60
+
+    private var isEmpty: Bool {
+        store.thoughts.isEmpty && store.codeTasks.isEmpty
+            && store.todayEvents.isEmpty && store.todayReminders.isEmpty
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-
-            if store.thoughts.isEmpty && store.codeTasks.isEmpty {
+            if isEmpty {
                 emptyState
             } else {
-                List {
-                    Section { ForEach(store.thoughts) { thoughtRow($0) } }
-                    if !store.codeTasks.isEmpty {
-                        Section {
-                            ForEach(store.codeTasks) { thoughtRow($0) }
-                        } header: {
-                            Label("Claude Code", systemImage: "chevron.left.forwardslash.chevron.right")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: store.thoughts)
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: store.codeTasks)
+                GeometryReader { geo in panes(in: geo.size.height) }
             }
-
-            todaySection
-
-            Text("Build \(BuildInfo.date)")
-                .font(.system(size: 9)).foregroundStyle(.tertiary)
-                .padding(.horizontal, 14).padding(.bottom, 8).padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task { await store.refreshToday() }
+    }
+
+    // MARK: - Zones redimensionnables
+
+    @ViewBuilder
+    private func panes(in total: CGFloat) -> some View {
+        let avail = max(total - 2 * handleH, minPane * 3)
+        let tH = min(max(CGFloat(todayH), minPane), avail - 2 * minPane)
+        let bH = min(max(CGFloat(brainH), minPane), avail - tH - minPane)
+        let cH = avail - bH - tH
+
+        VStack(spacing: 0) {
+            pane(title: "Vidage de cerveau", systemImage: "brain", count: store.thoughts.count, height: bH) {
+                taskList(store.thoughts, move: moveBrain)
+            }
+            handle(base: $dragBaseBrain, value: $brainH, lower: minPane, upper: avail - CGFloat(todayH) - minPane)
+            pane(title: "Claude Code", systemImage: "chevron.left.forwardslash.chevron.right", count: store.codeTasks.count, height: cH) {
+                if store.codeTasks.isEmpty { paneHint("Dicte « Claude Code : … » pour ajouter ici") }
+                else { taskList(store.codeTasks, move: moveCode) }
+            }
+            handle(base: $dragBaseToday, value: $todayH, lower: minPane, upper: avail - CGFloat(brainH) - minPane, inverted: true)
+            pane(title: "Aujourd'hui · iCloud", systemImage: "calendar", count: store.todayEvents.count + store.todayReminders.count, height: tH) {
+                todayContent
+            }
+        }
+    }
+
+    /// Une zone : barre de titre fine + contenu qui remplit la hauteur allouée.
+    private func pane<Content: View>(title: String, systemImage: String, count: Int, height: CGFloat,
+                                     @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage).font(.system(size: 10)).foregroundStyle(.tertiary)
+                Text(title.uppercased()).font(.system(size: 9, weight: .semibold)).tracking(0.5).foregroundStyle(.tertiary)
+                if count > 0 { Text("\(count)").font(.system(size: 9)).foregroundStyle(.quaternary) }
+                Spacer()
+            }
+            .padding(.horizontal, 14).padding(.top, 6).padding(.bottom, 2)
+            content()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .frame(height: height)
+        .clipped()
+    }
+
+    private func paneHint(_ text: String) -> some View {
+        Text(text).font(.caption).foregroundStyle(.quaternary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Séparateur déplaçable. `inverted` = glisser vers le bas réduit la zone (cas de la zone du bas).
+    private func handle(base: Binding<Double?>, value: Binding<Double>, lower: CGFloat, upper: CGFloat, inverted: Bool = false) -> some View {
+        ZStack {
+            Rectangle().fill(.clear)
+            Capsule().fill(.secondary.opacity(0.35)).frame(width: 36, height: 4)
+        }
+        .frame(height: handleH)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .onHover { NSCursor.resizeUpDown.set(); if !$0 { NSCursor.arrow.set() } }
+        .gesture(
+            DragGesture()
+                .onChanged { v in
+                    if base.wrappedValue == nil { base.wrappedValue = value.wrappedValue }
+                    let delta = Double(inverted ? -v.translation.height : v.translation.height)
+                    let proposed = (base.wrappedValue ?? value.wrappedValue) + delta
+                    value.wrappedValue = min(max(proposed, Double(lower)), Double(upper))
+                }
+                .onEnded { _ in base.wrappedValue = nil }
+        )
+    }
+
+    // MARK: - Listes réordonnables
+
+    private func taskList(_ tasks: [TaskRecord], move: @escaping (IndexSet, Int) -> Void) -> some View {
+        List {
+            ForEach(tasks) { thoughtRow($0) }
+                .onMove(perform: move)
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: tasks)
+    }
+
+    private func moveBrain(_ offsets: IndexSet, _ destination: Int) {
+        var ids = store.thoughts.map { $0.id }
+        ids.move(fromOffsets: offsets, toOffset: destination)
+        store.reorderLocal(orderedIds: ids)
+    }
+    private func moveCode(_ offsets: IndexSet, _ destination: Int) {
+        var ids = store.codeTasks.map { $0.id }
+        ids.move(fromOffsets: offsets, toOffset: destination)
+        store.reorderLocal(orderedIds: ids)
+    }
+
+    // MARK: - Zone du jour (lecture seule)
+
+    private var todayContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(store.todayEvents) { todayRow($0, icon: "calendar", tint: .blue) }
+                ForEach(store.todayReminders) { todayRow($0, icon: "bell", tint: .orange) }
+                if store.todayEvents.isEmpty && store.todayReminders.isEmpty {
+                    Text("Rien aujourd'hui").font(.caption).foregroundStyle(.quaternary)
+                }
+            }
+            .padding(.horizontal, 14).padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func todayRow(_ item: TodayItem, icon: String, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).font(.caption).foregroundStyle(tint).frame(width: 14)
+            if let date = item.date {
+                Text(Self.hm.string(from: date)).font(.system(size: 11).monospacedDigit()).foregroundStyle(.secondary)
+            } else {
+                Text("journée").font(.system(size: 11)).foregroundStyle(.tertiary)
+            }
+            Text(item.title).font(.system(size: 12)).foregroundStyle(.primary).lineLimit(1)
+            Spacer(minLength: 0)
+        }
     }
 
     // MARK: - En-tête
@@ -56,8 +174,7 @@ struct ListView: View {
     private var header: some View {
         HStack(spacing: 9) {
             Image(systemName: "brain")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.tint)
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(.tint)
                 .frame(width: 26, height: 26)
                 .background(.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 7))
             VStack(alignment: .leading, spacing: 1) {
@@ -73,38 +190,6 @@ struct ListView: View {
         .overlay(alignment: .bottom) { Divider() }
     }
 
-    // MARK: - Zone "Aujourd'hui · iCloud" (lecture seule)
-
-    @ViewBuilder
-    private var todaySection: some View {
-        if !store.todayEvents.isEmpty || !store.todayReminders.isEmpty {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("AUJOURD'HUI · ICLOUD")
-                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
-                    .tracking(0.5)
-                ForEach(store.todayEvents) { todayRow($0, icon: "calendar", tint: .blue) }
-                ForEach(store.todayReminders) { todayRow($0, icon: "bell", tint: .orange) }
-            }
-            .padding(.horizontal, 14).padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.4))
-        }
-    }
-
-    private func todayRow(_ item: TodayItem, icon: String, tint: Color) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon).font(.caption).foregroundStyle(tint).frame(width: 14)
-            if let date = item.date {
-                Text(Self.hm.string(from: date))
-                    .font(.system(size: 11).monospacedDigit()).foregroundStyle(.secondary)
-            } else {
-                Text("journée").font(.system(size: 11)).foregroundStyle(.tertiary)
-            }
-            Text(item.title).font(.system(size: 12)).foregroundStyle(.primary).lineLimit(1)
-            Spacer(minLength: 0)
-        }
-    }
-
     private var emptyState: some View {
         VStack(spacing: 8) {
             Spacer()
@@ -116,7 +201,7 @@ struct ListView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Rangée du flux
+    // MARK: - Rangée d'une pensée
 
     @ViewBuilder
     private func thoughtRow(_ task: TaskRecord) -> some View {
@@ -137,16 +222,13 @@ struct ListView: View {
                     }
                     if task.destination == .local {
                         Button { store.moveToList(id: task.id, to: task.localList == .code ? .braindump : .code) } label: {
-                            Label(task.localList == .code ? "Vidage de cerveau" : "Claude Code",
-                                  systemImage: "arrow.left.arrow.right")
+                            Label(task.localList == .code ? "Vidage de cerveau" : "Claude Code", systemImage: "arrow.left.arrow.right")
                         }.tint(.purple)
                     }
                 }
                 .contextMenu {
                     Button(task.isDone ? "Marquer non faite" : "Marquer faite") { store.toggleDone(id: task.id) }
-                    if task.destination != .reminders {
-                        Button("Modifier") { startEditing(task) }
-                    }
+                    if task.destination != .reminders { Button("Modifier") { startEditing(task) } }
                     if task.destination == .local {
                         Button(task.localList == .code ? "Déplacer vers Vidage de cerveau" : "Déplacer vers Claude Code") {
                             store.moveToList(id: task.id, to: task.localList == .code ? .braindump : .code)
@@ -156,9 +238,7 @@ struct ListView: View {
                     Divider()
                     Button("Supprimer", role: .destructive) { store.delete(id: task.id) }
                 }
-                .onTapGesture(count: 2) {
-                    if task.destination != .reminders { startEditing(task) }
-                }
+                .onTapGesture(count: 2) { if task.destination != .reminders { startEditing(task) } }
         }
     }
 
@@ -174,19 +254,10 @@ struct ListView: View {
         .onExitCommand { editingId = nil }
     }
 
-    // MARK: - Actions
+    private func startEditing(_ task: TaskRecord) { editText = task.text; editingId = task.id }
+    private func commitEdit(_ task: TaskRecord) { store.updateText(id: task.id, text: editText); editingId = nil }
 
-    private func startEditing(_ task: TaskRecord) {
-        editText = task.text
-        editingId = task.id
-    }
-
-    private func commitEdit(_ task: TaskRecord) {
-        store.updateText(id: task.id, text: editText)
-        editingId = nil
-    }
-
-    // MARK: - Libellé temporel compact
+    // MARK: - Libellé temporel
 
     static func timeLabel(_ r: TaskRecord) -> String {
         let d = r.remindAt ?? r.createdAt
@@ -256,10 +327,9 @@ private struct ThoughtRow: View {
         case .local: return "pin.fill"
         case .reminders: return "bell.fill"
         case .notes: return "note.text"
-        case .calendar: return "calendar"   // jamais affiché dans le flux
+        case .calendar: return "calendar"
         }
     }
-
     static func tint(_ d: Destination) -> Color {
         switch d {
         case .local: return .gray
