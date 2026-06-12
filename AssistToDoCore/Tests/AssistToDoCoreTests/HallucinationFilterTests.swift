@@ -21,4 +21,14 @@ final class HallucinationFilterTests: XCTestCase {
         let v = HallucinationFilter.evaluate(transcript: "appeler le médecin dans deux heures", audioDuration: 2.5, avgLogProb: -0.3)
         XCTAssertEqual(v, .accept)
     }
+
+    func test_rejette_filler_only() {
+        let v = HallucinationFilter.evaluate(transcript: "euh hmm bah voilà", audioDuration: 2.0, avgLogProb: -0.2)
+        XCTAssertEqual(v, .reject(.noContent))
+    }
+
+    func test_accepte_un_seul_vrai_mot() {
+        let v = HallucinationFilter.evaluate(transcript: "pain", audioDuration: 2.0, avgLogProb: -0.3)
+        XCTAssertEqual(v, .accept)
+    }
 }
