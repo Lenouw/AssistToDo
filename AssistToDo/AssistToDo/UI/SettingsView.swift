@@ -44,7 +44,15 @@ struct SettingsView: View {
     @State private var calendars: [String] = []
     @State private var reminderLists: [String] = []
 
-    private let models = ["tiny", "base", "small"]
+    // (slug WhisperKit exact, libellé). Slugs vérifiés sur le repo argmaxinc/whisperkit-coreml.
+    private let models: [(slug: String, label: String)] = [
+        ("tiny", "Tiny · ultra rapide, basique"),
+        ("base", "Base · rapide (défaut)"),
+        ("small", "Small · plus précis"),
+        ("distil-whisper_distil-large-v3_turbo", "Distil Large v3 Turbo · précis, assez rapide"),
+        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · très précis, plus lent"),
+        ("openai_whisper-large-v3", "Large v3 · précision max, le plus lent")
+    ]
 
     var body: some View {
         Form {
@@ -56,9 +64,9 @@ struct SettingsView: View {
 
             Section("Transcription") {
                 Picker("Modèle Whisper", selection: $whisperModel) {
-                    ForEach(models, id: \.self) { Text($0).tag($0) }
+                    ForEach(models, id: \.slug) { Text($0.label).tag($0.slug) }
                 }
-                Text("base = bon compromis vitesse/qualité. Changement pris en compte au redémarrage.")
+                Text("Plus le modèle est gros, plus c'est précis mais lent (et lourd à télécharger au 1er usage). Les « Large » comprennent mieux les mots rares. Changement pris en compte au redémarrage.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

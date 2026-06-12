@@ -28,10 +28,12 @@ final class Transcriber: ObservableObject {
 
     private func load() async {
         do {
-            let config = WhisperKitConfig(model: model)
+            // prewarm=true : spécialise le modèle au lancement (en tâche de fond) pour que la
+            // 1ʳᵉ capture ne paie pas la compilation CoreML/chauffe Neural Engine (corrige le démarrage à froid).
+            let config = WhisperKitConfig(model: model, prewarm: true)
             whisper = try await WhisperKit(config)
             isReady = true
-            print("WhisperKit prêt (modèle \(model))")
+            print("WhisperKit prêt (modèle \(model), prewarm)")
         } catch {
             print("Erreur init WhisperKit: \(error)")
         }

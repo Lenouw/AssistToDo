@@ -2,7 +2,9 @@
 
 Phase de TEST en cours (Florian dicte des captures réelles, on relève les patterns). Fixes à appliquer ensuite.
 
-## Bug A — deadline arrachée du texte (À FIXER, priorité)
+État (2026-06-13) : ✅ Bug A corrigé (commit 94ad4ef) · ✅ Feature modèles Whisper supérieurs (picker) · ✅ Bug D prewarm · Bug B skip (non prioritaire). Rebuild Xcode pour tester en réel.
+
+## Bug A — deadline arrachée du texte (✅ FIXÉ)
 Cas réel : dicté « fais-moi penser à annuler mon abonnement TeuxDeux avant le 9 juillet » → écrit « Annuler abonnement application T2 » (le « avant le 9 juillet » a disparu).
 - Attendu : tâche **locale**, deadline gardée **littéralement dans le texte** (« ...avant le 9 juillet »), **aucun** event calendrier ni rappel timé.
 - Cause : `ParsePromptBuilder.systemPrompt` extrait toute date en `dueDate`/`remindAt` + « Nettoie le texte » → la mention de date est retirée du `text`. Et un « quand » explicite pousse vers `reminders`.
