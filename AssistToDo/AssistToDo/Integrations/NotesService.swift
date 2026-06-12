@@ -56,8 +56,12 @@ final class NotesService {
     }
 
     private static func run(item: String, noteName: String) throws {
-        let title = escape(noteName)
-        let line = escape(item)
+        // Lookup par NOM EN CLAIR → échappement AppleScript seul (pas de HTML, sinon "Lait & Pain"
+        // deviendrait "Lait &amp; Pain" et ne matcherait jamais → doublon recréé à chaque ajout).
+        let titleLookup = escapeAS(noteName)
+        // Contenu inséré dans le body HTML → échappement AppleScript + HTML.
+        let titleHTML = escapeHTML(noteName)
+        let line = escapeHTML(item)
         // Un <div> = une ligne propre dans Notes (pas de double saut comme avec <br><br>).
         let source = """
         tell application "Notes"
@@ -67,11 +71,11 @@ final class NotesService {
             end try
             if acc is missing value then set acc to account 1
             tell acc
-                if (exists note named "\(title)") then
-                    set theNote to note named "\(title)"
+                if (exists note named "\(titleLookup)") then
+                    set theNote to note named "\(titleLookup)"
                     set body of theNote to (body of theNote) & "<div>\(line)</div>"
                 else
-                    make new note with properties {body:"<div>\(title)</div><div>\(line)</div>"}
+                    make new note with properties {body:"<div>\(titleHTML)</div><div>\(line)</div>"}
                 end if
             end tell
         end tell
@@ -88,17 +92,23 @@ final class NotesService {
         }
     }
 
-    /// Échappe pour insertion dans une string littérale AppleScript ET dans du HTML (body).
-    /// Ordre critique : backslash D'ABORD (sinon les `\` ajoutés par les autres étapes seraient ré-échappés),
-    /// puis guillemet (AppleScript), puis HTML, puis on neutralise les sauts de ligne (qui casseraient le source).
-    private static func escape(_ s: String) -> String {
-        s.replacingOccurrences(of: "\\", with: "\\\\")   // AppleScript : backslash
-         .replacingOccurrences(of: "\"", with: "\\\"")    // AppleScript : guillemet
-         .replacingOccurrences(of: "&", with: "&amp;")    // HTML
-         .replacingOccurrences(of: "<", with: "&lt;")
-         .replacingOccurrences(of: ">", with: "&gt;")
+    /// Échappe pour une string littérale AppleScript : backslash D'ABORD (sinon les `\` ajoutés
+    /// ensuite seraient ré-échappés), puis guillemet, puis neutralisation des sauts de ligne.
+    /// À utiliser pour un NOM EN CLAIR (lookup `note named`), JAMAIS d'échappement HTML ici.
+    private static func escapeAS(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\")
+         .replacingOccurrences(of: "\"", with: "\\\"")
          .replacingOccurrences(of: "\r\n", with: " ")
          .replacingOccurrences(of: "\n", with: " ")
          .replacingOccurrences(of: "\r", with: " ")
+    }
+
+    /// Échappe pour insertion dans le body HTML d'une note (lui-même dans une string AppleScript) :
+    /// AppleScript d'abord (backslash, guillemet), puis entités HTML.
+    private static func escapeHTML(_ s: String) -> String {
+        escapeAS(s)
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
     }
 }
