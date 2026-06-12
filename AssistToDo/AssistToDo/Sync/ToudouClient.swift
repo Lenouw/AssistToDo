@@ -45,7 +45,13 @@ struct AppliedResult { let id: String; let status: String }   // status: "applie
 final class ToudouClient {
     enum SyncError: Error { case notConfigured, badURL, http(Int), badResponse }
 
-    private var baseURL: String { (UserDefaults.standard.string(forKey: "toudouBaseURL") ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// URL de prod Toudou par défaut (modifiable dans les Réglages).
+    static let defaultBaseURL = "https://toudou-one.vercel.app"
+
+    private var baseURL: String {
+        let v = (UserDefaults.standard.string(forKey: "toudouBaseURL") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return v.isEmpty ? Self.defaultBaseURL : v
+    }
     private var token: String { KeychainStore.toudouToken() }
 
     var isConfigured: Bool { !baseURL.isEmpty && !token.isEmpty && URL(string: endpoint("/api/sync")) != nil }

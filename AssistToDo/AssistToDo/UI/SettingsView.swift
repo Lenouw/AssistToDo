@@ -26,7 +26,7 @@ struct SettingsView: View {
     @AppStorage("calendar_studio") private var calendarStudio: String = ""
     @AppStorage("studioBlockStart") private var studioBlockStart: Int = 8
     @AppStorage("studioBlockEnd") private var studioBlockEnd: Int = 20
-    @AppStorage("toudouBaseURL") private var toudouBaseURL: String = ""
+    @AppStorage("toudouBaseURL") private var toudouBaseURL: String = "https://toudou-one.vercel.app"
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
