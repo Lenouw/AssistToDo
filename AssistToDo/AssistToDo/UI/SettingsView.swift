@@ -30,6 +30,7 @@ struct SettingsView: View {
 
     @State private var calendarAccess = false
     @State private var remindersAccess = false
+    @State private var importMessage: String?
     @State private var calendars: [String] = []
     @State private var reminderLists: [String] = []
 
@@ -107,6 +108,23 @@ struct SettingsView: View {
             Section("Permissions système") {
                 permissionRow("Microphone", granted: micStatus == .authorized) { requestMic() }
                 permissionRow("Notifications", granted: notifAuthorized) { requestNotifications() }
+            }
+
+            Section("Sauvegarde des préférences") {
+                HStack {
+                    Button("Exporter…") { PreferencesService.export() }
+                    Button("Importer…") {
+                        if PreferencesService.importFromFile() {
+                            refresh()
+                            importMessage = "Préférences importées. Redémarre l'app pour le raccourci."
+                        }
+                    }
+                    if let msg = importMessage {
+                        Text(msg).font(.caption).foregroundStyle(.green)
+                    }
+                }
+                Text("Sauvegarde un fichier JSON (calendriers, listes, note, clé API, raccourci). Réimporte-le sur un autre Mac pour tout retrouver. Garde ce fichier en lieu sûr : il contient ta clé API.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
