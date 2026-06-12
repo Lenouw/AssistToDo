@@ -66,7 +66,8 @@ final class IslandController {
         model.topInset = topInset
 
         let content = Self.contentSize(for: state, items: items)
-        let size = NSSize(width: content.width, height: topInset + content.height)
+        // + chrome (padding horizontal 16, padding bas 8) pour loger l'ombre du pill.
+        let size = NSSize(width: content.width + 16, height: topInset + content.height + 8)
         let vf = screen.frame                // frame complet → ancrage au bord haut (encoche)
         let x = vf.midX - size.width / 2
         let y = vf.maxY - size.height
@@ -78,15 +79,15 @@ final class IslandController {
         }
     }
 
-    /// Taille de la zone de contenu (sous l'encoche).
+    /// Taille du pill (sous l'encoche), compacte.
     private static func contentSize(for state: IslandState, items: Int) -> NSSize {
         switch state {
         case .preparing, .listening, .transcribing, .error, .ignored:
-            return NSSize(width: 320, height: 54)
+            return NSSize(width: 230, height: 38)
         case .result:
-            return NSSize(width: 380, height: 88)
+            return NSSize(width: 300, height: 58)
         case .added:
-            return NSSize(width: 380, height: CGFloat(50 + max(1, items) * 22 + 12))
+            return NSSize(width: 300, height: CGFloat(40 + max(1, items) * 20))
         }
     }
 
