@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notifications: NotificationManager!
     private var capture: CaptureCoordinator!
     private var onboarding: OnboardingController!
+    private var sync: SyncCoordinator!
     private var pressStart: TimeInterval?
     private static let tapThreshold: TimeInterval = 0.5
 
@@ -71,6 +72,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Onboarding au tout premier lancement.
         onboarding = OnboardingController()
         if onboarding.shouldShow { onboarding.show() }
+
+        // Synchronisation Toudou (no-op tant que URL + token ne sont pas configurés dans les Réglages).
+        sync = SyncCoordinator(store: store)
+        sync.start()
 
         // Vérifie discrètement s'il existe une version plus récente sur GitHub (silencieux si à jour).
         UpdateChecker.check()

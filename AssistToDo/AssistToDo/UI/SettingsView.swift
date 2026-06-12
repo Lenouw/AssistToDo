@@ -155,13 +155,15 @@ struct SettingsView: View {
                     Button("Enregistrer le token") {
                         KeychainStore.setToudouToken(toudouToken)
                         toudouTokenSaved = KeychainStore.hasToudouToken
+                        SyncCoordinator.shared?.start()   // (re)démarre la sync avec la nouvelle config
                     }
                     if toudouTokenSaved {
                         Label("Token enregistré", systemImage: "checkmark.seal.fill")
                             .font(.caption).foregroundStyle(.green)
                     }
                 }
-                Text("Synchronise ta liste de to-do « vide-tête » (sans date) avec Toudou. URL + token fournis par Toudou. Le client de synchronisation arrive (en attente de la spec d'API).")
+                Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow() }
+                Text("Synchronise ta liste de to-do « vide-tête » (sans date) avec Toudou, dans les deux sens (texte + coché). URL + token fournis par Toudou. Synchro auto toutes les ~45 s.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

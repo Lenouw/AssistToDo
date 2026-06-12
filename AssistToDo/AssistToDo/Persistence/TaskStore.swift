@@ -54,12 +54,26 @@ final class TaskStore: ObservableObject {
     // MARK: - Lecture
 
     func reload() {
-        let all = fetchAll().map { $0.toRecord() }
+        // Exclut les tombstones (supprimées localement, delete en attente de push vers Toudou).
+        let all = fetchAll().filter { !$0.tombstone }.map { $0.toRecord() }
         // Le second cerveau ne montre que les pensées ancrées dans l'app : rappels rapides (local)
         // + vrais rappels (reminders). Courses (notes) et événements (calendar) vivent chez Apple.
         thoughts = all.filter { $0.destination == .local || $0.destination == .reminders }
             .sorted { $0.createdAt > $1.createdAt }   // journal : plus récent en haut
         badgeCount = thoughts.filter { !$0.isDone }.count
+    }
+
+    /// Une tâche synchronisable avec Toudou = to-do "vide-tête" : locale, sans rappel minuté.
+    /// (Le texte + l'état coché se synchronisent ; pas les dates/ordre.)
+    static func isSyncable(_ e: TaskEntity) -> Bool {
+        e.destinationRaw == "local" && e.remindAt == nil
+    }
+
+    /// Marque une tâche comme modifiée à synchroniser (bump updatedAt + dirty), si elle est synchronisable.
+    private func markSyncDirty(_ e: TaskEntity) {
+        guard Self.isSyncable(e) else { return }
+        e.updatedAt = Date()
+        e.syncDirty = true
     }
 
     /// Recharge l'agenda du jour (Calendrier + Rappels) en direct d'iCloud, lecture seule.
@@ -85,7 +99,10 @@ final class TaskStore: ObservableObject {
         var nextOrder = (fetchAll().filter { $0.destinationRaw == "local" }.map { $0.orderIndex }.max() ?? -1) + 1
         for var r in records {
             if r.destination == .local { r.orderIndex = nextOrder; nextOrder += 1 }
-            context.insert(TaskEntity(record: r))
+            let e = TaskEntity(record: r)
+            context.insert(e)
+            // Nouvelle to-do "vide-tête" → à créer sur Toudou (remoteKnown reste false → op create).
+            if Self.isSyncable(e) { e.updatedAt = Date(); e.syncDirty = true }
         }
         save(); reload()
     }
@@ -99,6 +116,7 @@ final class TaskStore: ObservableObject {
         if e.destinationRaw == "reminders", let ext = e.externalId {
             EventKitService.shared.setReminderCompleted(id: ext, completed: e.isDone)
         }
+        markSyncDirty(e)
         save(); reload()
     }
 
@@ -109,11 +127,22 @@ final class TaskStore: ObservableObject {
         if e.destinationRaw == "reminders", let ext = e.externalId {
             EventKitService.shared.setReminderCompleted(id: ext, completed: true)
         }
+        markSyncDirty(e)
         save(); reload()
     }
 
     func delete(id: UUID) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
+        // To-do synchronisable déjà connue de Toudou → tombstone (delete propagé au prochain push),
+        // pas de suppression dure tant que le serveur ne l'a pas reçu.
+        if Self.isSyncable(e), e.remoteKnown {
+            if let nid = e.notificationId { onCancelNotification?(nid) }
+            e.tombstone = true
+            e.updatedAt = Date()
+            e.syncDirty = true
+            save(); reload()
+            return
+        }
         switch Destination(rawValue: e.destinationRaw) ?? .local {
         case .local:
             if let nid = e.notificationId { onCancelNotification?(nid) }
@@ -142,6 +171,7 @@ final class TaskStore: ObservableObject {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let e = fetchAll().first(where: { $0.id == id }) else { return }
         e.text = trimmed
+        markSyncDirty(e)
         save(); reload()
     }
 
@@ -182,6 +212,86 @@ final class TaskStore: ObservableObject {
         UserDefaults.standard.removeObject(forKey: lastRolloverKey)
         runRolloverIfNeeded()
         reload()
+    }
+
+    // MARK: - Synchronisation Toudou
+
+    /// Dérive les ops à pousser depuis les tâches "dirty". Purge au passage les tombstones
+    /// jamais connues du serveur (rien à propager).
+    func collectPendingOps() -> [SyncOp] {
+        var ops: [SyncOp] = []
+        var toDelete: [TaskEntity] = []
+        for e in fetchAll() where e.syncDirty {
+            if e.tombstone {
+                if e.remoteKnown {
+                    ops.append(SyncOp(kind: .delete, id: e.id.uuidString, text: nil, done: nil, updatedAt: e.updatedAt))
+                } else {
+                    toDelete.append(e)   // jamais sur Toudou → suppression locale directe
+                }
+            } else if Self.isSyncable(e) {
+                if e.remoteKnown {
+                    ops.append(SyncOp(kind: .update, id: e.id.uuidString, text: e.text, done: e.isDone, updatedAt: e.updatedAt))
+                } else {
+                    ops.append(SyncOp(kind: .create, id: e.id.uuidString, text: e.text, done: nil, updatedAt: e.updatedAt))
+                }
+            }
+        }
+        if !toDelete.isEmpty { toDelete.forEach { context.delete($0) }; save(); reload() }
+        return ops
+    }
+
+    /// Applique le résultat d'un push : op acceptée ou stale → la tâche n'est plus dirty ;
+    /// un tombstone confirmé est supprimé pour de bon.
+    func applyPushApplied(_ results: [AppliedResult]) {
+        let byId = Dictionary(fetchAll().map { ($0.id.uuidString, $0) }, uniquingKeysWith: { a, _ in a })
+        for r in results {
+            guard let e = byId[r.id] else { continue }
+            if e.tombstone {
+                context.delete(e)      // delete propagé (ou stale = serveur a déjà une version) → on lâche le tombstone
+            } else {
+                e.remoteKnown = true   // existe désormais sur Toudou (create/update appliqué ou serveur plus récent)
+                e.syncDirty = false    // si stale, le pull ramènera la version serveur
+            }
+        }
+        save(); reload()
+    }
+
+    /// Applique un delta reçu de Toudou (source de vérité) au miroir local.
+    func applyPulled(_ tasks: [WireTask]) {
+        guard !tasks.isEmpty else { return }
+        let byId = Dictionary(fetchAll().map { ($0.id.uuidString, $0) }, uniquingKeysWith: { a, _ in a })
+        let today = ParisCalendar.startOfDay(for: Date())
+        var nextOrder = (fetchAll().filter { $0.destinationRaw == "local" }.map { $0.orderIndex }.max() ?? -1) + 1
+
+        for w in tasks {
+            if let e = byId[w.id] {
+                if w.deleted { context.delete(e); continue }
+                // On accepte le serveur sauf si un changement local non encore poussé est plus récent.
+                if !e.syncDirty || w.updatedAt >= e.updatedAt {
+                    e.text = w.text
+                    e.isDone = w.done
+                    e.doneAt = w.done ? (e.doneAt ?? Date()) : nil
+                    e.updatedAt = w.updatedAt
+                    e.remoteKnown = true
+                    e.syncDirty = false
+                    e.tombstone = false
+                }
+            } else {
+                if w.deleted { continue }                       // tombstone d'un id inconnu → rien
+                guard let uuid = UUID(uuidString: w.id) else { continue }
+                let e = TaskEntity(id: uuid, text: w.text, createdAt: Date(), dueDate: today, remindAt: nil,
+                                   notify: false, notificationId: nil, priorityRaw: nil, tags: [],
+                                   isDone: w.done, doneAt: w.done ? Date() : nil, rolloverCount: 0,
+                                   rawTranscript: w.text, parseStatusRaw: "parsed",
+                                   destinationRaw: "local", externalId: nil, orderIndex: nextOrder)
+                e.updatedAt = w.updatedAt
+                e.remoteKnown = true
+                e.syncDirty = false
+                context.insert(e)
+                nextOrder += 1
+            }
+        }
+        save(); reload()
     }
 
     // MARK: - Privé

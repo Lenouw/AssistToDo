@@ -36,6 +36,12 @@ final class TaskEntity {
     var externalId: String?
     var orderIndex: Int = 0
 
+    // Synchronisation Toudou (ne concerne que les to-do "vide-tête" = local sans remindAt).
+    var updatedAt: Date = Date.distantPast   // horloge de dernière modif synchronisable (LWW)
+    var syncDirty: Bool = false              // changement local pas encore poussé vers Toudou
+    var remoteKnown: Bool = false            // Toudou connaît déjà cet id (→ update vs create)
+    var tombstone: Bool = false              // supprimé localement, delete en attente de push
+
     init(id: UUID, text: String, createdAt: Date, dueDate: Date?, remindAt: Date?,
          notify: Bool, notificationId: String?, priorityRaw: String?, tags: [String],
          isDone: Bool, doneAt: Date?, rolloverCount: Int, rawTranscript: String,
