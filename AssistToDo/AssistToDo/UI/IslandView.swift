@@ -13,7 +13,7 @@ struct IslandView: View {
     @ObservedObject var audio: AudioCapture
     @ObservedObject var model: CaptureModel
 
-    private var shape: some Shape {
+    private var shape: some InsettableShape {
         UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 22,
                                bottomTrailingRadius: 22, topTrailingRadius: 0, style: .continuous)
     }
