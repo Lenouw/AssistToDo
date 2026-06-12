@@ -61,9 +61,8 @@ struct TaskParser {
             rawTranscript: transcript,
             parseStatus: .parsed
         )
-        // Un événement calendrier sans heure de début n'a pas de sens → retombe en local.
-        let destination: Destination = (p.destination == .calendar && remind == nil) ? .local : p.destination
-        return RoutedTask(record: record, destination: destination,
+        // Un événement calendrier sans heure → événement "journée entière" (ex: bloquer le studio).
+        return RoutedTask(record: record, destination: p.destination,
                           durationMinutes: p.durationMinutes, listName: p.listName,
                           calendarName: p.calendarName, calendarCategory: p.calendarCategory,
                           noteName: p.noteName)

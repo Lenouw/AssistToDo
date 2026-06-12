@@ -93,15 +93,21 @@ final class EventKitService {
 
     /// Crée l'événement et retourne son identifiant.
     @discardableResult
-    func createEvent(title: String, start: Date, durationMinutes: Int,
+    func createEvent(title: String, start: Date, durationMinutes: Int, allDay: Bool,
                      calendarName: String?, defaultCalendarName: String?,
                      alarmOffsets: [TimeInterval]) async throws -> String {
         guard try await ensureCalendarAccess() else { throw RoutingError.accessDenied }
 
         let event = EKEvent(eventStore: store)
         event.title = title
-        event.startDate = start
-        event.endDate = start.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        if allDay {
+            event.isAllDay = true
+            event.startDate = start
+            event.endDate = start
+        } else {
+            event.startDate = start
+            event.endDate = start.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        }
         guard let cal = pickEventCalendar(named: calendarName ?? defaultCalendarName) else {
             throw RoutingError.noCalendar
         }

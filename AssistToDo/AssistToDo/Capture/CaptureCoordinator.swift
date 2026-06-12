@@ -143,10 +143,13 @@ final class CaptureCoordinator {
                     }
                     let alarmsOn = UserDefaults.standard.object(forKey: "eventAlarmsEnabled") as? Bool ?? true
                     let offsets: [TimeInterval] = alarmsOn ? [-3600, -86400] : []  // 1h + 1 jour avant
+                    let allDay = item.record.remindAt == nil          // pas d'heure → journée entière
+                    let start = item.record.remindAt ?? item.record.dueDate ?? Date()
                     let extId = try await EventKitService.shared.createEvent(
                         title: item.record.text,
-                        start: item.record.remindAt ?? Date(),
+                        start: start,
                         durationMinutes: item.durationMinutes ?? 60,
+                        allDay: allDay,
                         calendarName: item.calendarName ?? categoryCalendar,
                         defaultCalendarName: defaultCalendar,
                         alarmOffsets: offsets
