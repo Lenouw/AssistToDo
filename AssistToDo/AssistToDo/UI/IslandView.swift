@@ -104,7 +104,7 @@ struct IslandView: View {
         if item.fellBack { return item.record.text + " · liste locale" }
         let dest: String
         switch item.destination {
-        case .local: dest = "Ma liste"
+        case .local: dest = item.record.localList == .code ? "Claude Code" : "Ma liste"
         case .reminders: dest = "Rappels"
         case .calendar: dest = "Calendrier"
         case .notes: dest = "Notes"

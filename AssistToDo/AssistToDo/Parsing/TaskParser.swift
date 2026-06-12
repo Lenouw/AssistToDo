@@ -63,7 +63,8 @@ struct TaskParser {
             priority: p.priority,
             tags: p.tags,
             rawTranscript: transcript,
-            parseStatus: .parsed
+            parseStatus: .parsed,
+            localList: p.codeTodo ? .code : .braindump
         )
         // Un événement calendrier sans heure → événement "journée entière" (ex: bloquer le studio).
         return RoutedTask(record: record, destination: p.destination,

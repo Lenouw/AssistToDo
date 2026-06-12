@@ -36,6 +36,9 @@ final class TaskEntity {
     var externalId: String?
     var orderIndex: Int = 0
 
+    // Sous-liste d'une tâche locale : "braindump" (vidage de cerveau) ou "code" (to-do Claude Code).
+    var localListRaw: String = "braindump"
+
     // Synchronisation Toudou (ne concerne que les to-do "vide-tête" = local sans remindAt).
     var updatedAt: Date = Date.distantPast   // horloge de dernière modif synchronisable (LWW)
     var syncDirty: Bool = false              // changement local pas encore poussé vers Toudou
@@ -63,6 +66,7 @@ extension TaskEntity {
                   doneAt: r.doneAt, rolloverCount: r.rolloverCount, rawTranscript: r.rawTranscript,
                   parseStatusRaw: r.parseStatus.rawValue, destinationRaw: r.destination.rawValue,
                   externalId: r.externalId, orderIndex: r.orderIndex)
+        self.localListRaw = r.localList.rawValue
     }
 
     func toRecord() -> TaskRecord {
@@ -73,7 +77,8 @@ extension TaskEntity {
                    rawTranscript: rawTranscript,
                    parseStatus: TaskRecord.ParseStatus(rawValue: parseStatusRaw) ?? .parsed,
                    destination: Destination(rawValue: destinationRaw) ?? .local,
-                   externalId: externalId, orderIndex: orderIndex)
+                   externalId: externalId, orderIndex: orderIndex,
+                   localList: LocalList(rawValue: localListRaw) ?? .braindump)
     }
 
     /// Met à jour l'entité existante depuis un record (utilisé par le rollover).
@@ -83,5 +88,6 @@ extension TaskEntity {
         isDone = r.isDone; doneAt = r.doneAt; rolloverCount = r.rolloverCount
         rawTranscript = r.rawTranscript; parseStatusRaw = r.parseStatus.rawValue
         destinationRaw = r.destination.rawValue; externalId = r.externalId; orderIndex = r.orderIndex
+        localListRaw = r.localList.rawValue
     }
 }

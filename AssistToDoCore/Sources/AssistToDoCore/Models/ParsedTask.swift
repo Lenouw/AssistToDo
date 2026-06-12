@@ -10,6 +10,12 @@ public enum CalendarCategory: String, Codable, Sendable {
     case perso, commun, pro, studio
 }
 
+/// Sous-liste d'une tâche locale : vidage de cerveau (défaut) ou to-do de code (Claude Code).
+public enum LocalList: String, Codable, Sendable {
+    case braindump   // vidage de cerveau (liste principale)
+    case code        // to-do Claude Code (idées de dev, modifs clients)
+}
+
 public struct ParsedTask: Equatable, Sendable {
     public var text: String
     public var destination: Destination
@@ -23,16 +29,19 @@ public struct ParsedTask: Equatable, Sendable {
     public var priority: Priority?
     public var notify: Bool
     public var tags: [String]
+    public var codeTodo: Bool          // to-do de code (liste Claude Code) plutôt que vidage de cerveau
 
     public init(text: String, destination: Destination = .local,
                 remindAtRaw: String? = nil, dueDateRaw: String? = nil,
                 durationMinutes: Int? = nil, listName: String? = nil, calendarName: String? = nil,
                 calendarCategory: CalendarCategory? = nil, noteName: String? = nil,
-                priority: Priority? = nil, notify: Bool = false, tags: [String] = []) {
+                priority: Priority? = nil, notify: Bool = false, tags: [String] = [],
+                codeTodo: Bool = false) {
         self.text = text; self.destination = destination
         self.remindAtRaw = remindAtRaw; self.dueDateRaw = dueDateRaw
         self.durationMinutes = durationMinutes; self.listName = listName; self.calendarName = calendarName
         self.calendarCategory = calendarCategory; self.noteName = noteName
         self.priority = priority; self.notify = notify; self.tags = tags
+        self.codeTodo = codeTodo
     }
 }

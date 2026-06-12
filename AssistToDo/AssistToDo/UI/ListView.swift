@@ -22,14 +22,23 @@ struct ListView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
-            if store.thoughts.isEmpty {
+            if store.thoughts.isEmpty && store.codeTasks.isEmpty {
                 emptyState
             } else {
                 List {
-                    ForEach(store.thoughts) { thoughtRow($0) }
+                    Section { ForEach(store.thoughts) { thoughtRow($0) } }
+                    if !store.codeTasks.isEmpty {
+                        Section {
+                            ForEach(store.codeTasks) { thoughtRow($0) }
+                        } header: {
+                            Label("Claude Code", systemImage: "chevron.left.forwardslash.chevron.right")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 .listStyle(.plain)
                 .animation(.spring(response: 0.35, dampingFraction: 0.85), value: store.thoughts)
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: store.codeTasks)
             }
 
             todaySection
@@ -126,6 +135,12 @@ struct ListView: View {
                     if task.destination != .reminders {
                         Button { startEditing(task) } label: { Label("Modifier", systemImage: "pencil") }.tint(.blue)
                     }
+                    if task.destination == .local {
+                        Button { store.moveToList(id: task.id, to: task.localList == .code ? .braindump : .code) } label: {
+                            Label(task.localList == .code ? "Vidage de cerveau" : "Claude Code",
+                                  systemImage: "arrow.left.arrow.right")
+                        }.tint(.purple)
+                    }
                 }
                 .contextMenu {
                     Button(task.isDone ? "Marquer non faite" : "Marquer faite") { store.toggleDone(id: task.id) }
@@ -133,6 +148,9 @@ struct ListView: View {
                         Button("Modifier") { startEditing(task) }
                     }
                     if task.destination == .local {
+                        Button(task.localList == .code ? "Déplacer vers Vidage de cerveau" : "Déplacer vers Claude Code") {
+                            store.moveToList(id: task.id, to: task.localList == .code ? .braindump : .code)
+                        }
                         Button("Reporter à demain") { store.postponeToTomorrow(id: task.id) }
                     }
                     Divider()
@@ -199,9 +217,9 @@ private struct ThoughtRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 9) {
             Button(action: onToggle) {
-                Image(systemName: task.isDone ? "checkmark.circle.fill" : Self.icon(task.destination))
+                Image(systemName: task.isDone ? "checkmark.circle.fill" : iconName)
                     .font(.system(size: 14))
-                    .foregroundStyle(task.isDone ? Color.green : Self.tint(task.destination))
+                    .foregroundStyle(task.isDone ? Color.green : iconTint)
             }
             .buttonStyle(.plain)
             .frame(width: 16)
@@ -222,6 +240,15 @@ private struct ThoughtRow: View {
                 .padding(.top, 2)
         }
         .padding(.vertical, 3)
+    }
+
+    private var iconName: String {
+        if task.destination == .local && task.localList == .code { return "chevron.left.forwardslash.chevron.right" }
+        return Self.icon(task.destination)
+    }
+    private var iconTint: Color {
+        if task.destination == .local && task.localList == .code { return .purple }
+        return Self.tint(task.destination)
     }
 
     static func icon(_ d: Destination) -> String {

@@ -17,8 +17,10 @@ final class TaskStore: ObservableObject {
     private var context: ModelContext { container.mainContext }
 
     /// Flux des pensées vocales ancrées dans l'app (second cerveau), journal permanent.
-    /// Tout sauf le calendrier (les events vivent dans le Calendrier Apple), du plus récent au plus ancien.
+    /// Vidage de cerveau (local braindump) + Rappels Apple, du plus récent au plus ancien.
     @Published private(set) var thoughts: [TaskRecord] = []
+    /// To-do Claude Code (local, sous-liste "code") : idées de dev / modifs clients.
+    @Published private(set) var codeTasks: [TaskRecord] = []
     /// Agenda du jour, lecture seule, lu en direct d'iCloud.
     @Published private(set) var todayEvents: [TodayItem] = []
     @Published private(set) var todayReminders: [TodayItem] = []
@@ -56,17 +58,47 @@ final class TaskStore: ObservableObject {
     func reload() {
         // Exclut les tombstones (supprimées localement, delete en attente de push vers Toudou).
         let all = fetchAll().filter { !$0.tombstone }.map { $0.toRecord() }
-        // Le second cerveau ne montre que les pensées ancrées dans l'app : rappels rapides (local)
-        // + vrais rappels (reminders). Courses (notes) et événements (calendar) vivent chez Apple.
-        thoughts = all.filter { $0.destination == .local || $0.destination == .reminders }
-            .sorted { $0.createdAt > $1.createdAt }   // journal : plus récent en haut
+        // Vidage de cerveau : local "braindump" + Rappels Apple. (Courses/notes et events vivent chez Apple.)
+        thoughts = all.filter {
+            ($0.destination == .local && $0.localList == .braindump) || $0.destination == .reminders
+        }.sorted { $0.createdAt > $1.createdAt }
+        // To-do Claude Code : local "code".
+        codeTasks = all.filter { $0.destination == .local && $0.localList == .code }
+            .sorted { $0.createdAt > $1.createdAt }
         badgeCount = thoughts.filter { !$0.isDone }.count
     }
 
-    /// Une tâche synchronisable avec Toudou = to-do "vide-tête" : locale, sans rappel minuté.
-    /// (Le texte + l'état coché se synchronisent ; pas les dates/ordre.)
+    /// Synchronisable avec Toudou (liste inbox) = to-do "vide-tête" : locale, sans rappel minuté,
+    /// et sous-liste "braindump". La liste "code" attend l'extension du contrat Toudou (2e liste).
     static func isSyncable(_ e: TaskEntity) -> Bool {
-        e.destinationRaw == "local" && e.remindAt == nil
+        e.destinationRaw == "local" && e.remindAt == nil && e.localListRaw == "braindump"
+    }
+
+    /// Déplace une tâche locale d'une sous-liste à l'autre (vidage de cerveau ↔ code).
+    /// Pour respecter la sync : on crée une nouvelle identité dans la liste cible et on retire l'ancienne
+    /// (tombstone si elle était sur Toudou, sinon suppression locale).
+    func moveToList(id: UUID, to list: LocalList) {
+        guard let e = fetchAll().first(where: { $0.id == id }), e.destinationRaw == "local" else { return }
+        let from = LocalList(rawValue: e.localListRaw) ?? .braindump
+        guard from != list else { return }
+
+        let nextOrder = (fetchAll().filter { $0.destinationRaw == "local" }.map { $0.orderIndex }.max() ?? -1) + 1
+        let copy = TaskEntity(id: UUID(), text: e.text, createdAt: e.createdAt, dueDate: e.dueDate, remindAt: nil,
+                              notify: false, notificationId: nil, priorityRaw: e.priorityRaw, tags: e.tags,
+                              isDone: e.isDone, doneAt: e.doneAt, rolloverCount: e.rolloverCount,
+                              rawTranscript: e.rawTranscript, parseStatusRaw: e.parseStatusRaw,
+                              destinationRaw: "local", externalId: nil, orderIndex: nextOrder)
+        copy.localListRaw = list.rawValue
+        if Self.isSyncable(copy) { copy.updatedAt = Date(); copy.syncDirty = true }  // braindump → créé sur Toudou
+        context.insert(copy)
+
+        if let nid = e.notificationId { onCancelNotification?(nid) }
+        if from == .braindump, e.remoteKnown {
+            e.tombstone = true; e.syncDirty = true; e.updatedAt = Date()   // retiré de l'inbox Toudou
+        } else {
+            context.delete(e)
+        }
+        save(); reload()
     }
 
     /// Marque une tâche comme modifiée à synchroniser (bump updatedAt + dirty), si elle est synchronisable.
