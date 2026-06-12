@@ -275,14 +275,15 @@
 				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AssistToDo/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "AssistToDo ajoute vos courses et notes dictées à l'app Notes.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "AssistToDo crée des événements dans votre calendrier à partir de vos captures vocales.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "AssistToDo enregistre votre voix pour créer des tâches";
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "AssistToDo ajoute vos courses et notes dictées à l'app Notes.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "AssistToDo crée des rappels dans l'app Rappels à partir de vos captures vocales.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -310,14 +311,15 @@
 				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AssistToDo/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "AssistToDo ajoute vos courses et notes dictées à l'app Notes.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "AssistToDo crée des événements dans votre calendrier à partir de vos captures vocales.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "AssistToDo enregistre votre voix pour créer des tâches";
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "AssistToDo ajoute vos courses et notes dictées à l'app Notes.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "AssistToDo crée des rappels dans l'app Rappels à partir de vos captures vocales.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
