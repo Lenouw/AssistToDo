@@ -10,6 +10,14 @@ final class ParsePromptBuilderTests: XCTestCase {
         XCTAssertTrue(sys.contains("Europe/Paris"))
     }
 
+    func test_injecte_les_regles_personnalisees() {
+        let now = ISO8601DateFormatter().date(from: "2026-06-10T15:30:00+02:00")!
+        let sys = ParsePromptBuilder.systemPrompt(now: now,
+            customRules: "Les rdv kiné vont dans l'agenda commun. Fermeture du studio => agenda studio.")
+        XCTAssertTrue(sys.contains("kiné"))
+        XCTAssertTrue(sys.contains("studio"))
+    }
+
     func test_injecte_les_calendriers_et_listes() {
         let now = ISO8601DateFormatter().date(from: "2026-06-10T15:30:00+02:00")!
         let sys = ParsePromptBuilder.systemPrompt(now: now,

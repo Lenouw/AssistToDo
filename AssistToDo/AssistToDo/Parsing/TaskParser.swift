@@ -25,8 +25,10 @@ struct TaskParser {
     let client: OpenRouterClient
 
     func parse(transcript: String, now: Date,
-               calendars: [String] = [], reminderLists: [String] = []) async -> [RoutedTask] {
-        let system = ParsePromptBuilder.systemPrompt(now: now, calendars: calendars, reminderLists: reminderLists)
+               calendars: [String] = [], reminderLists: [String] = [],
+               customRules: String = "") async -> [RoutedTask] {
+        let system = ParsePromptBuilder.systemPrompt(now: now, calendars: calendars,
+                                                     reminderLists: reminderLists, customRules: customRules)
         do {
             let content = try await client.complete(system: system, user: transcript)
             let parsed = try ParseResponseDecoder.decode(content)

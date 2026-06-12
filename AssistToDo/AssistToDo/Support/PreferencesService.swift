@@ -16,6 +16,7 @@ struct Preferences: Codable {
     var defaultReminderList: String?
     var defaultNote: String?
     var eventAlarmsEnabled: Bool?
+    var customRoutingRules: String?
     var calendarPerso: String?
     var calendarCommun: String?
     var calendarPro: String?
@@ -37,6 +38,7 @@ enum PreferencesService {
             defaultReminderList: d.string(forKey: "defaultReminderList"),
             defaultNote: d.string(forKey: "defaultNote"),
             eventAlarmsEnabled: d.object(forKey: "eventAlarmsEnabled") as? Bool,
+            customRoutingRules: d.string(forKey: "customRoutingRules"),
             calendarPerso: d.string(forKey: "calendar_perso"),
             calendarCommun: d.string(forKey: "calendar_commun"),
             calendarPro: d.string(forKey: "calendar_pro"),
@@ -54,6 +56,7 @@ enum PreferencesService {
         if let v = p.defaultReminderList { d.set(v, forKey: "defaultReminderList") }
         if let v = p.defaultNote { d.set(v, forKey: "defaultNote") }
         if let v = p.eventAlarmsEnabled { d.set(v, forKey: "eventAlarmsEnabled") }
+        if let v = p.customRoutingRules { d.set(v, forKey: "customRoutingRules") }
         if let v = p.calendarPerso { d.set(v, forKey: "calendar_perso") }
         if let v = p.calendarCommun { d.set(v, forKey: "calendar_commun") }
         if let v = p.calendarPro { d.set(v, forKey: "calendar_pro") }

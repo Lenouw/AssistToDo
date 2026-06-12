@@ -19,6 +19,7 @@ struct SettingsView: View {
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
     @AppStorage("defaultNote") private var defaultNote: String = "Courses"
     @AppStorage("eventAlarmsEnabled") private var eventAlarmsEnabled: Bool = true
+    @AppStorage("customRoutingRules") private var customRoutingRules: String = ""
     @AppStorage("calendar_perso") private var calendarPerso: String = ""
     @AppStorage("calendar_commun") private var calendarCommun: String = ""
     @AppStorage("calendar_pro") private var calendarPro: String = ""
@@ -110,6 +111,14 @@ struct SettingsView: View {
                     Text("Cible précise possible à la voix : « dans mon calendrier BoulouFlo », « dans ma liste Courses », « dans ma note Maison ».")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+            }
+
+            Section("Règles de classement") {
+                TextEditor(text: $customRoutingRules)
+                    .font(.callout)
+                    .frame(minHeight: 90)
+                Text("Écris tes consignes en français, une par ligne. Le LLM les applique en priorité. Ex :\n• rdv kiné → agenda commun (Marion et Flo)\n• réservation ou fermeture du studio → agenda studio\n• tout ce qui parle de facture → mes rappels")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Démarrage") {

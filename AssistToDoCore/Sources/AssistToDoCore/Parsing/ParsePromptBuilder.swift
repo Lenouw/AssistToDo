@@ -1,7 +1,8 @@
 import Foundation
 
 public enum ParsePromptBuilder {
-    public static func systemPrompt(now: Date, calendars: [String] = [], reminderLists: [String] = []) -> String {
+    public static func systemPrompt(now: Date, calendars: [String] = [], reminderLists: [String] = [],
+                                    customRules: String = "") -> String {
         let f = ISO8601DateFormatter()
         f.timeZone = ParisCalendar.tz
         f.formatOptions = [.withInternetDateTime]
@@ -13,6 +14,10 @@ public enum ParsePromptBuilder {
         }
         if !reminderLists.isEmpty {
             routing += "\nListes de Rappels disponibles : \(reminderLists.joined(separator: ", ")). Pour destination=reminders, mets dans listName la liste pertinente, sinon null."
+        }
+        let rules = customRules.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !rules.isEmpty {
+            routing += "\nRègles de classement de l'utilisateur (PRIORITAIRES sur tout le reste, applique-les strictement) :\n\(rules)"
         }
 
         return """

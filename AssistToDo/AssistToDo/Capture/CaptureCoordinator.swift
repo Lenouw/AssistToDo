@@ -115,10 +115,12 @@ final class CaptureCoordinator {
         let defaultList = UserDefaults.standard.string(forKey: "defaultReminderList")
         let defaultNote = UserDefaults.standard.string(forKey: "defaultNote") ?? "Courses"
 
+        let customRules = UserDefaults.standard.string(forKey: "customRoutingRules") ?? ""
         let routed = await parser.parse(
             transcript: transcript, now: Date(),
             calendars: routingOn ? EventKitService.shared.calendarTitles : [],
-            reminderLists: routingOn ? EventKitService.shared.reminderListTitles : []
+            reminderLists: routingOn ? EventKitService.shared.reminderListTitles : [],
+            customRules: routingOn ? customRules : ""
         )
 
         var toStore: [TaskRecord] = []
