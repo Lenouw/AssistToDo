@@ -121,7 +121,8 @@ final class ListWindowController: NSObject, NSWindowDelegate {
         p.standardWindowButton(.closeButton)?.isHidden = true
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
         p.standardWindowButton(.zoomButton)?.isHidden = true
-        p.isMovableByWindowBackground = true
+        // Pas de déplacement par le fond : sinon glisser un séparateur de zones déplace toute la fenêtre.
+        p.isMovableByWindowBackground = false
         p.level = .floating
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
