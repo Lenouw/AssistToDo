@@ -14,6 +14,18 @@ Cas réel : « récupérer un colis Amazon » → transcrit « récupérer le co
 - Pas un bug de prompt : transcription. Le LLM ne peut pas corriger (temp déjà 0, « colis » même présent dans le prompt).
 - Lever principal : **monter le modèle Whisper** (`base` → `small` ou `large-v3-turbo`). Le picker Réglages ne propose que tiny/base/small ([SettingsView.swift](AssistToDo/AssistToDo/UI/SettingsView.swift) ligne 47). Ajouter les modèles supérieurs + tester la latence sur le Mac de Florian.
 
+## Feature — débloquer les modèles Whisper supérieurs (demandé Florian)
+Florian veut pouvoir essayer les modèles plus lourds, lenteur accrue acceptée.
+- Picker actuel = tiny/base/small seulement ([SettingsView.swift](AssistToDo/AssistToDo/UI/SettingsView.swift) ligne 47).
+- Ajouter : `large-v3-turbo` (et/ou `large-v3`, `distil-large-v3`). Vérifier les noms exacts supportés par WhisperKit avant de coder (ne pas inventer le slug). Garder un libellé clair (« small = rapide » … « large = précis mais lent »).
+- Changement pris en compte au redémarrage (déjà le cas, modèle pré-chargé au launch).
+
+## Bug D — 1ʳᵉ capture lente (démarrage à froid)
+Symptôme : la 1ʳᵉ demande après lancement met longtemps, les suivantes sont rapides. Diagnostic = warmup à froid.
+- Cause principale = **WhisperKit** : [Transcriber.swift](AssistToDo/AssistToDo/Capture/Transcriber.swift) charge le modèle au launch mais ne fait AUCUNE inférence à vide → la 1ʳᵉ transcription paie compilation CoreML/MLX + chauffe Neural Engine.
+- Fix : **prewarm** au lancement. Option `prewarm` dans `WhisperKitConfig` si dispo, sinon passer un court buffer silencieux dans `whisper.transcribe(...)` juste après `load()`. Vérifier l'API WhisperKit exacte.
+- Cause secondaire = réseau : 1ᵉʳ appel OpenRouter paie DNS + handshake TLS. Optionnel : prefetch/keep-alive léger au launch. Secondaire vs Whisper.
+
 ## Bug B — noms propres / marques mal transcrits (« TeuxDeux » → « T2 »)
 NON PRIORITAIRE (décision Florian) : les noms propres bugueront toujours, acceptable. Pas de dico de correction pour l'instant.
 

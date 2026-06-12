@@ -242,7 +242,6 @@ struct ListView: View {
                     Divider()
                     Button("Supprimer", role: .destructive) { store.delete(id: task.id) }
                 }
-                .onTapGesture(count: 2) { if task.destination != .reminders { startEditing(task) } }
         }
     }
 
@@ -313,8 +312,16 @@ private struct ThoughtRow: View {
                 .font(.system(size: 10).monospacedDigit())
                 .foregroundStyle(.tertiary)
                 .padding(.top, 2)
+
+            // Poignée de glissement (affordance "attrape ici pour réordonner").
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 12))
+                .foregroundStyle(.tertiary)
+                .padding(.leading, 2).padding(.top, 1)
+                .help("Glisser pour réordonner")
         }
         .padding(.vertical, 3)
+        .contentShape(Rectangle())
     }
 
     private var iconName: String {
