@@ -24,6 +24,10 @@ let package = Package(
                 "AssistToDoCore",
                 .product(name: "WhisperKit", package: "WhisperKit")
             ]
+        ),
+        .testTarget(
+            name: "AssistToDoKitTests",
+            dependencies: ["AssistToDoKit", "AssistToDoCore"]
         )
     ]
 )

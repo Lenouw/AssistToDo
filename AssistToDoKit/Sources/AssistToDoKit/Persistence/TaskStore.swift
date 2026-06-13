@@ -34,9 +34,12 @@ public final class TaskStore: ObservableObject {
     public var onCancelNotification: ((String) -> Void)?
     public var onScheduleReminder: ((TaskRecord) -> String?)?
 
-    public init() {
+    public convenience init() { self.init(inMemory: false) }
+
+    /// `inMemory` : store volatile pour les tests (aucun fichier sur disque).
+    init(inMemory: Bool) {
         let schema = Schema(versionedSchema: AssistToDoSchemaV1.self)
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         do {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
