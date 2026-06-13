@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import AssistToDoKit
 import AssistToDoCore
 
 @MainActor

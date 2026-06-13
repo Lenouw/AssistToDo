@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import AssistToDoKit
 import AVFoundation
 import ServiceManagement
 import UserNotifications

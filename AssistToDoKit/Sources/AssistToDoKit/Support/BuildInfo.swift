@@ -1,13 +1,13 @@
 //
 //  BuildInfo.swift
-//  AssistToDo
+//  AssistToDoKit
 //
 
 import Foundation
 
-enum BuildInfo {
+public enum BuildInfo {
     /// Date de build lisible (Europe/Paris), affichée dans l'UI pour vérifier la version testée.
-    static let date: String = {
+    public static let date: String = {
         let f = DateFormatter()
         f.timeZone = TimeZone(identifier: "Europe/Paris")
         f.locale = Locale(identifier: "fr_FR")

@@ -1,6 +1,6 @@
 //
 //  OpenRouterClient.swift
-//  AssistToDo
+//  AssistToDoKit
 //
 //  Appel à l'API OpenRouter (chat/completions) pour parser le texte transcrit.
 //  Clé lue depuis le Keychain. Timeout court (chemin de capture).
@@ -8,18 +8,18 @@
 
 import Foundation
 
-struct OpenRouterClient {
+public struct OpenRouterClient {
     enum ClientError: Error { case noKey, badResponse, apiError(String) }
 
     let model: String
     let timeout: TimeInterval
 
-    init(model: String, timeout: TimeInterval = 8) {
+    public init(model: String, timeout: TimeInterval = 8) {
         self.model = model
         self.timeout = timeout
     }
 
-    func complete(system: String, user: String) async throws -> String {
+    public func complete(system: String, user: String) async throws -> String {
         let key = KeychainStore.apiKey()
         guard !key.isEmpty else { throw ClientError.noKey }
 

@@ -1,6 +1,6 @@
 //
 //  Transcriber.swift
-//  AssistToDo
+//  AssistToDoKit
 //
 //  Transcription offline via WhisperKit. Le modèle est pré-chargé au lancement
 //  (téléchargé au 1er run). Transcrit le fichier audio en français.
@@ -10,18 +10,18 @@ import Foundation
 import WhisperKit
 
 @MainActor
-final class Transcriber: ObservableObject {
-    @Published private(set) var isReady = false
+public final class Transcriber: ObservableObject {
+    @Published public private(set) var isReady = false
 
     private var whisper: WhisperKit?
     private let model: String
 
-    struct Transcription {
-        let text: String
-        let avgLogProb: Float
+    public struct Transcription {
+        public let text: String
+        public let avgLogProb: Float
     }
 
-    init(model: String) {
+    public init(model: String) {
         self.model = model
         Task { await load() }
     }
@@ -39,7 +39,7 @@ final class Transcriber: ObservableObject {
         }
     }
 
-    func transcribe(path: String) async -> Transcription? {
+    public func transcribe(path: String) async -> Transcription? {
         guard let whisper else { return nil }
         do {
             let options = DecodingOptions(task: .transcribe, language: "fr", temperature: 0)

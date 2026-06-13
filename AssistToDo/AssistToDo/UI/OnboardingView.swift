@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AssistToDoKit
 import AVFoundation
 import UserNotifications
 import KeyboardShortcuts

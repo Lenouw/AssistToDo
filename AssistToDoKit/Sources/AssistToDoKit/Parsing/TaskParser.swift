@@ -1,6 +1,6 @@
 //
 //  TaskParser.swift
-//  AssistToDo
+//  AssistToDoKit
 //
 //  Transcript → tâche(s) structurée(s). Le LLM propose dates/priorité/tags/split,
 //  DateResolver (Swift) sert de filet déterministe. Fallback texte brut si l'appel échoue :
@@ -11,22 +11,26 @@ import Foundation
 import AssistToDoCore
 
 /// Tâche parsée + sa destination (local / Rappels Apple / Calendrier Apple).
-struct RoutedTask {
-    var record: TaskRecord
-    let destination: Destination
-    let durationMinutes: Int?
-    let listName: String?
-    let calendarName: String?
-    let calendarCategory: CalendarCategory?
-    let noteName: String?
+public struct RoutedTask {
+    public var record: TaskRecord
+    public let destination: Destination
+    public let durationMinutes: Int?
+    public let listName: String?
+    public let calendarName: String?
+    public let calendarCategory: CalendarCategory?
+    public let noteName: String?
 }
 
-struct TaskParser {
+public struct TaskParser {
     let client: OpenRouterClient
 
-    func parse(transcript: String, now: Date,
-               calendars: [String] = [], reminderLists: [String] = [],
-               customRules: String = "") async -> [RoutedTask] {
+    public init(client: OpenRouterClient) {
+        self.client = client
+    }
+
+    public func parse(transcript: String, now: Date,
+                      calendars: [String] = [], reminderLists: [String] = [],
+                      customRules: String = "") async -> [RoutedTask] {
         let system = ParsePromptBuilder.systemPrompt(now: now, calendars: calendars,
                                                      reminderLists: reminderLists, customRules: customRules)
         do {

@@ -12,34 +12,38 @@ import EventKit
 import AssistToDoCore
 
 /// Ligne d'agenda du jour (lecture seule) affichée en bas du panneau.
-struct TodayItem: Identifiable {
-    let id: String
-    let title: String
-    let date: Date?     // début (event) ou échéance (rappel) ; nil = journée entière
-    let isEvent: Bool   // true = Calendrier, false = Rappel
+public struct TodayItem: Identifiable {
+    public let id: String
+    public let title: String
+    public let date: Date?     // début (event) ou échéance (rappel) ; nil = journée entière
+    public let isEvent: Bool   // true = Calendrier, false = Rappel
+
+    public init(id: String, title: String, date: Date?, isEvent: Bool) {
+        self.id = id; self.title = title; self.date = date; self.isEvent = isEvent
+    }
 }
 
-final class EventKitService {
-    static let shared = EventKitService()
+public final class EventKitService {
+    public static let shared = EventKitService()
     private let store = EKEventStore()
 
-    enum RoutingError: Error { case accessDenied, noReminderList, noCalendar }
+    public enum RoutingError: Error { case accessDenied, noReminderList, noCalendar }
 
     // Noms en cache (rafraîchis quand l'accès est accordé). Lus par le prompt + les Réglages.
-    private(set) var calendarTitles: [String] = []
-    private(set) var reminderListTitles: [String] = []
+    public private(set) var calendarTitles: [String] = []
+    public private(set) var reminderListTitles: [String] = []
 
     // MARK: - Accès
 
-    var hasCalendarAccess: Bool {
+    public var hasCalendarAccess: Bool {
         let s = EKEventStore.authorizationStatus(for: .event)
         return s == .fullAccess || s == .writeOnly
     }
-    var hasRemindersAccess: Bool {
+    public var hasRemindersAccess: Bool {
         EKEventStore.authorizationStatus(for: .reminder) == .fullAccess
     }
 
-    func ensureRemindersAccess() async throws -> Bool {
+    public func ensureRemindersAccess() async throws -> Bool {
         switch EKEventStore.authorizationStatus(for: .reminder) {
         case .fullAccess: return true
         case .notDetermined:
@@ -50,7 +54,7 @@ final class EventKitService {
         }
     }
 
-    func ensureCalendarAccess() async throws -> Bool {
+    public func ensureCalendarAccess() async throws -> Bool {
         switch EKEventStore.authorizationStatus(for: .event) {
         case .fullAccess, .writeOnly: return true
         case .notDetermined:
@@ -62,7 +66,7 @@ final class EventKitService {
     }
 
     /// Rafraîchit les noms en cache si l'accès est déjà accordé (appelé au lancement).
-    func refreshCachedNames() {
+    public func refreshCachedNames() {
         if hasCalendarAccess { refreshCalendars() }
         if hasRemindersAccess { refreshReminderLists() }
     }
@@ -88,7 +92,7 @@ final class EventKitService {
 
     /// Crée le rappel et retourne son identifiant (pour le miroir local).
     @discardableResult
-    func createReminder(title: String, due: Date?, listName: String?, defaultListName: String?) async throws -> String {
+    public func createReminder(title: String, due: Date?, listName: String?, defaultListName: String?) async throws -> String {
         guard try await ensureRemindersAccess() else { throw RoutingError.accessDenied }
 
         let reminder = EKReminder(eventStore: store)
@@ -109,7 +113,7 @@ final class EventKitService {
 
     /// Crée l'événement et retourne son identifiant.
     @discardableResult
-    func createEvent(title: String, start: Date, durationMinutes: Int, allDay: Bool,
+    public func createEvent(title: String, start: Date, durationMinutes: Int, allDay: Bool,
                      calendarName: String?, defaultCalendarName: String?,
                      alarmOffsets: [TimeInterval]) async throws -> String {
         guard try await ensureCalendarAccess() else { throw RoutingError.accessDenied }
@@ -138,7 +142,7 @@ final class EventKitService {
     // MARK: - Lecture de l'agenda du jour (zone du bas, lecture seule)
 
     /// Événements du jour (Paris). Vide si accès lecture non accordé (writeOnly ne lit pas).
-    func fetchTodayEvents() -> [TodayItem] {
+    public func fetchTodayEvents() -> [TodayItem] {
         guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else { return [] }
         let start = ParisCalendar.startOfDay(for: Date())
         guard let end = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
@@ -155,7 +159,7 @@ final class EventKitService {
     }
 
     /// Rappels Apple dus aujourd'hui (Paris), non complétés. Vide si accès non accordé.
-    func fetchTodayReminders() async -> [TodayItem] {
+    public func fetchTodayReminders() async -> [TodayItem] {
         guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return [] }
         let lists = store.calendars(for: .reminder)
         let pred = store.predicateForReminders(in: lists)
@@ -178,24 +182,24 @@ final class EventKitService {
     // MARK: - Modification d'items existants (depuis le panneau)
 
     /// Marque un rappel Apple comme complété/non complété.
-    func setReminderCompleted(id: String, completed: Bool) {
+    public func setReminderCompleted(id: String, completed: Bool) {
         guard let reminder = store.calendarItem(withIdentifier: id) as? EKReminder else { return }
         reminder.isCompleted = completed
         try? store.save(reminder, commit: true)
     }
 
-    func deleteReminder(id: String) {
+    public func deleteReminder(id: String) {
         guard let reminder = store.calendarItem(withIdentifier: id) as? EKReminder else { return }
         try? store.remove(reminder, commit: true)
     }
 
-    func deleteEvent(id: String) {
+    public func deleteEvent(id: String) {
         guard let event = store.event(withIdentifier: id) else { return }
         try? store.remove(event, span: .thisEvent, commit: true)
     }
 
     /// État de complétion live d'un rappel (nil si introuvable).
-    func isReminderCompleted(id: String) -> Bool? {
+    public func isReminderCompleted(id: String) -> Bool? {
         (store.calendarItem(withIdentifier: id) as? EKReminder)?.isCompleted
     }
 

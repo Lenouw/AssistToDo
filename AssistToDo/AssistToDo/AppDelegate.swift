@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import AssistToDoKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {

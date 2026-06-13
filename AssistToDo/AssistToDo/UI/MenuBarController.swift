@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import AssistToDoKit
 import Combine
 import Foundation
 import AssistToDoCore

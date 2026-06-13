@@ -10,6 +10,7 @@
 		167B43F72FD9DD1400350027 /* AssistToDoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43F62FD9DD1400350027 /* AssistToDoCore */; };
 		167B43FA2FD9DD6C00350027 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43F92FD9DD6C00350027 /* WhisperKit */; };
 		167B43FD2FD9DD8300350027 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43FC2FD9DD8300350027 /* KeyboardShortcuts */; };
+		5A6E7B1875C4AD8BA6BE0E53 /* AssistToDoKit in Frameworks */ = {isa = PBXBuildFile; productRef = F1738FABD65263C4CB345370 /* AssistToDoKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +20,8 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		167B43E82FD9DCD400350027 /* AssistToDo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = AssistToDo;
 			sourceTree = "<group>";
 		};
@@ -32,6 +35,7 @@
 				167B43FA2FD9DD6C00350027 /* WhisperKit in Frameworks */,
 				167B43F72FD9DD1400350027 /* AssistToDoCore in Frameworks */,
 				167B43FD2FD9DD8300350027 /* KeyboardShortcuts in Frameworks */,
+				5A6E7B1875C4AD8BA6BE0E53 /* AssistToDoKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -77,6 +81,7 @@
 				167B43F62FD9DD1400350027 /* AssistToDoCore */,
 				167B43F92FD9DD6C00350027 /* WhisperKit */,
 				167B43FC2FD9DD8300350027 /* KeyboardShortcuts */,
+				F1738FABD65263C4CB345370 /* AssistToDoKit */,
 			);
 			productName = AssistToDo;
 			productReference = 167B43E62FD9DCD400350027 /* AssistToDo.app */;
@@ -107,9 +112,10 @@
 			mainGroup = 167B43DD2FD9DCD400350027;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "../AssistToDoCore" */,
+				167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "AssistToDoCore" */,
 				167B43F82FD9DD6C00350027 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				167B43FB2FD9DD8300350027 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "AssistToDoKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 167B43E72FD9DCD400350027 /* Products */;
@@ -358,9 +364,13 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "../AssistToDoCore" */ = {
+		167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "AssistToDoCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../AssistToDoCore;
+		};
+		9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "AssistToDoKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../AssistToDoKit;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -397,6 +407,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 167B43FB2FD9DD8300350027 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		F1738FABD65263C4CB345370 /* AssistToDoKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "AssistToDoKit" */;
+			productName = AssistToDoKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

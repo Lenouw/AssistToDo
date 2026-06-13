@@ -10,6 +10,7 @@
 //
 
 import SwiftUI
+import AssistToDoKit
 import AppKit
 import AssistToDoCore
 

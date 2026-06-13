@@ -1,22 +1,25 @@
 //
 //  AudioCapture.swift
-//  AssistToDo
+//  AssistToDoKit
 //
 //  Capture micro via AVAudioEngine. Accumule les samples, publie un niveau (ondes),
 //  et au stop NORMALISE l'audio au pic (auto-gain logiciel) avant transcription :
 //  un micro à faible volume est remonté pour que Whisper entende fort.
 //
+//  Multiplateforme : sur iOS il faut activer une AVAudioSession (catégorie .record)
+//  avant de démarrer le moteur ; sur macOS l'AVAudioSession n'existe pas.
+//
 
 import AVFoundation
 import Combine
 
-final class AudioCapture: ObservableObject {
+public final class AudioCapture: ObservableObject {
     private let engine = AVAudioEngine()
 
     /// Niveau audio normalisé 0…1 pour l'affichage des ondes.
-    @Published var level: Float = 0
+    @Published public var level: Float = 0
 
-    private(set) var didDetectSpeech = false
+    public private(set) var didDetectSpeech = false
     private var startTime: Date?
 
     private var samples: [Float] = []
@@ -30,13 +33,13 @@ final class AudioCapture: ObservableObject {
     private let targetPeak: Float = 0.95
     private let maxGain: Float = 25
 
-    struct Result {
-        let duration: TimeInterval
-        let didDetectSpeech: Bool
-        let fileURL: URL?
+    public struct Result {
+        public let duration: TimeInterval
+        public let didDetectSpeech: Bool
+        public let fileURL: URL?
     }
 
-    init() {
+    public init() {
         NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
         ) { _ in
@@ -44,11 +47,39 @@ final class AudioCapture: ObservableObject {
         }
     }
 
-    func start() {
+    // MARK: - Session iOS
+
+    /// iOS : active une session d'enregistrement avant de démarrer le moteur. No-op sur macOS.
+    private func activateSession() {
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.record, mode: .measurement, options: [])
+            try session.setActive(true, options: [])
+        } catch {
+            print("Erreur activation AVAudioSession: \(error)")
+        }
+        #endif
+    }
+
+    /// iOS : libère la session pour que les autres apps reprennent leur audio. No-op sur macOS.
+    private func deactivateSession() {
+        #if os(iOS)
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+        } catch {
+            print("Erreur désactivation AVAudioSession: \(error)")
+        }
+        #endif
+    }
+
+    public func start() {
         didDetectSpeech = false
         peakRMS = 0
         lock.lock(); samples.removeAll(keepingCapacity: true); lock.unlock()
         DispatchQueue.main.async { self.level = 0 }
+
+        activateSession()
 
         let input = engine.inputNode
         let format = input.inputFormat(forBus: 0)
@@ -92,12 +123,13 @@ final class AudioCapture: ObservableObject {
     }
 
     @discardableResult
-    func stop() -> Result {
+    public func stop() -> Result {
         let duration = startTime.map { Date().timeIntervalSince($0) } ?? 0
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         startTime = nil
         DispatchQueue.main.async { self.level = 0 }
+        deactivateSession()
 
         lock.lock()
         let captured = samples

@@ -12,27 +12,27 @@ import SwiftData
 import AssistToDoCore
 
 @MainActor
-final class TaskStore: ObservableObject {
-    let container: ModelContainer
+public final class TaskStore: ObservableObject {
+    public let container: ModelContainer
     private var context: ModelContext { container.mainContext }
 
     /// Flux des pensées vocales ancrées dans l'app (second cerveau), journal permanent.
     /// Vidage de cerveau (local braindump) + Rappels Apple, du plus récent au plus ancien.
-    @Published private(set) var thoughts: [TaskRecord] = []
+    @Published public private(set) var thoughts: [TaskRecord] = []
     /// To-do Claude Code (local, sous-liste "code") : idées de dev / modifs clients.
-    @Published private(set) var codeTasks: [TaskRecord] = []
+    @Published public private(set) var codeTasks: [TaskRecord] = []
     /// Agenda du jour, lecture seule, lu en direct d'iCloud.
-    @Published private(set) var todayEvents: [TodayItem] = []
-    @Published private(set) var todayReminders: [TodayItem] = []
-    @Published private(set) var badgeCount: Int = 0
+    @Published public private(set) var todayEvents: [TodayItem] = []
+    @Published public private(set) var todayReminders: [TodayItem] = []
+    @Published public private(set) var badgeCount: Int = 0
 
     private let lastRolloverKey = "lastRolloverDay"
 
-    // Câblés par l'AppDelegate (notifs locales).
-    var onCancelNotification: ((String) -> Void)?
-    var onScheduleReminder: ((TaskRecord) -> String?)?
+    // Câblés par l'app hôte (notifs locales).
+    public var onCancelNotification: ((String) -> Void)?
+    public var onScheduleReminder: ((TaskRecord) -> String?)?
 
-    init() {
+    public init() {
         let schema = Schema(versionedSchema: AssistToDoSchemaV1.self)
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
@@ -55,7 +55,7 @@ final class TaskStore: ObservableObject {
 
     // MARK: - Lecture
 
-    func reload() {
+    public func reload() {
         // Exclut les tombstones (supprimées localement, delete en attente de push vers Toudou).
         let all = fetchAll().filter { !$0.tombstone }.map { $0.toRecord() }
         // Vidage de cerveau : local "braindump" + Rappels Apple. (Courses/notes et events vivent chez Apple.)
@@ -74,7 +74,7 @@ final class TaskStore: ObservableObject {
     }
 
     /// Réordonne (glisser) une sous-liste locale : applique l'ordre affiché. Local-only (l'ordre ne se synchronise pas).
-    func reorderLocal(orderedIds: [UUID]) {
+    public func reorderLocal(orderedIds: [UUID]) {
         let byId = Dictionary(fetchAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for (index, id) in orderedIds.enumerated() { byId[id]?.orderIndex = index }
         save(); reload()
@@ -94,7 +94,7 @@ final class TaskStore: ObservableObject {
     /// Déplace une tâche locale d'une sous-liste à l'autre (vidage de cerveau ↔ code).
     /// Pour respecter la sync : on crée une nouvelle identité dans la liste cible et on retire l'ancienne
     /// (tombstone si elle était sur Toudou, sinon suppression locale).
-    func moveToList(id: UUID, to list: LocalList) {
+    public func moveToList(id: UUID, to list: LocalList) {
         guard let e = fetchAll().first(where: { $0.id == id }), e.destinationRaw == "local" else { return }
         let from = LocalList(rawValue: e.localListRaw) ?? .braindump
         guard from != list else { return }
@@ -128,7 +128,7 @@ final class TaskStore: ObservableObject {
     }
 
     /// Recharge l'agenda du jour (Calendrier + Rappels) en direct d'iCloud, lecture seule.
-    func refreshToday() async {
+    public func refreshToday() async {
         let events = EventKitService.shared.fetchTodayEvents()
         let reminders = await EventKitService.shared.fetchTodayReminders()
         todayEvents = events
@@ -146,7 +146,7 @@ final class TaskStore: ObservableObject {
 
     // MARK: - Création
 
-    func add(_ records: [TaskRecord]) {
+    public func add(_ records: [TaskRecord]) {
         var nextTop = topOrderIndex()   // nouvelles captures insérées en haut
         for var r in records {
             if r.destination == .local { r.orderIndex = nextTop; nextTop -= 1 }
@@ -160,7 +160,7 @@ final class TaskStore: ObservableObject {
 
     // MARK: - Cocher / supprimer (répercuté sur Apple si besoin)
 
-    func toggleDone(id: UUID) {
+    public func toggleDone(id: UUID) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         e.isDone.toggle()
         e.doneAt = e.isDone ? Date() : nil
@@ -171,7 +171,7 @@ final class TaskStore: ObservableObject {
         save(); reload()
     }
 
-    func markDone(id: UUID) {
+    public func markDone(id: UUID) {
         guard let e = fetchAll().first(where: { $0.id == id }), !e.isDone else { return }
         e.isDone = true
         e.doneAt = Date()
@@ -182,7 +182,7 @@ final class TaskStore: ObservableObject {
         save(); reload()
     }
 
-    func delete(id: UUID) {
+    public func delete(id: UUID) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         // To-do synchronisable déjà connue de Toudou → tombstone (delete propagé au prochain push),
         // pas de suppression dure tant que le serveur ne l'a pas reçu.
@@ -209,7 +209,7 @@ final class TaskStore: ObservableObject {
     }
 
     /// Met à jour le rappel d'une tâche (report depuis une notif locale). Aligne la date du jour.
-    func updateReminder(id: UUID, remindAt: Date?, notificationId: String?) {
+    public func updateReminder(id: UUID, remindAt: Date?, notificationId: String?) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         e.remindAt = remindAt
         e.notify = remindAt != nil
@@ -218,7 +218,7 @@ final class TaskStore: ObservableObject {
         save(); reload()
     }
 
-    func updateText(id: UUID, text: String) {
+    public func updateText(id: UUID, text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let e = fetchAll().first(where: { $0.id == id }) else { return }
         e.text = trimmed
@@ -227,7 +227,7 @@ final class TaskStore: ObservableObject {
     }
 
     /// Reporte une tâche locale à demain (Paris).
-    func postponeToTomorrow(id: UUID) {
+    public func postponeToTomorrow(id: UUID) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         let todayStart = ParisCalendar.startOfDay(for: Date())
         e.dueDate = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: todayStart)
@@ -259,7 +259,7 @@ final class TaskStore: ObservableObject {
         }
     }
 
-    func forceRolloverForDebug() {
+    public func forceRolloverForDebug() {
         UserDefaults.standard.removeObject(forKey: lastRolloverKey)
         runRolloverIfNeeded()
         reload()

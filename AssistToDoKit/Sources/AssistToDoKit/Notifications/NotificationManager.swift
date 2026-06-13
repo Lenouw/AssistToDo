@@ -1,6 +1,6 @@
 //
 //  NotificationManager.swift
-//  AssistToDo
+//  AssistToDoKit
 //
 //  Rappels locaux interactifs : boutons de report (5/10/15/30 min, demain) + Fait.
 //
@@ -9,16 +9,16 @@ import Foundation
 import UserNotifications
 import AssistToDoCore
 
-final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
-    static let categoryId = "TASK_REMINDER"
+public final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
+    public static let categoryId = "TASK_REMINDER"
 
     private let store: TaskStore
     private let center = UNUserNotificationCenter.current()
 
     /// Ouvre la liste quand l'utilisateur tape le corps de la notif.
-    var onOpenList: () -> Void = {}
+    public var onOpenList: () -> Void = {}
 
-    init(store: TaskStore) {
+    public init(store: TaskStore) {
         self.store = store
         super.init()
         center.delegate = self
@@ -48,7 +48,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     // MARK: - Planification
 
     @discardableResult
-    func schedule(for record: TaskRecord) -> String? {
+    public func schedule(for record: TaskRecord) -> String? {
         guard record.notify, let remind = record.remindAt, remind > Date() else { return nil }
         return scheduleNotification(taskId: record.id, title: record.text, at: remind)
     }
@@ -69,23 +69,23 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         return id
     }
 
-    func cancel(id: String) {
+    public func cancel(id: String) {
         center.removePendingNotificationRequests(withIdentifiers: [id])
     }
 
     // MARK: - Délégué
 
     // Affiche la notif même app au premier plan.
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                willPresent notification: UNNotification,
-                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    public func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                       willPresent notification: UNNotification,
+                                       withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound, .list])
     }
 
     // Réagit aux boutons de la notif.
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                didReceive response: UNNotificationResponse,
-                                withCompletionHandler completionHandler: @escaping () -> Void) {
+    public func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                       didReceive response: UNNotificationResponse,
+                                       withCompletionHandler completionHandler: @escaping () -> Void) {
         defer { completionHandler() }
         let request = response.notification.request
         center.removeDeliveredNotifications(withIdentifiers: [request.identifier])

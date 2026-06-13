@@ -8,6 +8,7 @@
 //
 
 import AppKit
+import AssistToDoKit
 import SwiftUI
 
 /// Panneau qui peut devenir key (pour cocher/éditer) et se ferme sur Échap.

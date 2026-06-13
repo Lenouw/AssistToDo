@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import AssistToDoKit
 import AssistToDoCore
 
 struct IslandView: View {

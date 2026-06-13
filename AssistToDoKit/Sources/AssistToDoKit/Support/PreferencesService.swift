@@ -1,37 +1,44 @@
 //
 //  PreferencesService.swift
-//  AssistToDo
+//  AssistToDoKit
 //
 //  Export / import de toutes les préférences dans un fichier JSON portable
 //  (pour migrer vers un autre Mac sans tout reconfigurer).
 //
+//  L'export/import par panneau de fichier est macOS-only (NSSavePanel/NSOpenPanel) ;
+//  la lecture/écriture des préférences (current/apply) est multiplateforme.
+//
 
+import Foundation
+#if canImport(AppKit)
 import AppKit
+import UniformTypeIdentifiers
+#endif
 
-struct Preferences: Codable {
-    var whisperModel: String?
-    var openRouterModel: String?
-    var routingEnabled: Bool?
-    var defaultCalendar: String?
-    var defaultReminderList: String?
-    var defaultNote: String?
-    var eventAlarmsEnabled: Bool?
-    var customRoutingRules: String?
-    var calendarPerso: String?
-    var calendarCommun: String?
-    var calendarPro: String?
-    var calendarStudio: String?
-    var studioBlockStart: Int?
-    var studioBlockEnd: Int?
-    var hotkey: String?       // valeur brute KeyboardShortcuts_capture
-    var apiKey: String?       // clé OpenRouter (Keychain)
+public struct Preferences: Codable {
+    public var whisperModel: String?
+    public var openRouterModel: String?
+    public var routingEnabled: Bool?
+    public var defaultCalendar: String?
+    public var defaultReminderList: String?
+    public var defaultNote: String?
+    public var eventAlarmsEnabled: Bool?
+    public var customRoutingRules: String?
+    public var calendarPerso: String?
+    public var calendarCommun: String?
+    public var calendarPro: String?
+    public var calendarStudio: String?
+    public var studioBlockStart: Int?
+    public var studioBlockEnd: Int?
+    public var hotkey: String?       // valeur brute KeyboardShortcuts_capture
+    public var apiKey: String?       // clé OpenRouter (Keychain)
 }
 
-enum PreferencesService {
+public enum PreferencesService {
     private static let d = UserDefaults.standard
     private static let hotkeyKey = "KeyboardShortcuts_capture"
 
-    static func current() -> Preferences {
+    public static func current() -> Preferences {
         Preferences(
             whisperModel: d.string(forKey: "whisperModel"),
             openRouterModel: d.string(forKey: "openRouterModel"),
@@ -52,7 +59,7 @@ enum PreferencesService {
         )
     }
 
-    static func apply(_ p: Preferences) {
+    public static func apply(_ p: Preferences) {
         if let v = p.whisperModel { d.set(v, forKey: "whisperModel") }
         if let v = p.openRouterModel { d.set(v, forKey: "openRouterModel") }
         if let v = p.routingEnabled { d.set(v, forKey: "routingEnabled") }
@@ -71,10 +78,11 @@ enum PreferencesService {
         if let v = p.apiKey, !v.isEmpty { KeychainStore.setAPIKey(v) }
     }
 
-    // MARK: - Fichier
+    // MARK: - Fichier (macOS uniquement)
 
+    #if canImport(AppKit)
     @MainActor
-    static func export() {
+    public static func export() {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "AssistToDo-preferences.json"
         panel.allowedContentTypes = [.json]
@@ -91,7 +99,7 @@ enum PreferencesService {
 
     @MainActor
     @discardableResult
-    static func importFromFile() -> Bool {
+    public static func importFromFile() -> Bool {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
@@ -106,4 +114,5 @@ enum PreferencesService {
             return false
         }
     }
+    #endif
 }

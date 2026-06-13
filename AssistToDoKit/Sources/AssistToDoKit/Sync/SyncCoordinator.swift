@@ -1,6 +1,6 @@
 //
 //  SyncCoordinator.swift
-//  AssistToDo
+//  AssistToDoKit
 //
 //  Pilote la synchro Toudou : à chaque cycle (lancement + timer ~45s + manuel),
 //  push les ops locaux en attente PUIS pull le delta serveur (cf. spec §8).
@@ -11,9 +11,9 @@ import Foundation
 import AssistToDoCore
 
 @MainActor
-final class SyncCoordinator {
+public final class SyncCoordinator {
     /// Référence faible pour déclencher une synchro manuelle depuis les Réglages.
-    static weak var shared: SyncCoordinator?
+    public static weak var shared: SyncCoordinator?
 
     private let store: TaskStore
     private let client = ToudouClient()
@@ -26,13 +26,13 @@ final class SyncCoordinator {
         ("code", .code)
     ]
 
-    init(store: TaskStore) {
+    public init(store: TaskStore) {
         self.store = store
         SyncCoordinator.shared = self
     }
 
     /// (Re)démarre le cycle si l'URL + le token sont configurés. Sans config : ne fait rien.
-    func start() {
+    public func start() {
         timer?.invalidate(); timer = nil
         guard client.isConfigured else { return }
         syncNow()
@@ -41,10 +41,10 @@ final class SyncCoordinator {
         }
     }
 
-    func stop() { timer?.invalidate(); timer = nil }
+    public func stop() { timer?.invalidate(); timer = nil }
 
     /// Un cycle complet : chaque liste indépendamment (push ses ops, puis pull son delta).
-    func syncNow() {
+    public func syncNow() {
         guard !syncing, client.isConfigured else { return }
         syncing = true
         Task { @MainActor in
