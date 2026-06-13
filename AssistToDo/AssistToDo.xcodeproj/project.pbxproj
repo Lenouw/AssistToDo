@@ -7,14 +7,80 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0AD6A9AF7A2BE3124AC614F8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C58C5D5954A860C795E1CDE9 /* Foundation.framework */; };
+		121672D4BF92AC8AF3CDB031 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946BB857D3638DFE351EC26C /* AppModel.swift */; };
 		167B43F72FD9DD1400350027 /* AssistToDoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43F62FD9DD1400350027 /* AssistToDoCore */; };
 		167B43FA2FD9DD6C00350027 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43F92FD9DD6C00350027 /* WhisperKit */; };
 		167B43FD2FD9DD8300350027 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43FC2FD9DD8300350027 /* KeyboardShortcuts */; };
+		193AED1CC87F0FB1C1C59D91 /* CaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E62219EC32E79FCBFC9D85B /* CaptureControl.swift */; };
+		1E934DD55803D158D04A0920 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DAAC800C1684C721B4FD9C4 /* SettingsView.swift */; };
+		2172826A796E0D50F08D1B59 /* CaptureActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 196771DA7713341F3E66BCBA /* CaptureActivityAttributes.swift */; };
+		25A91BF1CC61D61B4F1A8BE8 /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB10D949154BFEF3F2FAA826 /* LiveActivityController.swift */; };
+		33F3BE08AF15D9D10607E1F3 /* AssistToDoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0D461C5C2A54C724709F96C5 /* AssistToDoCore */; };
+		484D1ECCB7FA675663F5EC65 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C58C5D5954A860C795E1CDE9 /* Foundation.framework */; };
+		5015C2BF0EFA38AFE670DFEA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D648ED0EECA6700E238ABCC /* ContentView.swift */; };
+		59CE9AD3ACFCBA07C3A7A71F /* AssistToDoiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FD90E2B8CBBA0604457A923 /* AssistToDoiOSApp.swift */; };
 		5A6E7B1875C4AD8BA6BE0E53 /* AssistToDoKit in Frameworks */ = {isa = PBXBuildFile; productRef = F1738FABD65263C4CB345370 /* AssistToDoKit */; };
+		5B76A8EDFB53AD1D9E035BF5 /* ListsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECACB8693EDB665BE1DD068D /* ListsView.swift */; };
+		5BCD48052FADB54E7FD8C766 /* AssistToDoWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D045D68C20A41D1F41B070 /* AssistToDoWidgetBundle.swift */; };
+		850BA668E6B42E382B19324B /* RecordVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */; };
+		899BE0FCABC72D2D188DC008 /* CaptureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D791C1303866922326C542E8 /* CaptureController.swift */; };
+		8CCDB5BF612E329B19AADC6D /* CaptureLaunchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7ADC7F35477329F0FCE4896 /* CaptureLaunchWidget.swift */; };
+		AB64A745FE890F97198DA669 /* RecordVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */; };
+		B68CC6C835C2C6E892D2D75E /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B86318D7C309A0DCED7827 /* CaptureView.swift */; };
+		BD1D338110A81BE18590E8C1 /* AssistToDoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6B4BE3B50789FF50C3191A2F /* AssistToDoKit */; };
+		C91DC3DBB44757A1040C4CE0 /* AssistToDoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A6B44444623FB1AF7630BF95 /* AssistToDoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E0AAD0F7991827F652056A13 /* CaptureActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 196771DA7713341F3E66BCBA /* CaptureActivityAttributes.swift */; };
+		EF9D3DB87C15C403750666A3 /* CaptureLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D307A561306FBCD635C38BA8 /* CaptureLiveActivity.swift */; };
+		F4B8CD6B0699C81E17E37D42 /* ShoppingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0E67F950C90CA11D7301F0 /* ShoppingView.swift */; };
+		FA995761D5D15FD90751878B /* AppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0D0FBF1F4D618085523749 /* AppShortcuts.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FC512E9BF5DB8999DFE6049F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 167B43DE2FD9DCD400350027 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9177A199806C22E5A262B4BC;
+			remoteInfo = AssistToDoWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9857946C836292C3222BE501 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C91DC3DBB44757A1040C4CE0 /* AssistToDoWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		167B43E62FD9DCD400350027 /* AssistToDo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssistToDo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		196771DA7713341F3E66BCBA /* CaptureActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureActivityAttributes.swift; sourceTree = "<group>"; };
+		1D648ED0EECA6700E238ABCC /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		36D045D68C20A41D1F41B070 /* AssistToDoWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistToDoWidgetBundle.swift; sourceTree = "<group>"; };
+		5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordVoiceIntent.swift; sourceTree = "<group>"; };
+		6DAAC800C1684C721B4FD9C4 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		6E0E67F950C90CA11D7301F0 /* ShoppingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShoppingView.swift; sourceTree = "<group>"; };
+		6FD90E2B8CBBA0604457A923 /* AssistToDoiOSApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistToDoiOSApp.swift; sourceTree = "<group>"; };
+		8B0D0FBF1F4D618085523749 /* AppShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppShortcuts.swift; sourceTree = "<group>"; };
+		946BB857D3638DFE351EC26C /* AppModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		9E62219EC32E79FCBFC9D85B /* CaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureControl.swift; sourceTree = "<group>"; };
+		A6B44444623FB1AF7630BF95 /* AssistToDoWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AssistToDoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A7ADC7F35477329F0FCE4896 /* CaptureLaunchWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureLaunchWidget.swift; sourceTree = "<group>"; };
+		C58C5D5954A860C795E1CDE9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		CBD4F8B5B60DAF14D929C069 /* AssistToDoiOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssistToDoiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D307A561306FBCD635C38BA8 /* CaptureLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureLiveActivity.swift; sourceTree = "<group>"; };
+		D791C1303866922326C542E8 /* CaptureController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureController.swift; sourceTree = "<group>"; };
+		DB10D949154BFEF3F2FAA826 /* LiveActivityController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
+		ECACB8693EDB665BE1DD068D /* ListsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ListsView.swift; sourceTree = "<group>"; };
+		F1B86318D7C309A0DCED7827 /* CaptureView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -39,14 +105,48 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		173736A2ABCF1689092D91A1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				484D1ECCB7FA675663F5EC65 /* Foundation.framework in Frameworks */,
+				33F3BE08AF15D9D10607E1F3 /* AssistToDoCore in Frameworks */,
+				BD1D338110A81BE18590E8C1 /* AssistToDoKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5A6767E74683730C3D2D8C71 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0AD6A9AF7A2BE3124AC614F8 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0F933B02256A7CCC1E299197 /* AssistToDoWidget */ = {
+			isa = PBXGroup;
+			children = (
+				36D045D68C20A41D1F41B070 /* AssistToDoWidgetBundle.swift */,
+				9E62219EC32E79FCBFC9D85B /* CaptureControl.swift */,
+				A7ADC7F35477329F0FCE4896 /* CaptureLaunchWidget.swift */,
+				D307A561306FBCD635C38BA8 /* CaptureLiveActivity.swift */,
+			);
+			name = AssistToDoWidget;
+			path = ../AssistToDoWidget;
+			sourceTree = "<group>";
+		};
 		167B43DD2FD9DCD400350027 = {
 			isa = PBXGroup;
 			children = (
 				167B43E82FD9DCD400350027 /* AssistToDo */,
 				167B43E72FD9DCD400350027 /* Products */,
+				8D761C0C1AA527AC1E572402 /* Frameworks */,
+				244781EF3349A2F81F053B74 /* AssistToDoiOS */,
+				0F933B02256A7CCC1E299197 /* AssistToDoWidget */,
+				304727E551B0A316945F4D51 /* AssistToDoShared */,
 			);
 			sourceTree = "<group>";
 		};
@@ -54,8 +154,54 @@
 			isa = PBXGroup;
 			children = (
 				167B43E62FD9DCD400350027 /* AssistToDo.app */,
+				CBD4F8B5B60DAF14D929C069 /* AssistToDoiOS.app */,
+				A6B44444623FB1AF7630BF95 /* AssistToDoWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		244781EF3349A2F81F053B74 /* AssistToDoiOS */ = {
+			isa = PBXGroup;
+			children = (
+				946BB857D3638DFE351EC26C /* AppModel.swift */,
+				8B0D0FBF1F4D618085523749 /* AppShortcuts.swift */,
+				6FD90E2B8CBBA0604457A923 /* AssistToDoiOSApp.swift */,
+				D791C1303866922326C542E8 /* CaptureController.swift */,
+				F1B86318D7C309A0DCED7827 /* CaptureView.swift */,
+				1D648ED0EECA6700E238ABCC /* ContentView.swift */,
+				ECACB8693EDB665BE1DD068D /* ListsView.swift */,
+				DB10D949154BFEF3F2FAA826 /* LiveActivityController.swift */,
+				6DAAC800C1684C721B4FD9C4 /* SettingsView.swift */,
+				6E0E67F950C90CA11D7301F0 /* ShoppingView.swift */,
+			);
+			name = AssistToDoiOS;
+			path = ../AssistToDoiOS;
+			sourceTree = "<group>";
+		};
+		304727E551B0A316945F4D51 /* AssistToDoShared */ = {
+			isa = PBXGroup;
+			children = (
+				196771DA7713341F3E66BCBA /* CaptureActivityAttributes.swift */,
+				5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */,
+			);
+			name = AssistToDoShared;
+			path = ../AssistToDoShared;
+			sourceTree = "<group>";
+		};
+		8D761C0C1AA527AC1E572402 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				BE794A76BB0400F49D1C92A9 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		BE794A76BB0400F49D1C92A9 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				C58C5D5954A860C795E1CDE9 /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -86,6 +232,46 @@
 			productName = AssistToDo;
 			productReference = 167B43E62FD9DCD400350027 /* AssistToDo.app */;
 			productType = "com.apple.product-type.application";
+		};
+		67E8B3F3BE48B30048A3BFBD /* AssistToDoiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A9DDC487987877C9C4B45C05 /* Build configuration list for PBXNativeTarget "AssistToDoiOS" */;
+			buildPhases = (
+				6349377511E3C2E62A088A7B /* Sources */,
+				173736A2ABCF1689092D91A1 /* Frameworks */,
+				BE7ACDA81352D3F1857D7E0D /* Resources */,
+				9857946C836292C3222BE501 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				019CCF349331CF4EF5C85A90 /* PBXTargetDependency */,
+			);
+			name = AssistToDoiOS;
+			packageProductDependencies = (
+				0D461C5C2A54C724709F96C5 /* AssistToDoCore */,
+				6B4BE3B50789FF50C3191A2F /* AssistToDoKit */,
+			);
+			productName = AssistToDoiOS;
+			productReference = CBD4F8B5B60DAF14D929C069 /* AssistToDoiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9177A199806C22E5A262B4BC /* AssistToDoWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F39E7C30FC40BC2F48C3A535 /* Build configuration list for PBXNativeTarget "AssistToDoWidget" */;
+			buildPhases = (
+				9DADF0A328D824818C5D74FF /* Sources */,
+				5A6767E74683730C3D2D8C71 /* Frameworks */,
+				7D58C70C138EF8816AE359D0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AssistToDoWidget;
+			productName = AssistToDoWidget;
+			productReference = A6B44444623FB1AF7630BF95 /* AssistToDoWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -123,12 +309,28 @@
 			projectRoot = "";
 			targets = (
 				167B43E52FD9DCD400350027 /* AssistToDo */,
+				67E8B3F3BE48B30048A3BFBD /* AssistToDoiOS */,
+				9177A199806C22E5A262B4BC /* AssistToDoWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		167B43E42FD9DCD400350027 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7D58C70C138EF8816AE359D0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BE7ACDA81352D3F1857D7E0D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -145,7 +347,48 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6349377511E3C2E62A088A7B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				121672D4BF92AC8AF3CDB031 /* AppModel.swift in Sources */,
+				FA995761D5D15FD90751878B /* AppShortcuts.swift in Sources */,
+				59CE9AD3ACFCBA07C3A7A71F /* AssistToDoiOSApp.swift in Sources */,
+				899BE0FCABC72D2D188DC008 /* CaptureController.swift in Sources */,
+				B68CC6C835C2C6E892D2D75E /* CaptureView.swift in Sources */,
+				5015C2BF0EFA38AFE670DFEA /* ContentView.swift in Sources */,
+				5B76A8EDFB53AD1D9E035BF5 /* ListsView.swift in Sources */,
+				25A91BF1CC61D61B4F1A8BE8 /* LiveActivityController.swift in Sources */,
+				1E934DD55803D158D04A0920 /* SettingsView.swift in Sources */,
+				F4B8CD6B0699C81E17E37D42 /* ShoppingView.swift in Sources */,
+				E0AAD0F7991827F652056A13 /* CaptureActivityAttributes.swift in Sources */,
+				850BA668E6B42E382B19324B /* RecordVoiceIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DADF0A328D824818C5D74FF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5BCD48052FADB54E7FD8C766 /* AssistToDoWidgetBundle.swift in Sources */,
+				193AED1CC87F0FB1C1C59D91 /* CaptureControl.swift in Sources */,
+				8CCDB5BF612E329B19AADC6D /* CaptureLaunchWidget.swift in Sources */,
+				EF9D3DB87C15C403750666A3 /* CaptureLiveActivity.swift in Sources */,
+				2172826A796E0D50F08D1B59 /* CaptureActivityAttributes.swift in Sources */,
+				AB64A745FE890F97198DA669 /* RecordVoiceIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		019CCF349331CF4EF5C85A90 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = AssistToDoWidget;
+			target = 9177A199806C22E5A262B4BC /* AssistToDoWidget */;
+			targetProxy = FC512E9BF5DB8999DFE6049F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		167B43F02FD9DCD700350027 /* Debug */ = {
@@ -340,6 +583,118 @@
 			};
 			name = Release;
 		};
+		B272171DB0A232EF615FFB77 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = AssistToDo;
+				INFOPLIST_KEY_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C40221238CB81337FFA66D93 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Pour créer des événements de calendrier à partir de tes captures.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "AssistToDo transcrit ta voix en tâches, en local sur l’iPhone.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Pour créer des rappels Apple à partir de tes captures vocales.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D1800FDBD2A027476D6FB3B8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Pour créer des événements de calendrier à partir de tes captures.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "AssistToDo transcrit ta voix en tâches, en local sur l’iPhone.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Pour créer des rappels Apple à partir de tes captures vocales.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F8C80F2151D08FF2EE6A93C3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = AssistToDo;
+				INFOPLIST_KEY_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -357,6 +712,24 @@
 			buildConfigurations = (
 				167B43F32FD9DCD700350027 /* Debug */,
 				167B43F42FD9DCD700350027 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A9DDC487987877C9C4B45C05 /* Build configuration list for PBXNativeTarget "AssistToDoiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C40221238CB81337FFA66D93 /* Release */,
+				D1800FDBD2A027476D6FB3B8 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F39E7C30FC40BC2F48C3A535 /* Build configuration list for PBXNativeTarget "AssistToDoWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F8C80F2151D08FF2EE6A93C3 /* Release */,
+				B272171DB0A232EF615FFB77 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -394,6 +767,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0D461C5C2A54C724709F96C5 /* AssistToDoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "AssistToDoCore" */;
+			productName = AssistToDoCore;
+		};
 		167B43F62FD9DD1400350027 /* AssistToDoCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AssistToDoCore;
@@ -407,6 +785,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 167B43FB2FD9DD8300350027 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		6B4BE3B50789FF50C3191A2F /* AssistToDoKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "AssistToDoKit" */;
+			productName = AssistToDoKit;
 		};
 		F1738FABD65263C4CB345370 /* AssistToDoKit */ = {
 			isa = XCSwiftPackageProductDependency;
