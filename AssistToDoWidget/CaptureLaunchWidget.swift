@@ -1,0 +1,47 @@
+//
+//  CaptureLaunchWidget.swift
+//  AssistToDoWidget
+//
+//  Widget écran d'accueil / verrouillé : un tap (Button + AppIntent, iOS 17+) lance la capture.
+//
+
+import WidgetKit
+import SwiftUI
+import AppIntents
+
+struct CaptureEntry: TimelineEntry { let date: Date }
+
+struct CaptureProvider: TimelineProvider {
+    func placeholder(in context: Context) -> CaptureEntry { CaptureEntry(date: .now) }
+    func getSnapshot(in context: Context, completion: @escaping (CaptureEntry) -> Void) {
+        completion(CaptureEntry(date: .now))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<CaptureEntry>) -> Void) {
+        completion(Timeline(entries: [CaptureEntry(date: .now)], policy: .never))
+    }
+}
+
+struct CaptureLaunchWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "com.assisttodo.capture.launch", provider: CaptureProvider()) { _ in
+            CaptureWidgetView()
+        }
+        .configurationDisplayName("Capture AssistToDo")
+        .description("Lance une note vocale d'un tap.")
+        .supportedFamilies([.systemSmall, .accessoryCircular])
+    }
+}
+
+struct CaptureWidgetView: View {
+    var body: some View {
+        Button(intent: RecordVoiceIntent()) {
+            VStack(spacing: 6) {
+                Image(systemName: "mic.fill").font(.system(size: 30, weight: .semibold))
+                Text("Note").font(.caption)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .buttonStyle(.plain)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+}

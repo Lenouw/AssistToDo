@@ -10,10 +10,12 @@ public enum CalendarCategory: String, Codable, Sendable {
     case perso, commun, pro, studio
 }
 
-/// Sous-liste d'une tâche locale : vidage de cerveau (défaut) ou to-do de code (Claude Code).
+/// Sous-liste d'une tâche locale : vidage de cerveau (défaut), to-do de code (Claude Code),
+/// ou liste de courses (iOS : remplace Apple Notes, indisponible sur iPhone).
 public enum LocalList: String, Codable, Sendable {
     case braindump   // vidage de cerveau (liste principale)
     case code        // to-do Claude Code (idées de dev, modifs clients)
+    case shopping    // liste de courses in-app (iOS)
 }
 
 public struct ParsedTask: Equatable, Sendable {

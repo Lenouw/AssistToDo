@@ -21,6 +21,8 @@ public final class TaskStore: ObservableObject {
     @Published public private(set) var thoughts: [TaskRecord] = []
     /// To-do Claude Code (local, sous-liste "code") : idées de dev / modifs clients.
     @Published public private(set) var codeTasks: [TaskRecord] = []
+    /// Liste de courses in-app (local, sous-liste "shopping") : utilisée sur iOS.
+    @Published public private(set) var shoppingItems: [TaskRecord] = []
     /// Agenda du jour, lecture seule, lu en direct d'iCloud.
     @Published public private(set) var todayEvents: [TodayItem] = []
     @Published public private(set) var todayReminders: [TodayItem] = []
@@ -65,6 +67,8 @@ public final class TaskStore: ObservableObject {
         // To-do Claude Code : local "code".
         codeTasks = all.filter { $0.destination == .local && $0.localList == .code }
             .sorted(by: Self.manualOrder)
+        shoppingItems = all.filter { $0.destination == .local && $0.localList == .shopping }
+            .sorted(by: Self.manualOrder)
         badgeCount = thoughts.filter { !$0.isDone }.count
     }
 
@@ -88,7 +92,10 @@ public final class TaskStore: ObservableObject {
     /// Synchronisable avec Toudou = to-do locale sans rappel minuté. Les deux sous-listes
     /// (braindump, code) se synchronisent, chacune vers son slug Toudou (canal dédié).
     static func isSyncable(_ e: TaskEntity) -> Bool {
+        // Seules les sous-listes braindump + code se synchronisent avec Toudou.
+        // La liste de courses (shopping, iOS) reste locale.
         e.destinationRaw == "local" && e.remindAt == nil
+            && (e.localListRaw == "braindump" || e.localListRaw == "code")
     }
 
     /// Déplace une tâche locale d'une sous-liste à l'autre (vidage de cerveau ↔ code).
