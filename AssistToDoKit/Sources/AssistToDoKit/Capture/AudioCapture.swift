@@ -141,10 +141,14 @@ public final class AudioCapture: ObservableObject {
         let speech = didDetectSpeech
         lock.unlock()
 
-        // Auto-gain : remonte le signal au pic cible (capé), seulement si parole.
-        let gain = (speech && peak > 0) ? min(maxGain, targetPeak / peak) : 1
+        // Auto-gain : normalisation au VRAI pic d'échantillon (pas le RMS, qui est ~10-20 dB plus bas).
+        // Normaliser sur le RMS sur-amplifiait les pics → saturation dès que le micro est à bon niveau.
+        // Avec le vrai pic, le résultat plafonne à targetPeak (0.95) → jamais de clipping. Le boost
+        // ne s'applique vraiment que pour un signal faible ; un signal déjà fort est juste calé à 0.95.
+        let truePeak = captured.reduce(Float(0)) { Swift.max($0, abs($1)) }
+        let gain = (speech && truePeak > 0) ? min(maxGain, targetPeak / truePeak) : 1
         if duration > 0.1 {  // pas de log pour les taps (durée ~0)
-            print("AudioCapture: pic RMS = \(peak) (seuil \(speechThreshold)), gain ×\(String(format: "%.1f", gain)), parole=\(speech), durée=\(String(format: "%.1f", duration))s")
+            print("AudioCapture: pic réel = \(String(format: "%.3f", truePeak)), RMS = \(String(format: "%.3f", peak)) (seuil \(speechThreshold)), gain ×\(String(format: "%.1f", gain)), parole=\(speech), durée=\(String(format: "%.1f", duration))s")
         }
 
         let url = speech ? writeNormalizedFile(captured, gain: gain) : nil
