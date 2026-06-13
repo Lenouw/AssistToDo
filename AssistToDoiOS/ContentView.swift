@@ -23,10 +23,26 @@ struct ContentView: View {
             CaptureButton { model.autoStartCapture = false; model.showCapture = true }
                 .padding(.bottom, 54)   // au-dessus de la barre d'onglets
         }
+        .safeAreaInset(edge: .top) {
+            if !model.transcriberReady { modelLoadingBanner }
+        }
         .sheet(isPresented: $model.showCapture) {
             CaptureView(autoStart: model.autoStartCapture)
                 .presentationDetents([.height(360)])
         }
+    }
+
+    /// Bandeau non bloquant pendant le téléchargement/chargement du modèle de transcription.
+    private var modelLoadingBanner: some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text("Préparation du modèle de transcription… (1er lancement)")
+                .font(.caption)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.thinMaterial)
     }
 }
 

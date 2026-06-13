@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 import AVFoundation
 import UserNotifications
 import AssistToDoCore
@@ -25,6 +26,9 @@ final class AppModel: ObservableObject {
     @Published var showCapture = false
     /// La capture doit démarrer automatiquement (déclenchée par Action Button / Siri / widget).
     @Published var autoStartCapture = false
+    /// Modèle de transcription chargé (faux pendant le téléchargement du 1er lancement).
+    /// Reflète `Transcriber.isReady` pour piloter un bandeau d'attente dans l'UI.
+    @Published var transcriberReady = false
 
     // Slug WhisperKit (même liste que macOS, vérifiée sur argmaxinc/whisperkit-coreml).
     // Défaut iPhone : "small" (FR correct, ~480 Mo) ; les modèles large restent dispo en option.
@@ -50,6 +54,9 @@ final class AppModel: ObservableObject {
         store.onCancelNotification = { [weak notifications] id in notifications?.cancel(id: id) }
         notifications.onOpenList = { [weak self] in self?.showCapture = false }
         EventKitService.shared.refreshCachedNames()
+
+        // Reflète l'état de chargement du modèle Whisper dans l'UI (bandeau d'attente au 1er run).
+        transcriber.$isReady.assign(to: &$transcriberReady)
     }
 
     // MARK: - Cycle de vie

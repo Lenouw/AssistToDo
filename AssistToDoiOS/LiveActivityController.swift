@@ -18,6 +18,11 @@ final class LiveActivityController {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         // Une seule activité à la fois.
         if activity != nil { return }
+        // Filet : coupe net toute activité de capture qui traînerait encore (fin asynchrone d'une
+        // capture précédente) avant d'en demander une nouvelle → jamais deux Dynamic Islands.
+        for stale in Activity<CaptureActivityAttributes>.activities {
+            Task { await stale.end(nil, dismissalPolicy: .immediate) }
+        }
         let state = CaptureActivityAttributes.ContentState(phase: .listening, detail: "À l'écoute")
         do {
             activity = try Activity.request(
