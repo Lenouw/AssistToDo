@@ -16,6 +16,8 @@ struct CaptureView: View {
 
     @State private var pressStart: Date?
     @State private var micDenied = false
+    /// Une capture a réellement démarré → on referme la feuille quand elle revient à l'état repos.
+    @State private var hasStarted = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -29,7 +31,7 @@ struct CaptureView: View {
         .task { if autoStart { await beginAutoStart() } }
         .onChange(of: capture.phase) { _, phase in
             // Referme la feuille une fois la capture terminée (ajouté / ignoré / annulé).
-            if phase == .idle, pressStart == nil, !autoStartPending { dismiss() }
+            if phase == .idle, pressStart == nil, hasStarted { dismiss() }
         }
         .alert("Micro non autorisé", isPresented: $micDenied) {
             Button("OK", role: .cancel) { dismiss() }
@@ -37,8 +39,6 @@ struct CaptureView: View {
             Text("Autorise le micro dans Réglages > AssistToDo pour dicter tes notes.")
         }
     }
-
-    @State private var autoStartPending = true
 
     // MARK: - Sous-vues
 
@@ -117,13 +117,14 @@ struct CaptureView: View {
 
     private func startPressCapture() async {
         guard await ensureMic() else { return }
+        hasStarted = true
         capture.begin()
     }
 
     private func beginAutoStart() async {
-        autoStartPending = false
         model.autoStartCapture = false
         guard await ensureMic() else { return }
+        hasStarted = true
         capture.begin()
     }
 
