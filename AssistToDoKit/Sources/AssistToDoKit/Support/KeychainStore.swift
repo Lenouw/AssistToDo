@@ -27,8 +27,9 @@ public enum KeychainStore {
         guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return }
         var add = base
         add[kSecValueData as String] = data
-        // Lisible après le premier déverrouillage de session (app au démarrage, avant interaction).
-        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        // Lisible après le premier déverrouillage (app au démarrage). ThisDeviceOnly : le secret
+        // ne part jamais dans une sauvegarde chiffrée ni dans le Trousseau iCloud (anti-exfiltration).
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         SecItemAdd(add as CFDictionary, nil)
     }
 

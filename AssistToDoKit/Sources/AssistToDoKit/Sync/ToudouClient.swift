@@ -50,7 +50,10 @@ final class ToudouClient {
 
     private var baseURL: String {
         let v = (UserDefaults.standard.string(forKey: "toudouBaseURL") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return v.isEmpty ? Self.defaultBaseURL : v
+        // Sécurité : le token Bearer ne part QUE vers une URL https. Une valeur http:// ou un
+        // schéma arbitraire (qui exfiltrerait le token en clair) est ignorée → repli sur la prod.
+        guard v.lowercased().hasPrefix("https://") else { return Self.defaultBaseURL }
+        return v
     }
     private var token: String { KeychainStore.toudouToken() }
 

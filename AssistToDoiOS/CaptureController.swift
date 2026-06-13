@@ -60,7 +60,19 @@ final class CaptureController: ObservableObject {
         workTask?.cancel()
         transcript = ""
         addedSummaries = []
-        phase = transcriber.isReady ? .listening : .preparing
+        // Modèle pas encore chargé (1er run = téléchargement) : ne PAS enregistrer dans le vide
+        // (la capture serait perdue à la transcription). Message + retour à l'état repos.
+        guard transcriber.isReady else {
+            let gen = generation
+            phase = .error("Modèle en préparation, réessaie dans un instant")
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 1_600_000_000)
+                guard let self, gen == self.generation else { return }
+                self.reset()
+            }
+            return
+        }
+        phase = .listening
         audio.start()
         liveActivity.start()
         // Relaye le niveau micro vers l'UI (l'app, contrairement au Mac, observe directement).

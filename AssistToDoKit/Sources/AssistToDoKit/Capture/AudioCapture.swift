@@ -74,9 +74,13 @@ public final class AudioCapture: ObservableObject {
     }
 
     public func start() {
+        // Reset SOUS le lock : didDetectSpeech / peakRMS sont aussi écrits par le tap audio
+        // (autre thread). Les remettre à zéro hors lock = data race avec un buffer en vol.
+        lock.lock()
         didDetectSpeech = false
         peakRMS = 0
-        lock.lock(); samples.removeAll(keepingCapacity: true); lock.unlock()
+        samples.removeAll(keepingCapacity: true)
+        lock.unlock()
         DispatchQueue.main.async { self.level = 0 }
 
         activateSession()

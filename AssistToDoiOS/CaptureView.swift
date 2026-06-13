@@ -18,6 +18,9 @@ struct CaptureView: View {
     @State private var micDenied = false
     /// Une capture a réellement démarré → on referme la feuille quand elle revient à l'état repos.
     @State private var hasStarted = false
+    /// Autorisation micro demandée À L'APPARITION (pas pendant le geste) pour éviter la course
+    /// permission-async ↔ relâchement. nil = en cours, true/false = réponse.
+    @State private var micGranted: Bool?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -28,7 +31,7 @@ struct CaptureView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task { if autoStart { await beginAutoStart() } }
+        .task { await prepare() }
         .onChange(of: capture.phase) { _, phase in
             // Referme la feuille une fois la capture terminée (ajouté / ignoré / annulé).
             if phase == .idle, pressStart == nil, hasStarted { dismiss() }
@@ -102,35 +105,32 @@ struct CaptureView: View {
     // MARK: - Gestes / logique
 
     private var holdGesture: some Gesture {
+        // Geste SYNCHRONE : la permission micro est déjà résolue (prepare()), donc begin()/end()
+        // ne traversent aucun await → pas de relâchement traité avant le démarrage réel.
         DragGesture(minimumDistance: 0)
             .onChanged { _ in
-                guard pressStart == nil else { return }
+                guard pressStart == nil, micGranted == true else { return }
                 pressStart = Date()
-                Task { await startPressCapture() }
+                hasStarted = true
+                capture.begin()
             }
             .onEnded { _ in
-                let held = pressStart.map { Date().timeIntervalSince($0) } ?? 0
+                guard let start = pressStart else { return }   // appui sans démarrage → on ignore
+                let held = Date().timeIntervalSince(start)
                 pressStart = nil
                 if held < 0.4 { capture.cancel() } else { capture.end() }
             }
     }
 
-    private func startPressCapture() async {
-        guard await ensureMic() else { return }
-        hasStarted = true
-        capture.begin()
-    }
-
-    private func beginAutoStart() async {
-        model.autoStartCapture = false
-        guard await ensureMic() else { return }
-        hasStarted = true
-        capture.begin()
-    }
-
-    private func ensureMic() async -> Bool {
+    /// Demande le micro une seule fois à l'apparition ; en mode déclencheur, démarre la capture.
+    private func prepare() async {
         let ok = await model.requestMicrophone()
-        if !ok { micDenied = true }
-        return ok
+        micGranted = ok
+        guard ok else { micDenied = true; return }
+        if autoStart {
+            model.autoStartCapture = false
+            hasStarted = true
+            capture.begin()
+        }
     }
 }

@@ -88,9 +88,13 @@ public enum PreferencesService {
         panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
+            // Sécurité : ne JAMAIS écrire le secret (clé OpenRouter) en clair dans le fichier exporté.
+            // Il reste dans le Trousseau ; après import, l'utilisateur le ressaisit.
+            var prefs = current()
+            prefs.apiKey = nil
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(current())
+            let data = try encoder.encode(prefs)
             try data.write(to: url)
         } catch {
             print("Export préférences échoué : \(error)")
