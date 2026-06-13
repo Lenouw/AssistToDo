@@ -7,10 +7,14 @@
 //
 
 import SwiftUI
+import UIKit
+import AssistToDoCore
 import AssistToDoKit
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var store: TaskStore
+    @Environment(\.dismiss) private var dismiss
 
     @AppStorage("toudouBaseURL") private var toudouURL = ""
     @AppStorage("whisperModel") private var whisperModel = AppModel.defaultWhisperModel
@@ -20,6 +24,7 @@ struct SettingsView: View {
     @State private var toudouToken = ""
     @State private var apiKey = ""
     @State private var savedFlash = false
+    @State private var copiedFlash = false
 
     // Slugs WhisperKit vérifiés (repo argmaxinc/whisperkit-coreml), mêmes que macOS.
     private let whisperModels: [(slug: String, label: String)] = [
@@ -67,6 +72,8 @@ struct SettingsView: View {
                     Button("Autoriser les notifications") { Task { await model.requestNotifications() } }
                 }
 
+                shoppingSection
+
                 Section {
                     HStack {
                         Text("Version"); Spacer()
@@ -75,11 +82,52 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Réglages")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("OK") { dismiss() }
+                }
+            }
             .onAppear {
                 toudouToken = KeychainStore.toudouToken()
                 apiKey = KeychainStore.apiKey()
             }
             .alert("Enregistré", isPresented: $savedFlash) { Button("OK", role: .cancel) {} }
+            .alert("Liste copiée", isPresented: $copiedFlash) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Colle-la dans tes Notes Apple (tu ajoutes les cases à cocher).")
+            }
+        }
+    }
+
+    // MARK: - Liste de courses
+    //
+    // L'app ne peut pas écrire de cases cochables dans Apple Notes sur iOS. Les articles dictés
+    // par la voix s'accumulent ici ; tu les copies et tu les colles toi-même dans ta note partagée.
+
+    private var shoppingSection: some View {
+        Section("Liste de courses") {
+            if store.shoppingItems.isEmpty {
+                Text("Vide. Dicte des articles, ils s'ajoutent ici.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                ForEach(store.shoppingItems) { Text($0.text) }
+            }
+            Button {
+                UIPasteboard.general.string = store.shoppingItems.map { $0.text }.joined(separator: "\n")
+                copiedFlash = true
+            } label: {
+                Label("Copier la liste", systemImage: "doc.on.doc")
+            }
+            .disabled(store.shoppingItems.isEmpty)
+
+            if !store.shoppingItems.isEmpty {
+                Button(role: .destructive) {
+                    for id in store.shoppingItems.map(\.id) { store.delete(id: id) }
+                } label: {
+                    Label("Vider la liste", systemImage: "trash")
+                }
+            }
         }
     }
 

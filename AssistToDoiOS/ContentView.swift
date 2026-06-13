@@ -2,33 +2,48 @@
 //  ContentView.swift
 //  AssistToDoiOS
 //
-//  Racine : onglets (Cerveau · Courses · Réglages) + bouton de capture proéminent.
+//  Racine : un seul écran = le second cerveau (tâches synchronisées + agenda iCloud du jour).
+//  Bouton de capture héros. Réglages via l'engrenage. Pas d'onglet : la liste de tâches est
+//  la raison d'être de l'app ; les courses sont reléguées dans les Réglages (copier-coller).
 //
 
 import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var showSettings = false
 
     var body: some View {
-        TabView {
+        NavigationStack {
             ListsView()
-                .tabItem { Label("Cerveau", systemImage: "brain.head.profile") }
-            ShoppingView()
-                .tabItem { Label("Courses", systemImage: "cart") }
-            SettingsView()
-                .tabItem { Label("Réglages", systemImage: "gearshape") }
+                .navigationTitle("AssistToDo")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showSettings = true } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .accessibilityLabel("Réglages")
+                    }
+                }
+                // Bandeau SOUS la barre de nav (ne masque pas l'engrenage).
+                .safeAreaInset(edge: .top) {
+                    if !model.transcriberReady { modelLoadingBanner }
+                }
         }
         .overlay(alignment: .bottom) {
             CaptureButton { model.autoStartCapture = false; model.showCapture = true }
-                .padding(.bottom, 54)   // au-dessus de la barre d'onglets
-        }
-        .safeAreaInset(edge: .top) {
-            if !model.transcriberReady { modelLoadingBanner }
+                .padding(.bottom, 24)
         }
         .sheet(isPresented: $model.showCapture) {
             CaptureView(autoStart: model.autoStartCapture)
                 .presentationDetents([.height(360)])
+                .environmentObject(model)
+                .environmentObject(model.capture)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(model)
+                .environmentObject(model.store)
         }
     }
 

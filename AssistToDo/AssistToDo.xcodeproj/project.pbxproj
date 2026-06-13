@@ -32,7 +32,6 @@
 		C91DC3DBB44757A1040C4CE0 /* AssistToDoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A6B44444623FB1AF7630BF95 /* AssistToDoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E0AAD0F7991827F652056A13 /* CaptureActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 196771DA7713341F3E66BCBA /* CaptureActivityAttributes.swift */; };
 		EF9D3DB87C15C403750666A3 /* CaptureLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D307A561306FBCD635C38BA8 /* CaptureLiveActivity.swift */; };
-		F4B8CD6B0699C81E17E37D42 /* ShoppingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0E67F950C90CA11D7301F0 /* ShoppingView.swift */; };
 		FA995761D5D15FD90751878B /* AppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0D0FBF1F4D618085523749 /* AppShortcuts.swift */; };
 /* End PBXBuildFile section */
 
@@ -67,7 +66,6 @@
 		36D045D68C20A41D1F41B070 /* AssistToDoWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistToDoWidgetBundle.swift; sourceTree = "<group>"; };
 		5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordVoiceIntent.swift; sourceTree = "<group>"; };
 		6DAAC800C1684C721B4FD9C4 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		6E0E67F950C90CA11D7301F0 /* ShoppingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShoppingView.swift; sourceTree = "<group>"; };
 		6FD90E2B8CBBA0604457A923 /* AssistToDoiOSApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistToDoiOSApp.swift; sourceTree = "<group>"; };
 		8B0D0FBF1F4D618085523749 /* AppShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppShortcuts.swift; sourceTree = "<group>"; };
 		946BB857D3638DFE351EC26C /* AppModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -172,7 +170,6 @@
 				ECACB8693EDB665BE1DD068D /* ListsView.swift */,
 				DB10D949154BFEF3F2FAA826 /* LiveActivityController.swift */,
 				6DAAC800C1684C721B4FD9C4 /* SettingsView.swift */,
-				6E0E67F950C90CA11D7301F0 /* ShoppingView.swift */,
 			);
 			name = AssistToDoiOS;
 			path = ../AssistToDoiOS;
@@ -360,7 +357,6 @@
 				5B76A8EDFB53AD1D9E035BF5 /* ListsView.swift in Sources */,
 				25A91BF1CC61D61B4F1A8BE8 /* LiveActivityController.swift in Sources */,
 				1E934DD55803D158D04A0920 /* SettingsView.swift in Sources */,
-				F4B8CD6B0699C81E17E37D42 /* ShoppingView.swift in Sources */,
 				E0AAD0F7991827F652056A13 /* CaptureActivityAttributes.swift in Sources */,
 				850BA668E6B42E382B19324B /* RecordVoiceIntent.swift in Sources */,
 			);

@@ -14,29 +14,26 @@ struct ListsView: View {
     @EnvironmentObject private var store: TaskStore
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section("Vidage de cerveau") {
-                    if store.thoughts.isEmpty { emptyRow("Parle pour ajouter une note") }
-                    ForEach(store.thoughts) { taskRow($0) }
-                }
-                if !store.codeTasks.isEmpty {
-                    Section("Claude Code") {
-                        ForEach(store.codeTasks) { taskRow($0) }
-                    }
-                }
-                if !store.todayEvents.isEmpty || !store.todayReminders.isEmpty {
-                    Section("Aujourd'hui · iCloud") {
-                        ForEach(store.todayEvents) { todayRow($0) }
-                        ForEach(store.todayReminders) { todayRow($0) }
-                    }
+        List {
+            Section("Vidage de cerveau") {
+                if store.thoughts.isEmpty { emptyRow("Parle pour ajouter une note") }
+                ForEach(store.thoughts) { taskRow($0) }
+            }
+            if !store.codeTasks.isEmpty {
+                Section("Claude Code") {
+                    ForEach(store.codeTasks) { taskRow($0) }
                 }
             }
-            .navigationTitle("AssistToDo")
-            .refreshable {
-                SyncCoordinator.shared?.syncNow()
-                await store.refreshToday()
+            if !store.todayEvents.isEmpty || !store.todayReminders.isEmpty {
+                Section("Aujourd'hui · iCloud") {
+                    ForEach(store.todayEvents) { todayRow($0) }
+                    ForEach(store.todayReminders) { todayRow($0) }
+                }
             }
+        }
+        .refreshable {
+            SyncCoordinator.shared?.syncNow()
+            await store.refreshToday()
         }
     }
 
