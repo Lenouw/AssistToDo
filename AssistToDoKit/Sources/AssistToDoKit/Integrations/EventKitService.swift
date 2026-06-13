@@ -179,6 +179,28 @@ public final class EventKitService {
             .sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
     }
 
+    /// Rappels Apple non complétés dus aujourd'hui OU en retard (Paris). Vide si accès non accordé.
+    /// Les rappels sans date d'échéance sont ignorés (rien à « rattraper »).
+    public func fetchDueReminders() async -> [TodayItem] {
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return [] }
+        let lists = store.calendars(for: .reminder)
+        let pred = store.predicateForReminders(in: lists)
+        let reminders: [EKReminder] = await withCheckedContinuation { cont in
+            store.fetchReminders(matching: pred) { cont.resume(returning: $0 ?? []) }
+        }
+        let start = ParisCalendar.startOfDay(for: Date())
+        guard let endOfToday = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+        return reminders
+            .filter { !$0.isCompleted }
+            .compactMap { r -> TodayItem? in
+                guard let comps = r.dueDateComponents,
+                      let due = ParisCalendar.calendar.date(from: comps),
+                      due < endOfToday else { return nil }   // dû aujourd'hui ou avant (en retard)
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false)
+            }
+            .sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
+    }
+
     // MARK: - Modification d'items existants (depuis le panneau)
 
     /// Marque un rappel Apple comme complété/non complété.

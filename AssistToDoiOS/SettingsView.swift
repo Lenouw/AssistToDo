@@ -20,6 +20,7 @@ struct SettingsView: View {
     @AppStorage("whisperModel") private var whisperModel = AppModel.defaultWhisperModel
     @AppStorage("openRouterModel") private var openRouterModel = AppModel.defaultOpenRouterModel
     @AppStorage("routingEnabled") private var routingEnabled = true
+    @AppStorage("iosLayout") private var iosLayout = "segmented"   // "segmented" | "stacked"
 
     @State private var toudouToken = ""
     @State private var apiKey = ""
@@ -64,6 +65,15 @@ struct SettingsView: View {
 
                 Section("Routage") {
                     Toggle("Routage intelligent (Rappels / Calendrier)", isOn: $routingEnabled)
+                }
+
+                Section("Affichage") {
+                    Picker("Disposition de l'écran", selection: $iosLayout) {
+                        Text("Segmentée (onglets en haut)").tag("segmented")
+                        Text("Empilée (tout en scroll)").tag("stacked")
+                    }
+                    Text("Segmentée : une zone à la fois (À faire · Rappels · Agenda · Fait). Empilée : zones en scroll, historique via l'horloge.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
 
                 Section("Permissions") {
