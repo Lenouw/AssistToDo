@@ -36,6 +36,9 @@ final class AppModel: ObservableObject {
     static let defaultOpenRouterModel = "google/gemini-2.5-flash"
 
     init() {
+        #if DEBUG
+        Self.seedDevSecretsIfNeeded()   // confort de dév : injecte les secrets s'ils manquent
+        #endif
         let store = TaskStore()
         let notifications = NotificationManager(store: store)
         let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? Self.defaultWhisperModel
@@ -91,4 +94,23 @@ final class AppModel: ObservableObject {
         _ = try? await EventKitService.shared.ensureCalendarAccess()
         EventKitService.shared.refreshCachedNames()
     }
+
+    // MARK: - Secrets de dév (DEBUG)
+
+    #if DEBUG
+    /// Injecte les secrets de DevSecrets dans le Keychain/UserDefaults s'ils sont absents.
+    /// N'écrase jamais une valeur déjà saisie dans l'app.
+    private static func seedDevSecretsIfNeeded() {
+        if !DevSecrets.toudouURL.isEmpty,
+           (UserDefaults.standard.string(forKey: "toudouBaseURL") ?? "").isEmpty {
+            UserDefaults.standard.set(DevSecrets.toudouURL, forKey: "toudouBaseURL")
+        }
+        if !DevSecrets.toudouToken.isEmpty, !KeychainStore.hasToudouToken {
+            KeychainStore.setToudouToken(DevSecrets.toudouToken)
+        }
+        if !DevSecrets.openRouterKey.isEmpty, !KeychainStore.hasAPIKey {
+            KeychainStore.setAPIKey(DevSecrets.openRouterKey)
+        }
+    }
+    #endif
 }

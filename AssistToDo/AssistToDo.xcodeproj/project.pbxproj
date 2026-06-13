@@ -26,6 +26,7 @@
 		850BA668E6B42E382B19324B /* RecordVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */; };
 		899BE0FCABC72D2D188DC008 /* CaptureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D791C1303866922326C542E8 /* CaptureController.swift */; };
 		8CCDB5BF612E329B19AADC6D /* CaptureLaunchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7ADC7F35477329F0FCE4896 /* CaptureLaunchWidget.swift */; };
+		9E88902CE2CCD08D069F67DA /* DevSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B86D2A27FFE6FBE8F9A4132 /* DevSecrets.swift */; };
 		AB64A745FE890F97198DA669 /* RecordVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */; };
 		B68CC6C835C2C6E892D2D75E /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B86318D7C309A0DCED7827 /* CaptureView.swift */; };
 		BD1D338110A81BE18590E8C1 /* AssistToDoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6B4BE3B50789FF50C3191A2F /* AssistToDoKit */; };
@@ -69,6 +70,7 @@
 		6FD90E2B8CBBA0604457A923 /* AssistToDoiOSApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistToDoiOSApp.swift; sourceTree = "<group>"; };
 		8B0D0FBF1F4D618085523749 /* AppShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppShortcuts.swift; sourceTree = "<group>"; };
 		946BB857D3638DFE351EC26C /* AppModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		9B86D2A27FFE6FBE8F9A4132 /* DevSecrets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DevSecrets.swift; sourceTree = "<group>"; };
 		9E62219EC32E79FCBFC9D85B /* CaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureControl.swift; sourceTree = "<group>"; };
 		A6B44444623FB1AF7630BF95 /* AssistToDoWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AssistToDoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A7ADC7F35477329F0FCE4896 /* CaptureLaunchWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureLaunchWidget.swift; sourceTree = "<group>"; };
@@ -170,6 +172,7 @@
 				ECACB8693EDB665BE1DD068D /* ListsView.swift */,
 				DB10D949154BFEF3F2FAA826 /* LiveActivityController.swift */,
 				6DAAC800C1684C721B4FD9C4 /* SettingsView.swift */,
+				9B86D2A27FFE6FBE8F9A4132 /* DevSecrets.swift */,
 			);
 			name = AssistToDoiOS;
 			path = ../AssistToDoiOS;
@@ -359,6 +362,7 @@
 				1E934DD55803D158D04A0920 /* SettingsView.swift in Sources */,
 				E0AAD0F7991827F652056A13 /* CaptureActivityAttributes.swift in Sources */,
 				850BA668E6B42E382B19324B /* RecordVoiceIntent.swift in Sources */,
+				9E88902CE2CCD08D069F67DA /* DevSecrets.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -585,6 +589,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ../AssistToDoWidget/Info.plist;
@@ -609,6 +614,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -643,6 +649,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -674,6 +681,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ../AssistToDoWidget/Info.plist;
