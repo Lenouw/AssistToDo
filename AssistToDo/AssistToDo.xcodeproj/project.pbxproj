@@ -591,8 +591,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ../AssistToDoWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AssistToDo;
-				INFOPLIST_KEY_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios.widget;
@@ -680,8 +680,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ../AssistToDoWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AssistToDo;
-				INFOPLIST_KEY_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios.widget;
