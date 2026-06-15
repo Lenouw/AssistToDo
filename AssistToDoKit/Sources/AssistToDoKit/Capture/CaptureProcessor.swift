@@ -30,6 +30,9 @@ public final class CaptureProcessor {
     private let transcriber: AudioTranscribing
     private let parser: TaskParsing
     private let router: TaskRouting
+    /// Captures en cours de traitement : empêche deux runs concurrents sur le même id
+    /// (auto au lancement + manuel) qui créeraient des doublons. Vérif+insert atomiques (MainActor sérialisé).
+    private var active: Set<UUID> = []
 
     public init(store: CaptureStore, transcriber: AudioTranscribing, parser: TaskParsing, router: TaskRouting) {
         self.store = store; self.transcriber = transcriber; self.parser = parser; self.router = router
@@ -37,7 +40,15 @@ public final class CaptureProcessor {
 
     /// Exécute (ou rejoue) le pipeline complet depuis l'audio de la capture.
     public func process(captureId: UUID, now: Date) async {
+        guard !active.contains(captureId) else { return }
+        active.insert(captureId); defer { active.remove(captureId) }
+
         guard let rec = store.captures.first(where: { $0.id == captureId }) else { return }
+        // Audio purgé (rétention) → on ne peut pas re-transcrire ; "Re-router seulement" reste possible.
+        guard !rec.audioFilename.isEmpty else {
+            store.update(id: captureId) { $0.status = .failed(stage: "transcription", reason: "audio purgé") }
+            return
+        }
         let audioPath = CapturePaths.url(for: rec.audioFilename).path
         let previous = rec.producedTaskIds
         let duration = rec.durationSec
@@ -84,6 +95,8 @@ public final class CaptureProcessor {
             await process(captureId: captureId, now: now)
             return
         }
+        guard !active.contains(captureId) else { return }
+        active.insert(captureId); defer { active.remove(captureId) }
         let previous = rec.producedTaskIds
         store.update(id: captureId) { $0.status = .routing }
         let routed = await parser.parseTasks(transcript: transcript, now: now)
