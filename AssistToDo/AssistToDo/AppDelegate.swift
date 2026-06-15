@@ -64,6 +64,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             captureStore: captureStore, macRouter: macRouter, processor: processor
         )
         capturesWindow = CapturesWindowController(store: captureStore, processor: processor)
+        // Rétention : purge les audios des captures faites > N jours (défaut 30 ; 0 = indéfini).
+        captureStore.purgeAudio(olderThanDays: UserDefaults.standard.object(forKey: "captureRetentionDays") as? Int ?? 30)
         capture.reprocessPending()   // rejoue les captures en attente (échec LLM/routage)
         hotkey = HotkeyManager()
         hotkey.onPressStart = { [weak self] in

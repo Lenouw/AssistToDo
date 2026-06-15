@@ -37,4 +37,23 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(url.lastPathComponent, "test.caf")
         XCTAssertEqual(url.deletingLastPathComponent().path, dir.path)
     }
+
+    @MainActor
+    func test_purge_removes_done_audio_older_than_retention() throws {
+        let store = try CaptureStore(inMemory: true)
+        let old = store.record(audioFilename: "old.caf", durationSec: 1)
+        store.update(id: old.id) { $0.status = .done; $0.createdAt = Date().addingTimeInterval(-40 * 86_400) }
+        store.purgeAudio(olderThanDays: 30)
+        XCTAssertTrue(store.captures.first!.audioFilename.isEmpty)   // audio purgé, métadonnée gardée
+        XCTAssertEqual(store.captures.count, 1)
+    }
+
+    @MainActor
+    func test_purge_keeps_recent_audio() throws {
+        let store = try CaptureStore(inMemory: true)
+        let r = store.record(audioFilename: "recent.caf", durationSec: 1)
+        store.update(id: r.id) { $0.status = .done }
+        store.purgeAudio(olderThanDays: 30)
+        XCTAssertEqual(store.captures.first!.audioFilename, "recent.caf")
+    }
 }

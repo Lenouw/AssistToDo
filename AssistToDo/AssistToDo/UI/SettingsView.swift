@@ -28,6 +28,7 @@ struct SettingsView: View {
     @AppStorage("studioBlockStart") private var studioBlockStart: Int = 8
     @AppStorage("studioBlockEnd") private var studioBlockEnd: Int = 20
     @AppStorage("toudouBaseURL") private var toudouBaseURL: String = "https://toudou-one.vercel.app"
+    @AppStorage("captureRetentionDays") private var captureRetentionDays: Int = 30
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
@@ -173,6 +174,17 @@ struct SettingsView: View {
                 }
                 Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow() }
                 Text("Synchronise ta liste de to-do « vide-tête » (sans date) avec Toudou, dans les deux sens (texte + coché). URL + token fournis par Toudou. Synchro auto toutes les ~45 s.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Captures (filet de sécurité)") {
+                Picker("Garder les audios", selection: $captureRetentionDays) {
+                    Text("7 jours").tag(7)
+                    Text("30 jours").tag(30)
+                    Text("90 jours").tag(90)
+                    Text("Indéfiniment").tag(0)
+                }
+                Text("Chaque capture vocale est enregistrée durablement et rejouable (menu › Captures). Au-delà du délai, seul le fichier audio est supprimé (l'historique reste).")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

@@ -48,5 +48,20 @@ public final class CaptureStore: ObservableObject {
         context.delete(r); save(); reload()
     }
 
+    /// Supprime le FICHIER audio des captures `done` plus vieilles que `days` (la métadonnée reste).
+    /// `days <= 0` = rétention indéfinie (ne purge rien).
+    public func purgeAudio(olderThanDays days: Int) {
+        guard days > 0 else { return }
+        let cutoff = Date().addingTimeInterval(-Double(days) * 86_400)
+        let all = (try? context.fetch(FetchDescriptor<CaptureRecord>())) ?? []
+        var changed = false
+        for r in all where r.status == .done && r.createdAt < cutoff && !r.audioFilename.isEmpty {
+            try? FileManager.default.removeItem(at: CapturePaths.url(for: r.audioFilename))
+            r.audioFilename = ""
+            changed = true
+        }
+        if changed { save(); reload() }
+    }
+
     private func save() { try? context.save() }
 }
