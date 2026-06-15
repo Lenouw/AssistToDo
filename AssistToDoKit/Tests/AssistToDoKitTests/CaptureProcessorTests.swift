@@ -59,4 +59,30 @@ final class CaptureProcessorTests: XCTestCase {
         XCTAssertEqual(r.status, .done)
         XCTAssertEqual(r.producedTaskIds.count, 1)
     }
+
+    @MainActor
+    func test_reroute_uses_existing_transcript_and_replaces_items() async throws {
+        let store = try CaptureStore(inMemory: true)
+        let rec = store.record(audioFilename: "x.caf", durationSec: 3)
+        let oldId = UUID()
+        store.update(id: rec.id) {
+            $0.transcript = "Appeler le médecin demain"
+            $0.status = .done
+            $0.producedTaskIds = [oldId]
+        }
+        let router = FakeRouter()
+        let rt = RoutedTask(record: TaskRecord(text: "Appeler le médecin", createdAt: Date()),
+                            destination: .reminders, durationMinutes: nil, listName: nil,
+                            calendarName: nil, calendarCategory: nil, noteName: nil)
+        // Transcriber qui planterait s'il était appelé (reroute ne doit PAS transcrire).
+        let proc = CaptureProcessor(store: store,
+                                    transcriber: FakeTranscriber(ready: false, text: ""),
+                                    parser: FakeParser(tasks: [rt]),
+                                    router: router)
+        await proc.reroute(captureId: rec.id, now: Date())
+        store.reload()
+        XCTAssertEqual(router.replaced, [oldId])       // remplace les items précédents
+        XCTAssertEqual(store.captures.first!.status, .done)
+        XCTAssertEqual(store.captures.first!.producedTaskIds.count, 1)
+    }
 }

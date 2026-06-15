@@ -17,12 +17,15 @@ final class MenuBarController {
     private let store: TaskStore
     private let onOpenList: () -> Void
     private let onOpenSettings: () -> Void
+    private let onOpenCaptures: () -> Void
     private var cancellable: AnyCancellable?
 
-    init(store: TaskStore, onOpenList: @escaping () -> Void, onOpenSettings: @escaping () -> Void) {
+    init(store: TaskStore, onOpenList: @escaping () -> Void, onOpenSettings: @escaping () -> Void,
+         onOpenCaptures: @escaping () -> Void) {
         self.store = store
         self.onOpenList = onOpenList
         self.onOpenSettings = onOpenSettings
+        self.onOpenCaptures = onOpenCaptures
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         buildMenu()
         cancellable = store.$badgeCount.sink { [weak self] count in
@@ -41,6 +44,7 @@ final class MenuBarController {
     private func buildMenu() {
         let menu = NSMenu()
         menu.addItem(withTitle: "Ouvrir la liste", action: #selector(openList), keyEquivalent: "l").target = self
+        menu.addItem(withTitle: "Captures…", action: #selector(openCaptures), keyEquivalent: "k").target = self
         menu.addItem(withTitle: "Réglages…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())
 
@@ -58,6 +62,8 @@ final class MenuBarController {
     }
 
     @objc private func openList() { onOpenList() }
+
+    @objc private func openCaptures() { onOpenCaptures() }
 
     @objc private func openSettings() { onOpenSettings() }
 

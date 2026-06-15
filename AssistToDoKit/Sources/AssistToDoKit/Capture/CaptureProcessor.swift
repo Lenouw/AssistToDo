@@ -75,4 +75,24 @@ public final class CaptureProcessor {
             $0.status = .done
         }
     }
+
+    /// Re-route SEULEMENT (garde le transcript existant, relance LLM + routage). Utile si le
+    /// transcript est bon mais le routage a foiré. Si pas de transcript, fait un re-traitement complet.
+    public func reroute(captureId: UUID, now: Date) async {
+        guard let rec = store.captures.first(where: { $0.id == captureId }),
+              let transcript = rec.transcript, !transcript.isEmpty else {
+            await process(captureId: captureId, now: now)
+            return
+        }
+        let previous = rec.producedTaskIds
+        store.update(id: captureId) { $0.status = .routing }
+        let routed = await parser.parseTasks(transcript: transcript, now: now)
+        let newIds = await router.route(routed, replacing: previous)
+        store.update(id: captureId) {
+            $0.producedTaskIds = newIds
+            $0.parsedSummary = routed.first?.record.text
+            $0.needsEnrichment = routed.contains { $0.record.parseStatus == .rawOnly }
+            $0.status = .done
+        }
+    }
 }

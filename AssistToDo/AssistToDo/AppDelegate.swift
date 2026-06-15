@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notifications: NotificationManager!
     private var capture: CaptureCoordinator!
     private var captureStore: CaptureStore!
+    private var capturesWindow: CapturesWindowController!
     private var onboarding: OnboardingController!
     private var sync: SyncCoordinator!
     private var pressStart: TimeInterval?
@@ -37,7 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar = MenuBarController(
             store: store,
             onOpenList: { [weak self] in self?.listController.show() },
-            onOpenSettings: { [weak self] in self?.listController.showSettings() }
+            onOpenSettings: { [weak self] in self?.listController.showSettings() },
+            onOpenCaptures: { [weak self] in self?.capturesWindow?.show() }
         )
 
         // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription + parsing.
@@ -61,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             transcriber: transcriber, parser: parser,
             captureStore: captureStore, macRouter: macRouter, processor: processor
         )
+        capturesWindow = CapturesWindowController(store: captureStore, processor: processor)
         capture.reprocessPending()   // rejoue les captures en attente (échec LLM/routage)
         hotkey = HotkeyManager()
         hotkey.onPressStart = { [weak self] in
