@@ -165,8 +165,8 @@ public final class AudioCapture: ObservableObject {
         for i in 0..<samples.count {
             dst[i] = max(-1, min(1, samples[i] * gain))
         }
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("assisttodo-\(UUID().uuidString).caf")
+        let filename = "assisttodo-\(UUID().uuidString).caf"
+        let url = CapturePaths.url(for: filename)
         do {
             let file = try AVAudioFile(forWriting: url, settings: format.settings)
             try file.write(from: buffer)

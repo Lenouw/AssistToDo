@@ -28,4 +28,13 @@ final class CaptureStoreTests: XCTestCase {
         store.update(id: id) { $0.status = .done; $0.needsEnrichment = false }
         XCTAssertTrue(store.needingProcessing().isEmpty)
     }
+
+    func test_capturePaths_directory_is_persistent_and_exists() throws {
+        let dir = try CapturePaths.directory()
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.path))
+        XCTAssertFalse(dir.path.contains("/tmp/"))
+        let url = CapturePaths.url(for: "test.caf")
+        XCTAssertEqual(url.lastPathComponent, "test.caf")
+        XCTAssertEqual(url.deletingLastPathComponent().path, dir.path)
+    }
 }
