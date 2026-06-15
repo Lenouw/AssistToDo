@@ -3,7 +3,7 @@ import AssistToDoCore
 
 /// Étages injectables du pipeline (pour testabilité hermétique).
 public protocol AudioTranscribing {
-    var isReady: Bool { get }
+    /// Retourne nil si le moteur n'est pas prêt OU si la transcription échoue.
     func transcribe(path: String) async -> (text: String, avgLogProb: Float)?
 }
 
@@ -43,8 +43,8 @@ public final class CaptureProcessor {
         let duration = rec.durationSec
         store.update(id: captureId) { $0.status = .transcribing; $0.attempts += 1 }
 
-        // 1) Transcription locale
-        guard transcriber.isReady, let t = await transcriber.transcribe(path: audioPath) else {
+        // 1) Transcription locale (nil = pas prêt ou échec)
+        guard let t = await transcriber.transcribe(path: audioPath) else {
             store.update(id: captureId) {
                 $0.status = .failed(stage: "transcription", reason: "indisponible")
                 $0.lastError = "transcription indisponible"

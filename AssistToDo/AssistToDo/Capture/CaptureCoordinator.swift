@@ -17,8 +17,9 @@ final class CaptureCoordinator {
 
     private let transcriber: Transcriber
     private let parser: TaskParser
-    private let store: TaskStore
-    private let notifications: NotificationManager
+    private let captureStore: CaptureStore          // journal des captures (filet de sécurité)
+    private let macRouter: MacTaskRouter            // routage partagé (live + re-traitement)
+    private let processor: CaptureProcessor         // pipeline rejouable (re-runs headless)
     private let island: IslandController
     private var activity: NSObjectProtocol?
     private var showTask: Task<Void, Never>?
@@ -26,13 +27,22 @@ final class CaptureCoordinator {
     /// Incrémenté à chaque nouvelle capture : invalide les timers/états de la précédente.
     private var generation = 0
 
-    init(transcriber: Transcriber, parser: TaskParser, store: TaskStore,
-         notifications: NotificationManager) {
+    init(transcriber: Transcriber, parser: TaskParser,
+         captureStore: CaptureStore, macRouter: MacTaskRouter, processor: CaptureProcessor) {
         self.transcriber = transcriber
         self.parser = parser
-        self.store = store
-        self.notifications = notifications
+        self.captureStore = captureStore
+        self.macRouter = macRouter
+        self.processor = processor
         island = IslandController(audio: audio, model: model)
+    }
+
+    /// Rejoue les captures en attente (échec LLM/routage ou texte brut à enrichir). Best-effort.
+    func reprocessPending() {
+        for rec in captureStore.needingProcessing() {
+            let id = rec.id
+            Task { [weak self] in await self?.processor.process(captureId: id, now: Date()) }
+        }
     }
 
     func begin() {
@@ -77,18 +87,25 @@ final class CaptureCoordinator {
         island.show()
         model.state = .transcribing
 
+        // Journal (filet de sécurité) : la capture est enregistrée AVANT tout traitement.
+        // L'audio (durable) est la source de vérité ; on met à jour le statut au fil du flux.
+        let capId = captureStore.record(audioFilename: url.lastPathComponent, durationSec: result.duration).id
+
         workTask = Task { [weak self] in
             guard let self else { return }
-            guard let t = await transcriber.transcribe(path: url.path), transcriber.isReady else {
+            guard transcriber.isReady, let t = await transcriber.transcribe(path: url.path) else {
+                self.captureStore.update(id: capId) { $0.status = .failed(stage: "transcription", reason: "indisponible") }
                 self.flashError("Transcription indisponible", beep: true, gen: gen)
                 return
             }
             guard gen == self.generation, !Task.isCancelled else { return }   // capture remplacée
+            self.captureStore.update(id: capId) { $0.transcript = t.text; $0.status = .transcribed }
 
             let verdict = HallucinationFilter.evaluate(
                 transcript: t.text, audioDuration: result.duration, avgLogProb: Double(t.avgLogProb)
             )
             guard case .accept = verdict else {
+                self.captureStore.update(id: capId) { $0.status = .done; $0.parsedSummary = "(ignoré : bruit)" }
                 if case .reject(let reason) = verdict { self.flashError("Ignoré (\(reason))", beep: true, gen: gen) }
                 return
             }
@@ -98,15 +115,16 @@ final class CaptureCoordinator {
             self.model.state = .result
 
             // 2) Routage (le texte reste visible pendant l'appel LLM).
-            let items = await self.route(transcript: t.text)
+            let (items, producedIds, summary) = await self.route(transcript: t.text)
             guard gen == self.generation else { return }
 
             // 3) Garde le texte ~2s de plus.
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             guard gen == self.generation else { return }
 
-            // 4) Si rien à créer : on n'écrit rien.
+            // 4) Si rien à créer : on n'écrit rien (mais la capture reste tracée).
             if items.isEmpty {
+                self.captureStore.update(id: capId) { $0.status = .done; $0.parsedSummary = "(rien créé)" }
                 Self.appendDiscardedHistory(t.text)
                 self.model.state = .ignored
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -115,7 +133,10 @@ final class CaptureCoordinator {
                 return
             }
 
-            // 5) Sinon, confirme l'ajout.
+            // 5) Sinon, confirme l'ajout + journalise le résultat.
+            self.captureStore.update(id: capId) {
+                $0.producedTaskIds = producedIds; $0.parsedSummary = summary; $0.status = .done
+            }
             self.model.addedItems = items
             self.model.state = .added
             try? await Task.sleep(nanoseconds: 2_200_000_000)
@@ -126,12 +147,8 @@ final class CaptureCoordinator {
 
     // MARK: - Routage
 
-    private func route(transcript: String) async -> [ToastItem] {
+    private func route(transcript: String) async -> (items: [ToastItem], producedIds: [UUID], summary: String?) {
         let routingOn = UserDefaults.standard.object(forKey: "routingEnabled") as? Bool ?? true
-        let defaultCalendar = UserDefaults.standard.string(forKey: "defaultCalendar")
-        let defaultList = UserDefaults.standard.string(forKey: "defaultReminderList")
-        let defaultNote = UserDefaults.standard.string(forKey: "defaultNote") ?? "LISTE Courses MAISON 2026"
-
         let customRules = UserDefaults.standard.string(forKey: "customRoutingRules") ?? ""
         let routed = await parser.parse(
             transcript: transcript, now: Date(),
@@ -139,99 +156,11 @@ final class CaptureCoordinator {
             reminderLists: routingOn ? EventKitService.shared.reminderListTitles : [],
             customRules: routingOn ? customRules : ""
         )
-
-        var toStore: [TaskRecord] = []
-        var items: [ToastItem] = []
-
-        func keepLocal(_ rec: TaskRecord) -> TaskRecord {
-            var r = rec
-            r.destination = .local
-            r.notificationId = notifications.schedule(for: r)
-            return r
-        }
-
-        for item in routed {
-            var destination = routingOn ? item.destination : .local
-            // Filet de sécurité : un événement sans AUCUNE date/heure dictée ne va jamais
-            // sur "aujourd'hui" inventé. On le rétrograde en rappel (chose à ne pas oublier).
-            if destination == .calendar, item.record.dueDate == nil, item.record.remindAt == nil {
-                destination = .reminders
-            }
-            switch destination {
-            case .calendar:
-                do {
-                    let categoryCalendar = item.calendarCategory.flatMap { cat in
-                        UserDefaults.standard.string(forKey: "calendar_\(cat.rawValue)")
-                    }
-                    let alarmsOn = UserDefaults.standard.object(forKey: "eventAlarmsEnabled") as? Bool ?? true
-                    let offsets: [TimeInterval] = alarmsOn ? [-3600, -86400] : []  // 1h + 1 jour avant
-
-                    let day = item.record.dueDate ?? Date()
-                    var start = item.record.remindAt ?? day
-                    var duration = item.durationMinutes ?? 60
-                    var allDay = item.record.remindAt == nil
-                    // Fermeture studio sans heure → créneau timé configurable (bloque vraiment les réservations).
-                    if item.record.remindAt == nil, item.calendarCategory == .studio {
-                        let sh = UserDefaults.standard.object(forKey: "studioBlockStart") as? Int ?? 8
-                        let eh = UserDefaults.standard.object(forKey: "studioBlockEnd") as? Int ?? 20
-                        start = ParisCalendar.calendar.date(bySettingHour: sh, minute: 0, second: 0, of: day) ?? day
-                        duration = max(60, (eh - sh) * 60)
-                        allDay = false
-                    }
-                    let extId = try await EventKitService.shared.createEvent(
-                        title: item.record.text,
-                        start: start,
-                        durationMinutes: duration,
-                        allDay: allDay,
-                        calendarName: item.calendarName ?? categoryCalendar,
-                        defaultCalendarName: defaultCalendar,
-                        alarmOffsets: offsets
-                    )
-                    // Le calendrier n'est pas affiché dans l'app (les events vivent dans le Calendrier
-                    // Apple) : on confirme dans l'îlot mais on ne stocke aucun miroir local.
-                    var r = item.record; r.destination = .calendar; r.externalId = extId
-                    items.append(ToastItem(record: r, destination: .calendar, fellBack: false))
-                } catch {
-                    print("Calendrier indisponible (\(error)), fallback local")
-                    toStore.append(keepLocal(item.record))
-                    items.append(ToastItem(record: item.record, destination: .calendar, fellBack: true))
-                }
-            case .reminders:
-                do {
-                    let extId = try await EventKitService.shared.createReminder(
-                        title: item.record.text,
-                        due: item.record.remindAt ?? item.record.dueDate,
-                        listName: item.listName,
-                        defaultListName: defaultList
-                    )
-                    var r = item.record; r.destination = .reminders; r.externalId = extId
-                    toStore.append(r)
-                    items.append(ToastItem(record: r, destination: .reminders, fellBack: false))
-                } catch {
-                    print("Rappels indisponibles (\(error)), fallback local")
-                    toStore.append(keepLocal(item.record))
-                    items.append(ToastItem(record: item.record, destination: .reminders, fellBack: true))
-                }
-            case .notes:
-                // La liste de courses vit UNIQUEMENT dans Apple Notes (pas dans l'app "second cerveau").
-                // On écrit dans la note configurée dans les Réglages (autoritaire) : on ignore le noteName
-                // deviné par le LLM, qui écrasait la note de l'utilisateur / en créait une parasite.
-                do {
-                    try await NotesService.shared.append(item: item.record.text, noteName: defaultNote)
-                    items.append(ToastItem(record: item.record, destination: .notes, fellBack: false))
-                } catch {
-                    print("Notes indisponibles (\(error)), fallback local")
-                    toStore.append(keepLocal(item.record))
-                    items.append(ToastItem(record: item.record, destination: .notes, fellBack: true))
-                }
-            case .local:
-                toStore.append(keepLocal(item.record))
-                items.append(ToastItem(record: item.record, destination: .local, fellBack: false))
-            }
-        }
-
-        if !toStore.isEmpty { store.add(toStore) }
-        return items
+        // Routage partagé (même logique que le re-traitement). Pas de remplacement en live (capture neuve).
+        let outcomes = await macRouter.routeDetailed(routed, replacing: [])
+        let items = outcomes.map { ToastItem(record: $0.record, destination: $0.destination, fellBack: $0.fellBack) }
+        let producedIds = outcomes.compactMap { $0.storedId }
+        return (items, producedIds, routed.first?.record.text)
     }
 
     // MARK: - Privé

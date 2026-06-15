@@ -5,7 +5,6 @@ import XCTest
 final class CaptureProcessorTests: XCTestCase {
     struct FakeTranscriber: AudioTranscribing {
         let ready: Bool; let text: String
-        var isReady: Bool { ready }
         func transcribe(path: String) async -> (text: String, avgLogProb: Float)? {
             ready ? (text, -0.2) : nil
         }

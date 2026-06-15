@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var transcriber: Transcriber!
     private var notifications: NotificationManager!
     private var capture: CaptureCoordinator!
+    private var captureStore: CaptureStore!
     private var onboarding: OnboardingController!
     private var sync: SyncCoordinator!
     private var pressStart: TimeInterval?
@@ -49,10 +50,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.onCancelNotification = { [weak self] id in self?.notifications.cancel(id: id) }
         store.onScheduleReminder = { [weak self] record in self?.notifications.schedule(for: record) }
         let parser = TaskParser(client: OpenRouterClient(model: llmModel))
+        // Journal des captures (filet de sécurité). Repli in-memory si le store persistant échoue (jamais crash).
+        let captureStore: CaptureStore = (try? CaptureStore()) ?? (try! CaptureStore(inMemory: true))
+        self.captureStore = captureStore
+        let macRouter = MacTaskRouter(store: store, notifications: notifications)
+        let processor = CaptureProcessor(store: captureStore,
+                                         transcriber: TranscriberAdapter(transcriber: transcriber),
+                                         parser: parser, router: macRouter)
         capture = CaptureCoordinator(
-            transcriber: transcriber, parser: parser, store: store,
-            notifications: notifications
+            transcriber: transcriber, parser: parser,
+            captureStore: captureStore, macRouter: macRouter, processor: processor
         )
+        capture.reprocessPending()   // rejoue les captures en attente (échec LLM/routage)
         hotkey = HotkeyManager()
         hotkey.onPressStart = { [weak self] in
             self?.pressStart = ProcessInfo.processInfo.systemUptime
