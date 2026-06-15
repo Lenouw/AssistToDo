@@ -14,4 +14,18 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(r.attempts, 0)
         XCTAssertNil(r.transcript)
     }
+
+    @MainActor
+    func test_store_creates_and_queries_pending() throws {
+        let store = try CaptureStore(inMemory: true)
+        let id = store.record(audioFilename: "x.caf", durationSec: 3).id
+        XCTAssertEqual(store.captures.count, 1)
+
+        store.update(id: id) { $0.status = .transcribed; $0.needsEnrichment = true }
+        let pending = store.needingProcessing()
+        XCTAssertEqual(pending.map(\.id), [id])
+
+        store.update(id: id) { $0.status = .done; $0.needsEnrichment = false }
+        XCTAssertTrue(store.needingProcessing().isEmpty)
+    }
 }
