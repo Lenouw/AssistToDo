@@ -7,4 +7,11 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(CaptureStatus(raw: "failed:llm:timeout").raw, "failed:llm:timeout")
         XCTAssertEqual(CaptureStatus(raw: "garbage"), .recorded) // défaut sûr
     }
+
+    func test_captureRecord_defaults_to_recorded() {
+        let r = CaptureRecord(id: UUID(), createdAt: Date(), audioFilename: "a.caf", durationSec: 2)
+        XCTAssertEqual(CaptureStatus(raw: r.statusRaw), .recorded)
+        XCTAssertEqual(r.attempts, 0)
+        XCTAssertNil(r.transcript)
+    }
 }

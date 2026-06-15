@@ -12,7 +12,7 @@ import AssistToDoCore
 /// Schéma versionné dès v1 pour permettre des migrations futures sans corruption.
 enum AssistToDoSchemaV1: VersionedSchema {
     static var versionIdentifier = Schema.Version(1, 0, 0)
-    static var models: [any PersistentModel.Type] { [TaskEntity.self] }
+    static var models: [any PersistentModel.Type] { [TaskEntity.self, CaptureRecord.self] }
 }
 
 @Model
