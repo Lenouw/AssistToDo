@@ -36,5 +36,11 @@ rm -f "$DMG"
 hdiutil create -volname "$SCHEME" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGE"
 
+# ZIP de l'app (consommé par l'auto-update interne UpdateChecker).
+ZIP="$DIST_DIR/$SCHEME-$VER.zip"
+rm -f "$ZIP"
+/usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
+
 echo "✓ DMG prêt : $DMG"
-echo "  Publier : gh release create v$VER \"$DMG\" --title \"$SCHEME $VER\" --notes-file RELEASE_NOTES.md"
+echo "✓ ZIP prêt : $ZIP (auto-update)"
+echo "  Publier : gh release create v$VER \"$DMG\" \"$ZIP\" --title \"$SCHEME $VER\" --notes-file RELEASE_NOTES.md"

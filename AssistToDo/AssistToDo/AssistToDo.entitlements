@@ -2,21 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>com.apple.security.app-sandbox</key>
-	<true/>
-	<key>com.apple.security.device.audio-input</key>
-	<true/>
-	<key>com.apple.security.files.user-selected.read-write</key>
-	<true/>
-	<key>com.apple.security.network.client</key>
-	<true/>
-	<key>com.apple.security.personal-information.calendars</key>
-	<true/>
-	<key>com.apple.security.personal-information.reminders</key>
-	<true/>
-	<key>com.apple.security.temporary-exception.apple-events</key>
-	<array>
-		<string>com.apple.Notes</string>
-	</array>
+	<!-- App NON sandboxée : distribution hors App Store (GitHub) + auto-update interne
+	     (une app sandboxée ne peut pas s'installer dans /Applications).
+	     Micro / Calendrier / Rappels / Automation Notes restent demandés à l'exécution (TCC + usage strings Info.plist). -->
 </dict>
 </plist>
