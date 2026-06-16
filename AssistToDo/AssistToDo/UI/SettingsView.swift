@@ -34,6 +34,7 @@ struct SettingsView: View {
     @State private var apiKeySaved: Bool = false
     @State private var toudouToken: String = ""
     @State private var toudouTokenSaved: Bool = false
+    @State private var showToudouAdvanced: Bool = false
     @State private var launchAtLogin: Bool = false
     @State private var micStatus: AVAuthorizationStatus = .notDetermined
     @State private var notifAuthorized: Bool = false
@@ -156,25 +157,33 @@ struct SettingsView: View {
                 permissionRow("Notifications", granted: notifAuthorized) { requestNotifications() }
             }
 
-            Section("Synchronisation Toudou") {
-                TextField("URL de l'API Toudou (https://…)", text: $toudouBaseURL)
-                    .textContentType(.URL)
-                    .autocorrectionDisabled()
-                SecureField("Token Bearer", text: $toudouToken)
-                HStack {
-                    Button("Enregistrer le token") {
-                        KeychainStore.setToudouToken(toudouToken)
-                        toudouTokenSaved = KeychainStore.hasToudouToken
-                        SyncCoordinator.shared?.start()   // (re)démarre la sync avec la nouvelle config
+            Section("Synchronisation perso (avancé)") {
+                // Masqué par défaut : optionnel, nécessite ton PROPRE serveur Toudou.
+                // Visible si un token est déjà enregistré (ton install) ou si tu l'ouvres.
+                if toudouTokenSaved || showToudouAdvanced {
+                    TextField("URL de l'API Toudou (https://…)", text: $toudouBaseURL)
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                    SecureField("Token Bearer", text: $toudouToken)
+                    HStack {
+                        Button("Enregistrer le token") {
+                            KeychainStore.setToudouToken(toudouToken)
+                            toudouTokenSaved = KeychainStore.hasToudouToken
+                            SyncCoordinator.shared?.start()
+                        }
+                        if toudouTokenSaved {
+                            Label("Token enregistré", systemImage: "checkmark.seal.fill")
+                                .font(.caption).foregroundStyle(.green)
+                        }
                     }
-                    if toudouTokenSaved {
-                        Label("Token enregistré", systemImage: "checkmark.seal.fill")
-                            .font(.caption).foregroundStyle(.green)
-                    }
+                    Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow() }
+                    Text("Synchronise tes listes « vide-tête » et « Claude Code » avec ton propre serveur Toudou (deux sens, texte + coché). Optionnel.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Button("Configurer la synchronisation Toudou…") { showToudouAdvanced = true }
+                    Text("Optionnel. Synchronise tes listes avec TON propre serveur Toudou. Pas nécessaire pour utiliser l'app.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow() }
-                Text("Synchronise ta liste de to-do « vide-tête » (sans date) avec Toudou, dans les deux sens (texte + coché). URL + token fournis par Toudou. Synchro auto toutes les ~45 s.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Captures (filet de sécurité)") {
