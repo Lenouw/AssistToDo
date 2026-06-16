@@ -28,14 +28,16 @@ public final class Transcriber: ObservableObject {
 
     private func load() async {
         do {
-            // prewarm RETIRÉ : avec prewarm=true, l'init WhisperKit pouvait échouer sur certaines
-            // configs (la 1ʳᵉ capture affichait "Transcription indisponible" quel que soit le modèle).
-            // On charge simplement le modèle. Le démarrage à froid (Bug D) est rouvert : à re-traiter
-            // plus tard par un warm-up best-effort qui n'empêche JAMAIS le chargement.
+            // On charge le modèle SANS prewarm dans la config (prewarm:true faisait planter l'init
+            // sur certaines configs → "Transcription indisponible").
             let config = WhisperKitConfig(model: model)
             whisper = try await WhisperKit(config)
             isReady = true
             print("WhisperKit prêt (modèle \(model))")
+            // Préchauffe APRÈS coup, best-effort : compile le modèle CoreML / chauffe le Neural Engine
+            // pour que la 1ʳᵉ capture ne soit pas lente (corrige le démarrage à froid). Séparé de l'init
+            // → si ça échoue, isReady reste true et la transcription marche quand même.
+            Task { [weak self] in try? await self?.whisper?.prewarmModels() }
         } catch {
             print("Erreur init WhisperKit: \(error)")
         }
