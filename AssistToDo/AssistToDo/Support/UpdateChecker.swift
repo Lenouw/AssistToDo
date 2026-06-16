@@ -9,11 +9,12 @@
 
 import Foundation
 import AppKit
+import CryptoKit
 
 enum UpdateChecker {
     static let repo = "Lenouw/AssistToDo"
 
-    enum UpdateError: Error { case noZipAsset, noAppInZip }
+    enum UpdateError: Error { case noAppInZip, checksumMismatch, checksumMissing }
 
     static var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
@@ -34,10 +35,11 @@ enum UpdateChecker {
             }
             let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
             let page = (json["html_url"] as? String) ?? "https://github.com/\(repo)/releases/latest"
-            let zip = zipAssetURL(from: json)
+            let zip = assetURL(from: json, suffix: ".zip")
+            let sha = assetURL(from: json, suffix: ".sha256")
             DispatchQueue.main.async {
                 if isNewer(latest, than: currentVersion) {
-                    promptUpdate(latest: latest, zip: zip, page: page)
+                    promptUpdate(latest: latest, zip: zip, sha: sha, page: page)
                 } else if manual {
                     info("AssistToDo est à jour", "Tu as la dernière version (\(currentVersion)).")
                 }
@@ -56,10 +58,10 @@ enum UpdateChecker {
         return false
     }
 
-    private static func zipAssetURL(from json: [String: Any]) -> URL? {
+    private static func assetURL(from json: [String: Any], suffix: String) -> URL? {
         guard let assets = json["assets"] as? [[String: Any]] else { return nil }
         for a in assets {
-            if let name = a["name"] as? String, name.hasSuffix(".zip"),
+            if let name = a["name"] as? String, name.hasSuffix(suffix),
                let s = a["browser_download_url"] as? String, let u = URL(string: s) { return u }
         }
         return nil
@@ -67,17 +69,18 @@ enum UpdateChecker {
 
     // MARK: - UI
 
-    private static func promptUpdate(latest: String, zip: URL?, page: String) {
+    private static func promptUpdate(latest: String, zip: URL?, sha: URL?, page: String) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "Mise à jour disponible (\(latest))"
-        if zip != nil {
-            alert.informativeText = "Tu as la version \(currentVersion). Installer la nouvelle ? L'app va se télécharger, remplacer et redémarrer."
+        // Auto-install UNIQUEMENT si on a le .zip ET son checksum .sha256 (intégrité vérifiable).
+        // Sinon repli sur la page (install manuelle) — on n'installe jamais un binaire non vérifié.
+        if let zip, let sha {
+            alert.informativeText = "Tu as la version \(currentVersion). Installer la nouvelle ? L'app vérifie l'intégrité, se remplace et redémarre."
             alert.addButton(withTitle: "Installer et redémarrer")
             alert.addButton(withTitle: "Plus tard")
-            if alert.runModal() == .alertFirstButtonReturn, let zip { installUpdate(from: zip, page: page) }
+            if alert.runModal() == .alertFirstButtonReturn { installUpdate(from: zip, sha: sha, page: page) }
         } else {
-            // Pas d'asset .zip → repli : ouvrir la page de téléchargement.
             alert.informativeText = "Tu as la version \(currentVersion). Ouvrir la page de téléchargement ?"
             alert.addButton(withTitle: "Télécharger")
             alert.addButton(withTitle: "Plus tard")
@@ -92,38 +95,51 @@ enum UpdateChecker {
 
     // MARK: - Install
 
-    private static func installUpdate(from zip: URL, page: String) {
+    private static func installUpdate(from zip: URL, sha: URL, page: String) {
         Task { @MainActor in
             do {
-                let (tmpZip, _) = try await URLSession.shared.download(from: zip)
+                // 1) Checksum attendu (64 hex).
+                let (shaTmp, _) = try await URLSession.shared.download(from: sha)
+                let expected = (try String(contentsOf: shaTmp, encoding: .utf8))
+                    .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                guard expected.count == 64, expected.allSatisfy(\.isHexDigit) else { throw UpdateError.checksumMissing }
+
+                // 2) Télécharge le zip puis VÉRIFIE l'intégrité avant toute install/exécution.
+                let (zipTmp, _) = try await URLSession.shared.download(from: zip)
+                let actual = SHA256.hash(data: try Data(contentsOf: zipTmp))
+                    .map { String(format: "%02x", $0) }.joined()
+                guard actual == expected else { throw UpdateError.checksumMismatch }
+
+                // 3) Dézippe.
                 let work = FileManager.default.temporaryDirectory.appendingPathComponent("atd-update-\(UUID().uuidString)")
                 let unzipped = work.appendingPathComponent("u")
                 try FileManager.default.createDirectory(at: unzipped, withIntermediateDirectories: true)
-                try runSync("/usr/bin/ditto", ["-xk", tmpZip.path, unzipped.path])
-
+                try runSync("/usr/bin/ditto", ["-xk", zipTmp.path, unzipped.path])
                 guard let newApp = try newAppURL(in: unzipped) else { throw UpdateError.noAppInZip }
-                let target = Bundle.main.bundleURL.path
-                let pid = ProcessInfo.processInfo.processIdentifier
+
+                // 4) Script de swap : chemins passés en ARGUMENTS ($1/$2/$3), JAMAIS interpolés (anti-injection).
                 let script = work.appendingPathComponent("swap.sh")
                 let body = """
                 #!/bin/bash
-                while kill -0 \(pid) 2>/dev/null; do sleep 0.3; done
-                rm -rf "\(target)"
-                /usr/bin/ditto "\(newApp.path)" "\(target)"
-                xattr -dr com.apple.quarantine "\(target)" 2>/dev/null
-                open "\(target)"
+                PID="$1"; TARGET="$2"; NEWAPP="$3"
+                while kill -0 "$PID" 2>/dev/null; do sleep 0.3; done
+                rm -rf "$TARGET"
+                /usr/bin/ditto "$NEWAPP" "$TARGET"
+                xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null
+                open "$TARGET"
                 """
                 try body.write(to: script, atomically: true, encoding: .utf8)
 
-                // Lance le helper détaché (survit à la fermeture de l'app) puis quitte.
                 let p = Process()
                 p.executableURL = URL(fileURLWithPath: "/bin/bash")
-                p.arguments = ["-c", "nohup bash '\(script.path)' >/dev/null 2>&1 &"]
-                try p.run()
-                p.waitUntilExit()
+                p.arguments = [script.path,
+                               String(ProcessInfo.processInfo.processIdentifier),
+                               Bundle.main.bundleURL.path,
+                               newApp.path]
+                try p.run()   // enfant orphelin adopté par launchd à notre fermeture → survit + swap
                 NSApp.terminate(nil)
             } catch {
-                info("Mise à jour impossible", "Échec : \(error.localizedDescription). Ouvre la page pour installer manuellement.")
+                info("Mise à jour impossible", "Échec (\(error)). Ouvre la page pour installer manuellement.")
                 if let u = URL(string: page) { NSWorkspace.shared.open(u) }
             }
         }
