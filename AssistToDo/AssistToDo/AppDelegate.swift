@@ -16,7 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notifications: NotificationManager!
     private var capture: CaptureCoordinator!
     private var captureStore: CaptureStore!
-    private var capturesWindow: CapturesWindowController!
     private var onboarding: OnboardingController!
     private var sync: SyncCoordinator!
     private var pressStart: TimeInterval?
@@ -33,13 +32,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         store = TaskStore()                       // ouvre SwiftData + applique le rollover au lancement
         EventKitService.shared.refreshCachedNames()   // pré-charge les noms de calendriers/listes si déjà autorisé
-        listController = ListWindowController(store: store)
 
         menuBar = MenuBarController(
             store: store,
             onOpenList: { [weak self] in self?.listController.show() },
             onOpenSettings: { [weak self] in self?.listController.showSettings() },
-            onOpenCaptures: { [weak self] in self?.capturesWindow?.show() }
+            onOpenCaptures: { [weak self] in self?.listController.showCaptures() }
         )
 
         // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription + parsing.
@@ -63,7 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             transcriber: transcriber, parser: parser,
             captureStore: captureStore, macRouter: macRouter, processor: processor
         )
-        capturesWindow = CapturesWindowController(store: captureStore, processor: processor)
+        // Panneau de droite (liste + Réglages + Captures, accessibles depuis son en-tête).
+        listController = ListWindowController(store: store, captureStore: captureStore, processor: processor)
         // Rétention : purge les audios des captures faites > N jours (défaut 30 ; 0 = indéfini).
         captureStore.purgeAudio(olderThanDays: UserDefaults.standard.object(forKey: "captureRetentionDays") as? Int ?? 30)
         capture.reprocessPending()   // rejoue les captures en attente (échec LLM/routage)

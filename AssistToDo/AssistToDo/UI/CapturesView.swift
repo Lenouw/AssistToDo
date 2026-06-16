@@ -13,11 +13,17 @@ import AssistToDoKit
 struct CapturesView: View {
     @ObservedObject var store: CaptureStore
     let processor: CaptureProcessor
+    /// Si fourni (affichage dans le panneau de droite), montre un chevron retour.
+    var onBack: (() -> Void)? = nil
     @State private var player: AVAudioPlayer?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(spacing: 8) {
+                if let onBack {
+                    Button(action: onBack) { Image(systemName: "chevron.left") }
+                        .buttonStyle(.plain).accessibilityLabel("Retour à la liste")
+                }
                 Text("Captures").font(.headline)
                 Spacer()
                 Button { store.reload() } label: { Image(systemName: "arrow.clockwise") }
@@ -36,7 +42,7 @@ struct CapturesView: View {
                     .listStyle(.inset)
             }
         }
-        .frame(minWidth: 420, minHeight: 360)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private func row(_ c: CaptureRecord) -> some View {

@@ -18,7 +18,7 @@ final class AutoDismissPanel: NSPanel {
 }
 
 enum PanelMode {
-    case list, settings
+    case list, settings, captures
 }
 
 @MainActor
@@ -26,34 +26,38 @@ final class PanelModeModel: ObservableObject {
     @Published var mode: PanelMode = .list
 }
 
-/// Contenu du panneau : bascule liste ↔ réglages dans la même fenêtre.
+/// Contenu du panneau : bascule liste ↔ réglages ↔ captures dans la même fenêtre.
 struct PanelRootView: View {
     @ObservedObject var store: TaskStore
     @ObservedObject var modeModel: PanelModeModel
+    @ObservedObject var captureStore: CaptureStore
+    let processor: CaptureProcessor
 
     var body: some View {
         switch modeModel.mode {
         case .list:
-            ListView(store: store, onOpenSettings: { modeModel.mode = .settings })
+            ListView(store: store,
+                     onOpenSettings: { modeModel.mode = .settings },
+                     onOpenCaptures: { modeModel.mode = .captures })
         case .settings:
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 8) {
-                    Button {
-                        modeModel.mode = .list
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Retour à la liste")
-                    Text("Réglages").font(.headline)
-                    Spacer()
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 4)
+            subScreen("Réglages") { SettingsView() }
+        case .captures:
+            CapturesView(store: captureStore, processor: processor, onBack: { modeModel.mode = .list })
+        }
+    }
 
-                SettingsView()
+    /// En-tête avec retour + contenu, pour les sous-écrans (réglages / captures).
+    @ViewBuilder
+    private func subScreen<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Button { modeModel.mode = .list } label: { Image(systemName: "chevron.left") }
+                    .buttonStyle(.plain).accessibilityLabel("Retour à la liste")
+                Text(title).font(.headline)
+                Spacer()
             }
+            .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 4)
+            content()
         }
     }
 }
@@ -61,12 +65,16 @@ struct PanelRootView: View {
 @MainActor
 final class ListWindowController: NSObject, NSWindowDelegate {
     private let store: TaskStore
+    private let captureStore: CaptureStore
+    private let processor: CaptureProcessor
     private let modeModel = PanelModeModel()
     private var panel: AutoDismissPanel?
     private let width: CGFloat = 340
 
-    init(store: TaskStore) {
+    init(store: TaskStore, captureStore: CaptureStore, processor: CaptureProcessor) {
         self.store = store
+        self.captureStore = captureStore
+        self.processor = processor
         super.init()
     }
 
@@ -77,6 +85,12 @@ final class ListWindowController: NSObject, NSWindowDelegate {
 
     func showSettings() {
         modeModel.mode = .settings
+        present()
+    }
+
+    func showCaptures() {
+        captureStore.reload()
+        modeModel.mode = .captures
         present()
     }
 
@@ -114,7 +128,8 @@ final class ListWindowController: NSObject, NSWindowDelegate {
     }
 
     private func build() {
-        let hosting = NSHostingController(rootView: PanelRootView(store: store, modeModel: modeModel))
+        let hosting = NSHostingController(rootView: PanelRootView(store: store, modeModel: modeModel,
+                                                                  captureStore: captureStore, processor: processor))
         let p = AutoDismissPanel(contentViewController: hosting)
         p.styleMask = [.titled, .fullSizeContentView]
         p.titlebarAppearsTransparent = true
