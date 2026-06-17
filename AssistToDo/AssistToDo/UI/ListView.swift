@@ -17,6 +17,7 @@ import AssistToDoCore
 struct ListView: View {
     @ObservedObject var store: TaskStore
     var onOpenSettings: () -> Void = {}
+    var onOpenCaptures: () -> Void = {}
 
     @State private var editingId: UUID?
     @State private var editText = ""
@@ -187,6 +188,9 @@ struct ListView: View {
                 Text("Mes pensées vocales").font(.system(size: 11)).foregroundStyle(.tertiary)
             }
             Spacer()
+            Button(action: onOpenCaptures) { Image(systemName: "waveform") }
+                .buttonStyle(.plain).help("Captures (historique vocal, re-traiter)")
+                .accessibilityLabel("Ouvrir les captures")
             Button(action: onOpenSettings) { Image(systemName: "gearshape") }
                 .buttonStyle(.plain).help("Réglages")
                 .accessibilityLabel("Ouvrir les réglages")

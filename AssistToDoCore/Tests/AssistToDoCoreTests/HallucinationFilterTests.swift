@@ -31,4 +31,12 @@ final class HallucinationFilterTests: XCTestCase {
         let v = HallucinationFilter.evaluate(transcript: "pain", audioDuration: 2.0, avgLogProb: -0.3)
         XCTAssertEqual(v, .accept)
     }
+
+    // Régression : une vraie tâche qui CONTIENT une sous-chaîne blacklistée ne doit pas être jetée.
+    func test_accepte_vraie_tache_avec_sous_chaine_blacklist() {
+        let v = HallucinationFilter.evaluate(
+            transcript: "rappelle l'équipe d'écrire abonnez-vous à la newsletter sur la landing page",
+            audioDuration: 3.0, avgLogProb: -0.3)
+        XCTAssertEqual(v, .accept)
+    }
 }

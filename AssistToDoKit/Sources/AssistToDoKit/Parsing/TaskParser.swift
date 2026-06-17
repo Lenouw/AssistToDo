@@ -37,7 +37,11 @@ public struct TaskParser {
             let content = try await client.complete(system: system, user: transcript)
             let parsed = try ParseResponseDecoder.decode(content)
             // Vide = le LLM a jugé que ce n'est pas une vraie tâche → on ne crée rien.
-            return parsed.map { routed(from: $0, transcript: transcript, now: now) }
+            // On écarte aussi les tâches au texte vide/blanc (hallucination de split, objet
+            // résiduel) : sinon une ligne fantôme serait créée et poussée sur Toudou.
+            return parsed
+                .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .map { routed(from: $0, transcript: transcript, now: now) }
         } catch {
             // Échec réseau/décodage : on ne peut pas juger → on garde le texte brut (jamais perdu).
             print("Parse échoué, fallback texte brut : \(error)")

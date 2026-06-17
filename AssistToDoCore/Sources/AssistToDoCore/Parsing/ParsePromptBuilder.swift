@@ -26,7 +26,12 @@ public enum ParsePromptBuilder {
         {"tasks":[{"text":"...","destination":"local|reminders|calendar|notes","remindAt":"ISO8601 avec offset ou null","dueDate":"YYYY-MM-DD ou null","durationMinutes":60,"calendarCategory":"perso|commun|pro|studio ou null","calendarName":"nom de calendrier ou null","listName":"nom de liste Rappels ou null","noteName":"nom de note ou null","priority":"bas|moyen|haut ou null","notify":true|false,"tags":[],"codeTodo":true|false}]}
         Maintenant = \(nowStr) (Europe/Paris). Calcule les temps relatifs par rapport à cet instant.
         notify=true uniquement si une heure précise est demandée (ex "dans 2h", "à 18h").
-        Découpe les phrases multi-tâches en plusieurs items. Une plage de plusieurs jours (« du 20 au 25 », « du lundi au vendredi ») => un item par jour (une date par item). Nettoie le texte (orthographe, majuscule initiale).
+        Découpe les phrases multi-tâches en plusieurs items. Une plage de plusieurs jours (« du 20 au 25 », « du lundi au vendredi ») => un item par jour (une date par item).
+        Le champ "text" n'est PAS le transcript brut : rédige un libellé de tâche CLAIR, CONCIS et bien formé en français.
+        - Corrige les erreurs et coupures de transcription quand l'intention est évidente (Whisper avale parfois des mots) : écris la phrase correcte et compréhensible, pas la version bancale.
+        - Si la dictée est longue ou décousue, RÉSUME à l'essentiel actionnable : garde les détails IMPORTANTS (noms de personnes, lieux, montants, échéances/dates, références précises), enlève le bla-bla, les hésitations et les répétitions.
+        - Ne sur-résume JAMAIS au point de perdre une info qui change le sens ou rend la tâche inexécutable. Dans le doute, garde le détail.
+        - N'INVENTE aucun détail absent (pas de fait, chiffre, nom ou lieu non dicté).
         N'INVENTE JAMAIS de date ni d'heure. Si un item n'a aucune date/heure dictée, laisse remindAt=null ET dueDate=null (ne mets surtout pas la date du jour par défaut).
         Associe CHAQUE jour/heure dicté à l'item qu'il précède ou qu'il suit immédiatement (chaque item garde SA propre date). Une date dictée pour un item ne se propage pas aux autres, sauf mention explicite (« tous les deux lundi », « le même jour »).
         Ex « lundi rdv kiné à 6h, mardi rdv dentiste, dimanche voir Marion » => 3 items : kiné=lundi 06:00 ; dentiste=mardi ; Marion=dimanche.

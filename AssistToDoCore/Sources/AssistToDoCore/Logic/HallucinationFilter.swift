@@ -25,7 +25,19 @@ public enum HallucinationFilter {
     public static func evaluate(transcript: String, audioDuration: TimeInterval, avgLogProb: Double) -> Verdict {
         if audioDuration < minDuration { return .reject(.tooShort) }
         let lower = transcript.lowercased()
-        if blacklist.contains(where: { lower.contains($0) }) { return .reject(.blacklisted) }
+        // Bruit de transcription (hallucinations Whisper sur audio quasi muet). On ne rejette
+        // QUE si, une fois la (les) phrase(s) de bruit retirée(s), il ne reste pas de vrai
+        // contenu. Sinon une vraie tâche contenant la sous-chaîne (ex "abonnez-vous à la
+        // newsletter") serait perdue silencieusement — interdit (jamais perdre une idée).
+        if blacklist.contains(where: { lower.contains($0) }) {
+            var stripped = lower
+            for phrase in blacklist { stripped = stripped.replacingOccurrences(of: phrase, with: " ") }
+            let letters: (String) -> Int = { $0.filter(\.isLetter).count }
+            let before = letters(lower), after = letters(stripped)
+            // Si le bruit couvre la moitié ou plus du texte → vraie hallucination, on rejette.
+            // Sinon la phrase de bruit n'est qu'une petite partie d'une vraie tâche → on garde.
+            if before == 0 || Double(after) / Double(before) < 0.5 { return .reject(.blacklisted) }
+        }
         if avgLogProb < minAvgLogProb { return .reject(.lowConfidence) }
 
         // Que des mots de remplissage / aucune lettre → rien de concret, on ne dérange pas le LLM.

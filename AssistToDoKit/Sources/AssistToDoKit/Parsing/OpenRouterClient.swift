@@ -9,7 +9,7 @@
 import Foundation
 
 public struct OpenRouterClient {
-    enum ClientError: Error { case noKey, badResponse, apiError(String) }
+    enum ClientError: Error { case noKey, badResponse, apiError(String), httpStatus(Int, String) }
 
     let model: String
     let timeout: TimeInterval
@@ -39,9 +39,15 @@ public struct OpenRouterClient {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
 
+        // Code HTTP d'abord : un 401 (clé invalide) / 429 (quota) / 5xx doit être identifiable
+        // dans les logs, pas noyé dans un `badResponse` générique.
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            let msg = (json?["error"] as? [String: Any])?["message"] as? String ?? ""
+            throw ClientError.httpStatus(http.statusCode, msg)
+        }
         if let error = json?["error"] as? [String: Any], let message = error["message"] as? String {
             throw ClientError.apiError(message)
         }

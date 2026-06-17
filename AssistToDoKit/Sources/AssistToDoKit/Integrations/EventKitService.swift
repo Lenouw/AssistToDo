@@ -27,7 +27,7 @@ public final class EventKitService {
     public static let shared = EventKitService()
     private let store = EKEventStore()
 
-    public enum RoutingError: Error { case accessDenied, noReminderList, noCalendar }
+    public enum RoutingError: Error { case accessDenied, noReminderList, noCalendar, noEventIdentifier }
 
     // Noms en cache (rafraîchis quand l'accès est accordé). Lus par le prompt + les Réglages.
     public private(set) var calendarTitles: [String] = []
@@ -136,7 +136,10 @@ public final class EventKitService {
             event.addAlarm(EKAlarm(relativeOffset: offset))   // offset négatif = avant le début
         }
         try store.save(event, span: .thisEvent, commit: true)
-        return event.eventIdentifier
+        // eventIdentifier peut être nil sur certains calendriers iCloud tant que l'event n'est pas
+        // committé : sans id, l'app ne pourrait plus jamais supprimer/modifier l'event (orphelin).
+        guard let id = event.eventIdentifier else { throw RoutingError.noEventIdentifier }
+        return id
     }
 
     // MARK: - Lecture de l'agenda du jour (zone du bas, lecture seule)

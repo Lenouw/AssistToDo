@@ -74,6 +74,9 @@ public final class AudioCapture: ObservableObject {
     }
 
     public func start() {
+        // Déjà en capture : un 2e déclenchement (double-tap, auto + manuel) sans stop() entre les
+        // deux relancerait le moteur en cours (engine.start() throw) et corromprait startTime/durée.
+        guard !engine.isRunning else { return }
         // Reset SOUS le lock : didDetectSpeech / peakRMS sont aussi écrits par le tap audio
         // (autre thread). Les remettre à zéro hors lock = data race avec un buffer en vol.
         lock.lock()
@@ -165,8 +168,8 @@ public final class AudioCapture: ObservableObject {
         for i in 0..<samples.count {
             dst[i] = max(-1, min(1, samples[i] * gain))
         }
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("assisttodo-\(UUID().uuidString).caf")
+        let filename = "assisttodo-\(UUID().uuidString).caf"
+        let url = CapturePaths.url(for: filename)
         do {
             let file = try AVAudioFile(forWriting: url, settings: format.settings)
             try file.write(from: buffer)

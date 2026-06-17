@@ -28,11 +28,13 @@ struct SettingsView: View {
     @AppStorage("studioBlockStart") private var studioBlockStart: Int = 8
     @AppStorage("studioBlockEnd") private var studioBlockEnd: Int = 20
     @AppStorage("toudouBaseURL") private var toudouBaseURL: String = "https://toudou-one.vercel.app"
+    @AppStorage("captureRetentionDays") private var captureRetentionDays: Int = 30
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
     @State private var toudouToken: String = ""
     @State private var toudouTokenSaved: Bool = false
+    @State private var showToudouAdvanced: Bool = false
     @State private var launchAtLogin: Bool = false
     @State private var micStatus: AVAuthorizationStatus = .notDetermined
     @State private var notifAuthorized: Bool = false
@@ -155,24 +157,43 @@ struct SettingsView: View {
                 permissionRow("Notifications", granted: notifAuthorized) { requestNotifications() }
             }
 
-            Section("Synchronisation Toudou") {
-                TextField("URL de l'API Toudou (https://…)", text: $toudouBaseURL)
-                    .textContentType(.URL)
-                    .autocorrectionDisabled()
-                SecureField("Token Bearer", text: $toudouToken)
-                HStack {
-                    Button("Enregistrer le token") {
-                        KeychainStore.setToudouToken(toudouToken)
-                        toudouTokenSaved = KeychainStore.hasToudouToken
-                        SyncCoordinator.shared?.start()   // (re)démarre la sync avec la nouvelle config
+            Section("Synchronisation perso (avancé)") {
+                // Masqué par défaut : optionnel, nécessite ton PROPRE serveur Toudou.
+                // Visible si un token est déjà enregistré (ton install) ou si tu l'ouvres.
+                if toudouTokenSaved || showToudouAdvanced {
+                    TextField("URL de l'API Toudou (https://…)", text: $toudouBaseURL)
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                    SecureField("Token Bearer", text: $toudouToken)
+                    HStack {
+                        Button("Enregistrer le token") {
+                            KeychainStore.setToudouToken(toudouToken)
+                            toudouTokenSaved = KeychainStore.hasToudouToken
+                            SyncCoordinator.shared?.start()
+                        }
+                        if toudouTokenSaved {
+                            Label("Token enregistré", systemImage: "checkmark.seal.fill")
+                                .font(.caption).foregroundStyle(.green)
+                        }
                     }
-                    if toudouTokenSaved {
-                        Label("Token enregistré", systemImage: "checkmark.seal.fill")
-                            .font(.caption).foregroundStyle(.green)
-                    }
+                    Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow() }
+                    Text("Synchronise tes listes « vide-tête » et « Claude Code » avec ton propre serveur Toudou (deux sens, texte + coché). Optionnel.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Button("Configurer la synchronisation Toudou…") { showToudouAdvanced = true }
+                    Text("Optionnel. Synchronise tes listes avec TON propre serveur Toudou. Pas nécessaire pour utiliser l'app.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow() }
-                Text("Synchronise ta liste de to-do « vide-tête » (sans date) avec Toudou, dans les deux sens (texte + coché). URL + token fournis par Toudou. Synchro auto toutes les ~45 s.")
+            }
+
+            Section("Captures (filet de sécurité)") {
+                Picker("Garder les audios", selection: $captureRetentionDays) {
+                    Text("7 jours").tag(7)
+                    Text("30 jours").tag(30)
+                    Text("90 jours").tag(90)
+                    Text("Indéfiniment").tag(0)
+                }
+                Text("Chaque capture vocale est enregistrée durablement et rejouable (menu › Captures). Au-delà du délai, seul le fichier audio est supprimé (l'historique reste).")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
