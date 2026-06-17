@@ -14,7 +14,7 @@ import CryptoKit
 enum UpdateChecker {
     static let repo = "Lenouw/AssistToDo"
 
-    enum UpdateError: Error { case noAppInZip, checksumMismatch, checksumMissing }
+    enum UpdateError: Error { case noAppInZip, checksumMismatch, checksumMissing, bundleMismatch }
 
     static var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
@@ -116,16 +116,30 @@ enum UpdateChecker {
                 try FileManager.default.createDirectory(at: unzipped, withIntermediateDirectories: true)
                 try runSync("/usr/bin/ditto", ["-xk", zipTmp.path, unzipped.path])
                 guard let newApp = try newAppURL(in: unzipped) else { throw UpdateError.noAppInZip }
+                // Le .app du zip doit être bien AssistToDo (même bundle id) : on n'installe pas
+                // un bundle arbitraire à la place de l'app en cours.
+                guard Bundle(url: newApp)?.bundleIdentifier == Bundle.main.bundleIdentifier else {
+                    throw UpdateError.bundleMismatch
+                }
 
                 // 4) Script de swap : chemins passés en ARGUMENTS ($1/$2/$3), JAMAIS interpolés (anti-injection).
+                //    Swap ATOMIQUE avec rollback : l'ancien bundle est mis de côté (mv), puis on copie
+                //    le nouveau ; si la copie échoue, on restaure l'ancien → jamais d'app supprimée
+                //    sans remplacement.
                 let script = work.appendingPathComponent("swap.sh")
                 let body = """
                 #!/bin/bash
                 PID="$1"; TARGET="$2"; NEWAPP="$3"
                 while kill -0 "$PID" 2>/dev/null; do sleep 0.3; done
-                rm -rf "$TARGET"
-                /usr/bin/ditto "$NEWAPP" "$TARGET"
-                xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null
+                BAK="$TARGET.old-$$"
+                if [ -d "$TARGET" ]; then mv "$TARGET" "$BAK" || exit 1; fi
+                if /usr/bin/ditto "$NEWAPP" "$TARGET"; then
+                  xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null
+                  rm -rf "$BAK"
+                else
+                  rm -rf "$TARGET"
+                  [ -d "$BAK" ] && mv "$BAK" "$TARGET"
+                fi
                 open "$TARGET"
                 """
                 try body.write(to: script, atomically: true, encoding: .utf8)

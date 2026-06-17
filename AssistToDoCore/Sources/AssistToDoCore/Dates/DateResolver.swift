@@ -54,19 +54,22 @@ public enum DateResolver {
     // MARK: - Helpers
 
     private static func parseRelativeDelay(_ t: String) -> TimeInterval? {
-        guard t.contains("dans ") else { return nil }
-        if t.contains("demi heure") || t.contains("demi-heure") { return 30 * 60 }
+        // On ne regarde QUE le segment après le dernier "dans " : sinon un nombre antérieur
+        // ("réunion du 14 dans une heure") serait capté à la place du délai (14h au lieu d'1h).
+        guard let r = t.range(of: "dans ", options: .backwards) else { return nil }
+        let seg = " " + String(t[r.upperBound...]) + " "   // espaces de garde pour " une "/" dix "
+        if seg.contains("demi heure") || seg.contains("demi-heure") { return 30 * 60 }
         // nombre en chiffres
-        if let n = firstInt(in: t) {
-            if t.contains("heure") { return Double(n) * 3600 }
-            if t.contains("minute") { return Double(n) * 60 }
+        if let n = firstInt(in: seg) {
+            if seg.contains("heure") { return Double(n) * 3600 }
+            if seg.contains("minute") { return Double(n) * 60 }
         }
         // nombres en lettres usuels
         let words: [String: Int] = ["une": 1, "un": 1, "deux": 2, "trois": 3, "quatre": 4,
                                     "cinq": 5, "six": 6, "sept": 7, "huit": 8, "neuf": 9, "dix": 10]
-        for (w, n) in words where t.contains(" \(w) ") {
-            if t.contains("heure") { return Double(n) * 3600 }
-            if t.contains("minute") { return Double(n) * 60 }
+        for (w, n) in words where seg.contains(" \(w) ") {
+            if seg.contains("heure") { return Double(n) * 3600 }
+            if seg.contains("minute") { return Double(n) * 60 }
         }
         return nil
     }

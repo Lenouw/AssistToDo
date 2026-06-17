@@ -16,6 +16,19 @@ final class DateResolverTests: XCTestCase {
         XCTAssertEqual(r, date("2026-06-10T16:00:00+02:00"))
     }
 
+    // Régression : un nombre AVANT "dans" ne doit pas être pris pour le délai (ex "du 14").
+    func test_nombre_anterieur_ignore() {
+        let now = date("2026-06-10T15:30:00+02:00")
+        let r = DateResolver.resolveRemind(text: "réunion du 14 dans une heure", now: now)
+        XCTAssertEqual(r, date("2026-06-10T16:30:00+02:00")) // +1h, pas +14h
+    }
+
+    func test_dans_dix_minutes_chiffres() {
+        let now = date("2026-06-10T15:30:00+02:00")
+        let r = DateResolver.resolveRemind(text: "rappelle-moi dans 10 minutes", now: now)
+        XCTAssertEqual(r, date("2026-06-10T15:40:00+02:00"))
+    }
+
     func test_a_dix_huit_heures() {
         let now = date("2026-06-10T15:30:00+02:00")
         let r = DateResolver.resolveRemind(text: "à 18h acheter du pain", now: now)

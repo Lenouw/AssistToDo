@@ -318,8 +318,11 @@ public final class TaskStore: ObservableObject {
     }
 
     /// Applique un delta reçu de Toudou (source de vérité) au miroir local, pour une liste donnée.
-    func applyPulled(_ tasks: [WireTask], forList list: LocalList) {
-        guard !tasks.isEmpty else { return }
+    /// Renvoie `true` si le delta a bien été persisté. Le SyncCoordinator n'avance son curseur
+    /// QUE dans ce cas : un save échoué ne doit pas faire sauter ces tâches au prochain pull.
+    @discardableResult
+    func applyPulled(_ tasks: [WireTask], forList list: LocalList) -> Bool {
+        guard !tasks.isEmpty else { return true }
         let byId = Dictionary(fetchAll().map { ($0.id.uuidString, $0) }, uniquingKeysWith: { a, _ in a })
         let today = ParisCalendar.startOfDay(for: Date())
         var nextTop = topOrderIndex()   // nouveaux miroirs Toudou insérés en haut
@@ -328,7 +331,9 @@ public final class TaskStore: ObservableObject {
             if let e = byId[w.id] {
                 if w.deleted { context.delete(e); continue }
                 // On accepte le serveur sauf si un changement local non encore poussé est plus récent.
-                if !e.syncDirty || w.updatedAt >= e.updatedAt {
+                // Strictement `>` : à timestamp ÉGAL, l'édition locale dirty (pas encore poussée) gagne,
+                // sinon un écho serveur à la même seconde écraserait la modif que l'on s'apprête à pousser.
+                if !e.syncDirty || w.updatedAt > e.updatedAt {
                     e.text = w.text
                     e.isDone = w.done
                     e.doneAt = w.done ? (e.doneAt ?? Date()) : nil
@@ -354,7 +359,7 @@ public final class TaskStore: ObservableObject {
                 nextTop -= 1
             }
         }
-        save(); reload()
+        let ok = save(); reload(); return ok
     }
 
     // MARK: - Privé
@@ -363,7 +368,8 @@ public final class TaskStore: ObservableObject {
         (try? context.fetch(FetchDescriptor<TaskEntity>())) ?? []
     }
 
-    private func save() {
-        do { try context.save() } catch { print("SwiftData save error: \(error)") }
+    @discardableResult
+    private func save() -> Bool {
+        do { try context.save(); return true } catch { print("SwiftData save error: \(error)"); return false }
     }
 }

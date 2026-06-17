@@ -74,6 +74,9 @@ public final class AudioCapture: ObservableObject {
     }
 
     public func start() {
+        // Déjà en capture : un 2e déclenchement (double-tap, auto + manuel) sans stop() entre les
+        // deux relancerait le moteur en cours (engine.start() throw) et corromprait startTime/durée.
+        guard !engine.isRunning else { return }
         // Reset SOUS le lock : didDetectSpeech / peakRMS sont aussi écrits par le tap audio
         // (autre thread). Les remettre à zéro hors lock = data race avec un buffer en vol.
         lock.lock()

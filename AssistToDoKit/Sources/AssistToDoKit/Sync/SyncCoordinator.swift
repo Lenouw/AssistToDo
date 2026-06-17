@@ -65,8 +65,13 @@ public final class SyncCoordinator {
             }
             let pull = try await client.pull(list: slug, since: cursor(slug))
             if !pull.tasks.isEmpty { print("Sync Toudou[\(slug)]: pull \(pull.tasks.count) tâche(s)") }
-            store.applyPulled(pull.tasks, forList: list)
-            setCursor(slug, pull.serverTime)
+            // Le curseur n'avance que si la persistance a réussi : sinon ces tâches seraient
+            // perdues (jamais re-demandées car `since` aurait dépassé leur serverTime).
+            if store.applyPulled(pull.tasks, forList: list) {
+                setCursor(slug, pull.serverTime)
+            } else {
+                print("Sync Toudou[\(slug)]: persistance échouée, curseur NON avancé (re-pull au prochain cycle)")
+            }
         } catch {
             print("Sync Toudou[\(slug)] échouée : \(error)")
         }

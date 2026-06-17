@@ -138,10 +138,26 @@ final class ToudouClient {
         return f
     }()
 
+    /// Parse tolérant : une variation de format côté serveur ne doit JAMAIS stamper une tâche
+    /// en `.distantPast` (elle ne gagnerait alors plus jamais un conflit → divergence silencieuse).
     static func parseDate(_ s: String) -> Date? {
-        if let d = iso.date(from: s) { return d }
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.isEmpty { return nil }
+        if let d = iso.date(from: t) { return d }                       // ISO avec fractions
         let plain = ISO8601DateFormatter(); plain.formatOptions = [.withInternetDateTime]
-        return plain.date(from: s)
+        if let d = plain.date(from: t) { return d }                     // ISO sans fractions
+        if let n = Double(t) {                                          // epoch secondes ou ms
+            return Date(timeIntervalSince1970: n > 1_000_000_000_000 ? n / 1000 : n)
+        }
+        for fmt in ["yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ", "yyyy-MM-dd'T'HH:mm:ssZZZZZ",
+                    "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd"] {              // variantes courantes
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.timeZone = TimeZone(identifier: "UTC")
+            f.dateFormat = fmt
+            if let d = f.date(from: t) { return d }
+        }
+        return nil
     }
 
     static func formatDate(_ d: Date) -> String { iso.string(from: d) }
