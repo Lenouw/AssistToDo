@@ -175,7 +175,9 @@ final class CaptureController: ObservableObject {
         }
 
         for item in routed {
-            var destination = routingOn ? item.destination : .local
+            // Routage OFF = pas de dispatch Apple (calendrier/rappels → local), MAIS la liste de
+            // courses (.notes → liste in-app) reste honorée : c'est de l'app, pas du routage Apple.
+            var destination = routingOn ? item.destination : (item.destination == .notes ? .notes : .local)
             // Filet : un événement sans date/heure dictée ne va jamais sur "aujourd'hui" inventé.
             if destination == .calendar, item.record.dueDate == nil, item.record.remindAt == nil {
                 destination = .reminders
