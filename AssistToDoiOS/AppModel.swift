@@ -56,7 +56,6 @@ final class AppModel: ObservableObject {
         store.onScheduleReminder = { [weak notifications] rec in notifications?.schedule(for: rec) }
         store.onCancelNotification = { [weak notifications] id in notifications?.cancel(id: id) }
         notifications.onOpenList = { [weak self] in self?.showCapture = false }
-        EventKitService.shared.refreshCachedNames()
 
         // Reflète l'état de chargement du modèle Whisper dans l'UI (bandeau d'attente au 1er run).
         transcriber.$isReady.assign(to: &$transcriberReady)
@@ -67,7 +66,11 @@ final class AppModel: ObservableObject {
     /// À l'ouverture / au retour au premier plan : synchro Toudou + agenda du jour + capture en attente.
     func onForeground() {
         sync.start()
-        Task { await store.refreshToday() }
+        // Différé hors de l'init : refresh des noms calendrier/rappel (lecture EventKit) + agenda du jour.
+        Task {
+            EventKitService.shared.refreshCachedNames()
+            await store.refreshToday()
+        }
         if PendingCapture.consume() {
             autoStartCapture = true
             showCapture = true

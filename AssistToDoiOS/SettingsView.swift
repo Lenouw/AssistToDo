@@ -20,7 +20,7 @@ struct SettingsView: View {
     @AppStorage("whisperModel") private var whisperModel = AppModel.defaultWhisperModel
     @AppStorage("openRouterModel") private var openRouterModel = AppModel.defaultOpenRouterModel
     @AppStorage("routingEnabled") private var routingEnabled = true
-    @AppStorage("iosLayout") private var iosLayout = "segmented"   // "segmented" | "stacked"
+    @AppStorage("iosLayout") private var iosLayout: AppLayout = .segmented
 
     @State private var toudouToken = ""
     @State private var apiKey = ""
@@ -69,8 +69,8 @@ struct SettingsView: View {
 
                 Section("Affichage") {
                     Picker("Disposition de l'écran", selection: $iosLayout) {
-                        Text("Segmentée (onglets en haut)").tag("segmented")
-                        Text("Empilée (tout en scroll)").tag("stacked")
+                        Text("Segmentée (onglets en haut)").tag(AppLayout.segmented)
+                        Text("Empilée (tout en scroll)").tag(AppLayout.stacked)
                     }
                     Text("Segmentée : une zone à la fois (À faire · Rappels · Agenda · Fait). Empilée : zones en scroll, historique via l'horloge.")
                         .font(.caption).foregroundStyle(.secondary)

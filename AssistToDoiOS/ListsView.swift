@@ -3,8 +3,8 @@
 //  AssistToDoiOS
 //
 //  Vue de dispatch (parité Mac) : 4 zones — À faire (liste interne synced), Rappels Apple
-//  (live iCloud, aujourd'hui + en retard), Agenda Apple (live, aujourd'hui), Fait (historique
-//  coché). Deux dispositions commutables dans les Réglages : segmentée ou empilée.
+//  (live iCloud : dûs aujourd'hui/en retard + à venir), Agenda Apple (live, aujourd'hui),
+//  Fait (historique coché). Deux dispositions commutables (Réglages) : segmentée ou empilée.
 //  Gestes de swipe répliqués du Mac (Fait/Modifier/Déplacer · Supprimer/Demain).
 //
 
@@ -20,25 +20,35 @@ enum DispatchZone: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Disposition de l'écran (typée plutôt que String brute, partagée avec les Réglages).
+enum AppLayout: String { case segmented, stacked }
+
 struct ListsView: View {
     @EnvironmentObject private var store: TaskStore
-    @AppStorage("iosLayout") private var layout = "segmented"   // "segmented" | "stacked"
+    @EnvironmentObject private var model: AppModel
+    @AppStorage("iosLayout") private var layout: AppLayout = .segmented
 
     @State private var zone: DispatchZone = .todo
-    @State private var dueReminders: [TodayItem] = []
+    @State private var openReminders: [TodayItem] = []   // tous les rappels datés non terminés
     @State private var editingTask: TaskRecord?
     @State private var editText = ""
     @State private var showDone = false
 
     var body: some View {
         Group {
-            if layout == "stacked" { stackedLayout } else { segmentedLayout }
+            if layout == .stacked { stackedLayout } else { segmentedLayout }
         }
         .task { await refreshReminders() }
         .refreshable {
             SyncCoordinator.shared?.syncNow()
             await store.refreshToday()
             await refreshReminders()
+        }
+        .onChange(of: zone) { _, z in
+            Task {
+                if z == .reminders { await refreshReminders() }
+                if z == .agenda { await store.refreshToday() }
+            }
         }
         .alert("Modifier", isPresented: editingBinding) {
             TextField("Texte", text: $editText)
@@ -76,7 +86,7 @@ struct ListsView: View {
     private var stackedLayout: some View {
         List {
             Section("À faire") { todoRows }
-            Section("Rappels · aujourd'hui + en retard") { reminderRows }
+            Section("Rappels") { reminderRows }
             Section("Agenda · aujourd'hui") { eventRows }
         }
         .toolbar {
@@ -111,13 +121,33 @@ struct ListsView: View {
     }
 
     @ViewBuilder private var reminderRows: some View {
-        if dueReminders.isEmpty { emptyRow("Aucun rappel dû") }
-        ForEach(dueReminders) { reminderRow($0) }
+        if !EventKitService.shared.hasRemindersAccess {
+            permissionRow("Autoriser les rappels") {
+                await model.requestRemindersAndCalendar(); await refreshReminders()
+            }
+        } else {
+            let end = endOfToday
+            let due = openReminders.filter { ($0.date ?? .distantPast) < end }
+            let upcoming = openReminders.filter { ($0.date ?? .distantFuture) >= end }
+            if due.isEmpty && upcoming.isEmpty { emptyRow("Aucun rappel") }
+            ForEach(due) { reminderRow($0) }
+            if !upcoming.isEmpty {
+                Text("À venir").font(.caption).foregroundStyle(.secondary)
+                ForEach(upcoming) { reminderRow($0) }
+            }
+        }
     }
 
     @ViewBuilder private var eventRows: some View {
-        if store.todayEvents.isEmpty { emptyRow("Aucun événement aujourd'hui") }
-        ForEach(store.todayEvents) { eventRow($0) }
+        if !EventKitService.shared.hasCalendarAccess {
+            permissionRow("Autoriser le calendrier") {
+                await model.requestRemindersAndCalendar(); await store.refreshToday()
+            }
+        } else if store.todayEvents.isEmpty {
+            emptyRow("Aucun événement aujourd'hui")
+        } else {
+            ForEach(store.todayEvents) { eventRow($0) }
+        }
     }
 
     // MARK: - Lignes
@@ -176,10 +206,7 @@ struct ListsView: View {
 
     private func reminderRow(_ item: TodayItem) -> some View {
         HStack(spacing: 12) {
-            Button {
-                EventKitService.shared.setReminderCompleted(id: item.id, completed: true)
-                Task { await refreshReminders() }
-            } label: {
+            Button { completeReminder(item.id) } label: {
                 Image(systemName: "circle").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -187,14 +214,11 @@ struct ListsView: View {
             Text(item.title)
             Spacer()
             if let d = item.date {
-                Text(d, style: .time).font(.caption).foregroundStyle(.secondary)
+                Text(d, style: .date).font(.caption).foregroundStyle(.secondary)
             }
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            Button {
-                EventKitService.shared.setReminderCompleted(id: item.id, completed: true)
-                Task { await refreshReminders() }
-            } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
+            Button { completeReminder(item.id) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
         }
     }
 
@@ -211,11 +235,22 @@ struct ListsView: View {
         }
     }
 
+    private func permissionRow(_ label: String, _ action: @escaping () async -> Void) -> some View {
+        Button { Task { await action() } } label: {
+            Label(label, systemImage: "lock.open")
+        }
+    }
+
     private func emptyRow(_ text: String) -> some View {
         Text(text).foregroundStyle(.secondary).font(.callout)
     }
 
-    // MARK: - Édition / données
+    // MARK: - Actions / données
+
+    private var endOfToday: Date {
+        let start = ParisCalendar.startOfDay(for: Date())
+        return ParisCalendar.calendar.date(byAdding: .day, value: 1, to: start) ?? start
+    }
 
     private var editingBinding: Binding<Bool> {
         Binding(get: { editingTask != nil }, set: { if !$0 { editingTask = nil } })
@@ -226,7 +261,12 @@ struct ListsView: View {
         editingTask = task
     }
 
+    private func completeReminder(_ id: String) {
+        EventKitService.shared.setReminderCompleted(id: id, completed: true)
+        Task { await refreshReminders() }
+    }
+
     private func refreshReminders() async {
-        dueReminders = await EventKitService.shared.fetchDueReminders()
+        openReminders = await EventKitService.shared.fetchOpenReminders()
     }
 }
