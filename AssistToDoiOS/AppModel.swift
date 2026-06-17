@@ -17,6 +17,8 @@ import AssistToDoKit
 @MainActor
 final class AppModel: ObservableObject {
     let store: TaskStore
+    let captureStore: CaptureStore          // journal des captures (filet de sécurité)
+    let captureProcessor: CaptureProcessor  // pipeline rejouable (écran Captures + relance auto)
     let notifications: NotificationManager
     let transcriber: Transcriber
     let sync: SyncCoordinator
@@ -40,17 +42,25 @@ final class AppModel: ObservableObject {
         Self.seedDevSecretsIfNeeded()   // confort de dév : injecte les secrets s'ils manquent
         #endif
         let store = TaskStore()
+        // Journal de capture (filet) : store persistant, repli en mémoire si la création échoue.
+        let captureStore = (try? CaptureStore()) ?? (try! CaptureStore(inMemory: true))
         let notifications = NotificationManager(store: store)
         let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? Self.defaultWhisperModel
         let transcriber = Transcriber(model: whisper)
         let orModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? Self.defaultOpenRouterModel
         let parser = TaskParser(client: OpenRouterClient(model: orModel))
+        let router = IOSTaskRouter(store: store, notifications: notifications)
+        let processor = CaptureProcessor(store: captureStore,
+                                         transcriber: TranscriberAdapter(transcriber: transcriber),
+                                         parser: parser, router: router)
 
         self.store = store
+        self.captureStore = captureStore
+        self.captureProcessor = processor
         self.notifications = notifications
         self.transcriber = transcriber
         self.capture = CaptureController(transcriber: transcriber, parser: parser,
-                                         store: store, notifications: notifications)
+                                         captureStore: captureStore, router: router, processor: processor)
         self.sync = SyncCoordinator(store: store)
 
         store.onScheduleReminder = { [weak notifications] rec in notifications?.schedule(for: rec) }
@@ -66,6 +76,7 @@ final class AppModel: ObservableObject {
     /// À l'ouverture / au retour au premier plan : synchro Toudou + agenda du jour + capture en attente.
     func onForeground() {
         sync.start()
+        capture.reprocessPending()   // rejoue les captures en échec / à enrichir (filet)
         // Différé hors de l'init : refresh des noms calendrier/rappel (lecture EventKit) + agenda du jour.
         Task {
             EventKitService.shared.refreshCachedNames()

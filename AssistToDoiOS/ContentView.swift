@@ -12,12 +12,19 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showSettings = false
+    @State private var showCaptures = false
 
     var body: some View {
         NavigationStack {
             ListsView()
                 .navigationTitle("AssistToDo")
                 .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showCaptures = true } label: {
+                            Image(systemName: "waveform")
+                        }
+                        .accessibilityLabel("Captures (historique vocal)")
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showSettings = true } label: {
                             Image(systemName: "gearshape")
@@ -44,6 +51,9 @@ struct ContentView: View {
             SettingsView()
                 .environmentObject(model)
                 .environmentObject(model.store)
+        }
+        .sheet(isPresented: $showCaptures) {
+            CapturesView(store: model.captureStore, processor: model.captureProcessor)
         }
     }
 

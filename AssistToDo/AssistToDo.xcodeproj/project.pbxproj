@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		05D859A5C3459C2080595A2C /* TranscriberAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32381C9EB9AE3176956829F5 /* TranscriberAdapter.swift */; };
 		0AD6A9AF7A2BE3124AC614F8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C58C5D5954A860C795E1CDE9 /* Foundation.framework */; };
 		121672D4BF92AC8AF3CDB031 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946BB857D3638DFE351EC26C /* AppModel.swift */; };
 		167B43F72FD9DD1400350027 /* AssistToDoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43F62FD9DD1400350027 /* AssistToDoCore */; };
@@ -19,6 +20,7 @@
 		33F3BE08AF15D9D10607E1F3 /* AssistToDoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0D461C5C2A54C724709F96C5 /* AssistToDoCore */; };
 		484D1ECCB7FA675663F5EC65 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C58C5D5954A860C795E1CDE9 /* Foundation.framework */; };
 		5015C2BF0EFA38AFE670DFEA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D648ED0EECA6700E238ABCC /* ContentView.swift */; };
+		528A8D823DA72203F69E835C /* IOSTaskRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE09628ACE9220D8FBD6D02B /* IOSTaskRouter.swift */; };
 		59CE9AD3ACFCBA07C3A7A71F /* AssistToDoiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FD90E2B8CBBA0604457A923 /* AssistToDoiOSApp.swift */; };
 		5A6E7B1875C4AD8BA6BE0E53 /* AssistToDoKit in Frameworks */ = {isa = PBXBuildFile; productRef = F1738FABD65263C4CB345370 /* AssistToDoKit */; };
 		5B76A8EDFB53AD1D9E035BF5 /* ListsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECACB8693EDB665BE1DD068D /* ListsView.swift */; };
@@ -27,6 +29,7 @@
 		899BE0FCABC72D2D188DC008 /* CaptureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D791C1303866922326C542E8 /* CaptureController.swift */; };
 		8CCDB5BF612E329B19AADC6D /* CaptureLaunchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7ADC7F35477329F0FCE4896 /* CaptureLaunchWidget.swift */; };
 		9E88902CE2CCD08D069F67DA /* DevSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B86D2A27FFE6FBE8F9A4132 /* DevSecrets.swift */; };
+		A52C53DC4AC3507B7DDBC3B1 /* CapturesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EDA39A73F370E447487484 /* CapturesView.swift */; };
 		AB64A745FE890F97198DA669 /* RecordVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */; };
 		B68CC6C835C2C6E892D2D75E /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B86318D7C309A0DCED7827 /* CaptureView.swift */; };
 		BD1D338110A81BE18590E8C1 /* AssistToDoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6B4BE3B50789FF50C3191A2F /* AssistToDoKit */; };
@@ -64,6 +67,7 @@
 		167B43E62FD9DCD400350027 /* AssistToDo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssistToDo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		196771DA7713341F3E66BCBA /* CaptureActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureActivityAttributes.swift; sourceTree = "<group>"; };
 		1D648ED0EECA6700E238ABCC /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		32381C9EB9AE3176956829F5 /* TranscriberAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TranscriberAdapter.swift; sourceTree = "<group>"; };
 		36D045D68C20A41D1F41B070 /* AssistToDoWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AssistToDoWidgetBundle.swift; sourceTree = "<group>"; };
 		5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordVoiceIntent.swift; sourceTree = "<group>"; };
 		6DAAC800C1684C721B4FD9C4 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -76,16 +80,20 @@
 		A7ADC7F35477329F0FCE4896 /* CaptureLaunchWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureLaunchWidget.swift; sourceTree = "<group>"; };
 		C58C5D5954A860C795E1CDE9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		CBD4F8B5B60DAF14D929C069 /* AssistToDoiOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssistToDoiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE09628ACE9220D8FBD6D02B /* IOSTaskRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSTaskRouter.swift; sourceTree = "<group>"; };
 		D307A561306FBCD635C38BA8 /* CaptureLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureLiveActivity.swift; sourceTree = "<group>"; };
 		D791C1303866922326C542E8 /* CaptureController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureController.swift; sourceTree = "<group>"; };
 		DB10D949154BFEF3F2FAA826 /* LiveActivityController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
 		ECACB8693EDB665BE1DD068D /* ListsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ListsView.swift; sourceTree = "<group>"; };
 		F1B86318D7C309A0DCED7827 /* CaptureView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
+		F6EDA39A73F370E447487484 /* CapturesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CapturesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		167B43E82FD9DCD400350027 /* AssistToDo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = AssistToDo;
 			sourceTree = "<group>";
 		};
@@ -171,6 +179,9 @@
 				DB10D949154BFEF3F2FAA826 /* LiveActivityController.swift */,
 				6DAAC800C1684C721B4FD9C4 /* SettingsView.swift */,
 				9B86D2A27FFE6FBE8F9A4132 /* DevSecrets.swift */,
+				CE09628ACE9220D8FBD6D02B /* IOSTaskRouter.swift */,
+				32381C9EB9AE3176956829F5 /* TranscriberAdapter.swift */,
+				F6EDA39A73F370E447487484 /* CapturesView.swift */,
 			);
 			name = AssistToDoiOS;
 			path = ../AssistToDoiOS;
@@ -296,10 +307,10 @@
 			mainGroup = 167B43DD2FD9DCD400350027;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "../AssistToDoCore" */,
+				167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "AssistToDoCore" */,
 				167B43F82FD9DD6C00350027 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				167B43FB2FD9DD8300350027 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
-				9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "../AssistToDoKit" */,
+				9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "AssistToDoKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 167B43E72FD9DCD400350027 /* Products */;
@@ -361,6 +372,9 @@
 				E0AAD0F7991827F652056A13 /* CaptureActivityAttributes.swift in Sources */,
 				850BA668E6B42E382B19324B /* RecordVoiceIntent.swift in Sources */,
 				9E88902CE2CCD08D069F67DA /* DevSecrets.swift in Sources */,
+				528A8D823DA72203F69E835C /* IOSTaskRouter.swift in Sources */,
+				05D859A5C3459C2080595A2C /* TranscriberAdapter.swift in Sources */,
+				A52C53DC4AC3507B7DDBC3B1 /* CapturesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -739,11 +753,11 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "../AssistToDoCore" */ = {
+		167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "AssistToDoCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../AssistToDoCore;
 		};
-		9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "../AssistToDoKit" */ = {
+		9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "AssistToDoKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../AssistToDoKit;
 		};
@@ -771,7 +785,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		0D461C5C2A54C724709F96C5 /* AssistToDoCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "../AssistToDoCore" */;
+			package = 167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "AssistToDoCore" */;
 			productName = AssistToDoCore;
 		};
 		167B43F62FD9DD1400350027 /* AssistToDoCore */ = {
@@ -790,12 +804,12 @@
 		};
 		6B4BE3B50789FF50C3191A2F /* AssistToDoKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "../AssistToDoKit" */;
+			package = 9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "AssistToDoKit" */;
 			productName = AssistToDoKit;
 		};
 		F1738FABD65263C4CB345370 /* AssistToDoKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "../AssistToDoKit" */;
+			package = 9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "AssistToDoKit" */;
 			productName = AssistToDoKit;
 		};
 /* End XCSwiftPackageProductDependency section */
