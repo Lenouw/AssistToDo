@@ -14,7 +14,7 @@ import UserNotifications
 import KeyboardShortcuts
 
 struct SettingsView: View {
-    @AppStorage("whisperModel") private var whisperModel: String = "base"
+    @AppStorage("whisperModel") private var whisperModel: String = "openai_whisper-large-v3_turbo"
     @AppStorage("routingEnabled") private var routingEnabled: Bool = true
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
@@ -50,10 +50,10 @@ struct SettingsView: View {
     // (slug WhisperKit exact, libellé). Slugs vérifiés sur le repo argmaxinc/whisperkit-coreml.
     private let models: [(slug: String, label: String)] = [
         ("tiny", "Tiny · ultra rapide, basique"),
-        ("base", "Base · rapide (défaut)"),
+        ("base", "Base · rapide"),
         ("small", "Small · plus précis"),
-        ("distil-whisper_distil-large-v3_turbo", "Distil Large v3 Turbo · précis, assez rapide"),
-        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · très précis, plus lent"),
+        ("distil-whisper_distil-large-v3_turbo", "Distil Large v3 Turbo · rapide mais perd les dates FR"),
+        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · très précis (défaut)"),
         ("openai_whisper-large-v3", "Large v3 · précision max, le plus lent")
     ]
 
