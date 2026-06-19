@@ -31,6 +31,8 @@ final class AppModel: ObservableObject {
     /// Modèle de transcription chargé (faux pendant le téléchargement du 1er lancement).
     /// Reflète `Transcriber.isReady` pour piloter un bandeau d'attente dans l'UI.
     @Published var transcriberReady = false
+    /// État détaillé de préparation (téléchargement %, préparation) pour un bandeau informatif.
+    @Published var transcriberReadiness: Transcriber.Readiness = .downloading(0)
 
     // Slug WhisperKit (même liste que macOS, vérifiée sur argmaxinc/whisperkit-coreml).
     // Défaut iPhone : "small" (FR correct, ~480 Mo) ; les modèles large restent dispo en option.
@@ -69,6 +71,7 @@ final class AppModel: ObservableObject {
 
         // Reflète l'état de chargement du modèle Whisper dans l'UI (bandeau d'attente au 1er run).
         transcriber.$isReady.assign(to: &$transcriberReady)
+        transcriber.$readiness.assign(to: &$transcriberReadiness)
     }
 
     // MARK: - Cycle de vie

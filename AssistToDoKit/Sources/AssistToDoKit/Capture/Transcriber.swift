@@ -12,7 +12,16 @@ import WhisperKit
 
 @MainActor
 public final class Transcriber: ObservableObject {
+    /// État de préparation du modèle, pour piloter un bandeau avec progression réelle.
+    public enum Readiness: Equatable {
+        case downloading(Double)   // téléchargement HuggingFace, fraction 0…1
+        case preparing             // chargement + préchauffage CoreML (indéterminé)
+        case ready
+        case failed
+    }
+
     @Published public private(set) var isReady = false
+    @Published public private(set) var readiness: Readiness = .downloading(0)
 
     private var whisper: WhisperKit?
     private let model: String
@@ -36,9 +45,21 @@ public final class Transcriber: ObservableObject {
 
     private func load() async {
         do {
-            // On charge le modèle SANS prewarm dans la config (prewarm:true faisait planter l'init
-            // sur certaines configs → "Transcription indisponible").
-            let config = WhisperKitConfig(model: model)
+            // 1) Téléchargement explicite (avec progression réelle) pour alimenter le bandeau %.
+            //    Si le modèle est déjà en cache, la progression saute vite à 100 %.
+            readiness = .downloading(0)
+            let folder = try await WhisperKit.download(variant: model) { [weak self] progress in
+                let fraction = progress.fractionCompleted
+                Task { @MainActor in
+                    if let self, case .downloading = self.readiness {
+                        self.readiness = .downloading(fraction)
+                    }
+                }
+            }
+            // 2) Chargement en mémoire depuis le dossier téléchargé (pas de re-download). On charge
+            //    SANS prewarm dans la config (prewarm:true faisait planter l'init → "indisponible").
+            readiness = .preparing
+            let config = WhisperKitConfig(model: model, modelFolder: folder.path, prewarm: false, download: false)
             let w = try await WhisperKit(config)
             whisper = w
             log.info("WhisperKit modèle chargé (\(self.model, privacy: .public))")
@@ -53,8 +74,10 @@ public final class Transcriber: ObservableObject {
             }
             busy = false
             isReady = true
+            readiness = .ready
             log.info("WhisperKit prêt")
         } catch {
+            readiness = .failed
             log.error("Erreur init WhisperKit: \(String(describing: error), privacy: .public)")
         }
     }

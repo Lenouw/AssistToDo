@@ -58,15 +58,41 @@ struct ContentView: View {
     }
 
     /// Bandeau non bloquant pendant le téléchargement/chargement du modèle de transcription.
-    private var modelLoadingBanner: some View {
+    /// Affiche un pourcentage réel pendant le download (1er lancement) pour ne pas faire croire à un bug.
+    @ViewBuilder private var modelLoadingBanner: some View {
+        switch model.transcriberReadiness {
+        case .downloading(let fraction):
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Téléchargement du modèle de transcription… \(Int(fraction * 100)) %")
+                        .font(.caption)
+                    Spacer()
+                }
+                ProgressView(value: fraction)
+                Text("1er lancement uniquement (~480 Mo). Garde l'app ouverte.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .background(.thinMaterial)
+        case .preparing:
+            banner(icon: nil, "Préparation du modèle… (presque prêt)")
+        case .failed:
+            banner(icon: "exclamationmark.triangle.fill",
+                   "Échec du chargement du modèle. Relance l'app (vérifie ta connexion).")
+        case .ready:
+            EmptyView()
+        }
+    }
+
+    private func banner(icon: String?, _ text: String) -> some View {
         HStack(spacing: 8) {
-            ProgressView().controlSize(.small)
-            Text("Préparation du modèle de transcription… (1er lancement)")
-                .font(.caption)
+            if let icon { Image(systemName: icon).foregroundStyle(.orange) }
+            else { ProgressView().controlSize(.small) }
+            Text(text).font(.caption)
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16).padding(.vertical, 8)
         .background(.thinMaterial)
     }
 }
