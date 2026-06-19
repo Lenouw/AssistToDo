@@ -62,20 +62,13 @@ public final class Transcriber: ObservableObject {
             let config = WhisperKitConfig(model: model, modelFolder: folder.path, prewarm: false, download: false)
             let w = try await WhisperKit(config)
             whisper = w
-            log.info("WhisperKit modèle chargé (\(self.model, privacy: .public))")
-            // Préchauffe AVANT de signaler prêt : compile le modèle CoreML / chauffe le Neural Engine.
-            // Couvert par le bandeau "Préparation du modèle" → aucune transcription ne tourne pendant
-            // ce temps (sinon blocage). Best-effort avec garde-fou de temps : si le prewarm traîne,
-            // on passe quand même prêt (la 1ʳᵉ capture sera juste un peu plus lente).
-            busy = true
-            _ = await Self.withTimeout(seconds: 120) { [weak w] () -> Bool? in
-                _ = try? await w?.prewarmModels()
-                return true
-            }
-            busy = false
+            // PAS de prewarmModels() : WhisperKit(config) charge et compile déjà le modèle en mémoire
+            // ici (loadModels par défaut). Le préchauffage n'était qu'un bonus de spécialisation, mais
+            // il se bloquait indéfiniment sur certains modèles/appareils (Neural Engine) → modèle prêt
+            // sans réponse. La compilation restante se fait à la 1ʳᵉ transcription (bornée par timeout).
             isReady = true
             readiness = .ready
-            log.info("WhisperKit prêt")
+            log.info("WhisperKit prêt (\(self.model, privacy: .public))")
         } catch {
             readiness = .failed
             log.error("Erreur init WhisperKit: \(String(describing: error), privacy: .public)")
