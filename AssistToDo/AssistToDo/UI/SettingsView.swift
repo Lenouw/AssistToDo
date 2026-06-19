@@ -176,7 +176,7 @@ struct SettingsView: View {
                                 .font(.caption).foregroundStyle(.green)
                         }
                     }
-                    Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow() }
+                    Button("Resynchroniser tout") { SyncCoordinator.shared?.syncNow(full: true) }
                     Text("Synchronise tes listes « vide-tête » et « Claude Code » avec ton propre serveur Toudou (deux sens, texte + coché). Optionnel.")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
