@@ -9,8 +9,11 @@
 //
 
 import Foundation
+import os
 import AssistToDoKit
 import AssistToDoCore
+
+private let routerLog = Logger(subsystem: "com.assisttodo", category: "Router")
 
 /// Résultat détaillé d'un item routé (pour la confirmation de capture + le journal).
 struct RoutedOutcome {
@@ -88,7 +91,7 @@ final class IOSTaskRouter: TaskRouting {
                     var r = item.record; r.destination = .calendar; r.externalId = extId
                     outcomes.append(RoutedOutcome(storedId: nil, record: r, destination: .calendar, fellBack: false))
                 } catch {
-                    print("Calendrier indisponible (\(error)), fallback local")
+                    routerLog.error("createEvent a échoué → fallback 'À faire'. Raison : \(String(describing: error), privacy: .public)")
                     let kept = keepLocal(item.record); toStore.append(kept)
                     outcomes.append(RoutedOutcome(storedId: kept.id, record: item.record, destination: .calendar, fellBack: true))
                 }
@@ -101,7 +104,7 @@ final class IOSTaskRouter: TaskRouting {
                     toStore.append(r)
                     outcomes.append(RoutedOutcome(storedId: r.id, record: r, destination: .reminders, fellBack: false))
                 } catch {
-                    print("Rappels indisponibles (\(error)), fallback local")
+                    routerLog.error("createReminder a échoué → fallback 'À faire'. Raison : \(String(describing: error), privacy: .public)")
                     let kept = keepLocal(item.record); toStore.append(kept)
                     outcomes.append(RoutedOutcome(storedId: kept.id, record: item.record, destination: .reminders, fellBack: true))
                 }

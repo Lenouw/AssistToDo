@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import os
 import AssistToDoCore
 
 /// Tâche parsée + sa destination (local / Rappels Apple / Calendrier Apple).
@@ -23,6 +24,7 @@ public struct RoutedTask {
 
 public struct TaskParser {
     let client: OpenRouterClient
+    private static let log = Logger(subsystem: "com.assisttodo", category: "TaskParser")
 
     public init(client: OpenRouterClient) {
         self.client = client
@@ -44,7 +46,9 @@ public struct TaskParser {
                 .map { routed(from: $0, transcript: transcript, now: now) }
         } catch {
             // Échec réseau/décodage : on ne peut pas juger → on garde le texte brut (jamais perdu).
-            print("Parse échoué, fallback texte brut : \(error)")
+            // Sans clé OpenRouter (ClientError.noKey), TOUTE capture tombe ici → "À faire", jamais
+            // calendrier/rappels. Le log explicite la raison (Console.app, catégorie TaskParser).
+            Self.log.error("Parse échoué → fallback 'À faire' (pas de routage). Raison : \(String(describing: error), privacy: .public)")
             return [rawFallback(transcript, now: now)]
         }
     }
