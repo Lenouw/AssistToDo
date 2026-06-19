@@ -41,7 +41,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription + parsing.
-        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "base"
+        // Défaut aligné sur SettingsView : large-v3-turbo (le distil perdait les dates FR).
+        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "openai_whisper-large-v3_turbo"
         let llmModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"
         transcriber = Transcriber(model: whisper)   // pré-charge le modèle au lancement
         notifications = NotificationManager(store: store)
