@@ -634,6 +634,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ../AssistToDoiOS/Info.plist;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Pour créer des événements de calendrier à partir de tes captures.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "AssistToDo transcrit ta voix en tâches, en local sur l’iPhone.";
@@ -671,6 +672,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ../AssistToDoiOS/Info.plist;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Pour créer des événements de calendrier à partir de tes captures.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "AssistToDo transcrit ta voix en tâches, en local sur l’iPhone.";
