@@ -4,6 +4,16 @@
 <dict>
 	<!-- App NON sandboxée : distribution hors App Store (GitHub) + auto-update interne
 	     (une app sandboxée ne peut pas s'installer dans /Applications).
-	     Micro / Calendrier / Rappels / Automation Notes restent demandés à l'exécution (TCC + usage strings Info.plist). -->
+	     MAIS Hardened Runtime est activé (ENABLE_HARDENED_RUNTIME = YES) : sans les
+	     entitlements d'accès aux ressources ci-dessous, le runtime durci BLOQUE micro /
+	     calendrier / rappels / AppleEvents (aucun prompt, accès refusé en silence). -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
+	<key>com.apple.security.personal-information.reminders</key>
+	<true/>
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
 </dict>
 </plist>
