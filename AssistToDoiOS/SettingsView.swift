@@ -22,6 +22,18 @@ struct SettingsView: View {
     @AppStorage("routingEnabled") private var routingEnabled = true
     @AppStorage("iosLayout") private var iosLayout: AppLayout = .segmented
 
+    // Routage calendrier/rappels (mêmes clés UserDefaults que celles lues par IOSTaskRouter).
+    @AppStorage("defaultCalendar") private var defaultCalendar = ""
+    @AppStorage("defaultReminderList") private var defaultReminderList = ""
+    @AppStorage("calendar_perso") private var calPerso = ""
+    @AppStorage("calendar_commun") private var calCommun = ""
+    @AppStorage("calendar_pro") private var calPro = ""
+    @AppStorage("calendar_studio") private var calStudio = ""
+    @AppStorage("studioBlockStart") private var studioStart = 8
+    @AppStorage("studioBlockEnd") private var studioEnd = 20
+    @AppStorage("eventAlarmsEnabled") private var eventAlarms = true
+    @AppStorage("customRoutingRules") private var customRules = ""
+
     @State private var toudouToken = ""
     @State private var apiKey = ""
     @State private var savedFlash = false
@@ -66,6 +78,8 @@ struct SettingsView: View {
                 Section("Routage") {
                     Toggle("Routage intelligent (Rappels / Calendrier)", isOn: $routingEnabled)
                 }
+
+                calendarSection
 
                 Section("Affichage") {
                     Picker("Disposition de l'écran", selection: $iosLayout) {
@@ -138,6 +152,44 @@ struct SettingsView: View {
                     Label("Vider la liste", systemImage: "trash")
                 }
             }
+        }
+    }
+
+    // MARK: - Routage calendrier / rappels
+    //
+    // Mappe les catégories (perso/commun/pro/studio) vers de vrais calendriers Apple, comme le Mac.
+    // Sans ça, un événement "studio" tombe sur le calendrier système par défaut.
+
+    private var calendarSection: some View {
+        Section("Calendrier & Rappels") {
+            if !EventKitService.shared.hasCalendarAccess {
+                Text("Autorise le calendrier (section Permissions) pour choisir tes calendriers.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                calendarPicker("Calendrier par défaut", $defaultCalendar)
+                calendarPicker("Catégorie · Perso", $calPerso)
+                calendarPicker("Catégorie · Commun", $calCommun)
+                calendarPicker("Catégorie · Pro", $calPro)
+                calendarPicker("Catégorie · Studio", $calStudio)
+                Stepper("Studio ouvre à \(studioStart) h", value: $studioStart, in: 0...23)
+                Stepper("Studio ferme à \(studioEnd) h", value: $studioEnd, in: 1...24)
+                Toggle("Alarmes sur les événements", isOn: $eventAlarms)
+            }
+            if EventKitService.shared.hasRemindersAccess {
+                Picker("Liste de rappels par défaut", selection: $defaultReminderList) {
+                    Text("Système (défaut)").tag("")
+                    ForEach(EventKitService.shared.reminderListTitles, id: \.self) { Text($0).tag($0) }
+                }
+            }
+            TextField("Règles de routage perso (optionnel)", text: $customRules, axis: .vertical)
+                .lineLimit(1...4)
+        }
+    }
+
+    private func calendarPicker(_ label: String, _ selection: Binding<String>) -> some View {
+        Picker(label, selection: selection) {
+            Text("Système (défaut)").tag("")
+            ForEach(EventKitService.shared.calendarTitles, id: \.self) { Text($0).tag($0) }
         }
     }
 
