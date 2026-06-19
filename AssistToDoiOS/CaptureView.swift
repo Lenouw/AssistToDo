@@ -96,7 +96,10 @@ struct CaptureView: View {
     }
 
     @ViewBuilder private var hint: some View {
-        if !autoStart {
+        if autoStart {
+            Text("Parle, ça s'arrête tout seul. (ou « Terminer »)")
+                .font(.caption).foregroundStyle(.secondary)
+        } else {
             Text("Maintiens pour parler, relâche pour ajouter")
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -130,7 +133,7 @@ struct CaptureView: View {
         if autoStart {
             model.autoStartCapture = false
             hasStarted = true
-            capture.begin()
+            capture.begin(autoStop: true)   // mains libres : s'arrête seul au silence
         }
     }
 }

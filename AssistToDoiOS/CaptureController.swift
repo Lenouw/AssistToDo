@@ -38,6 +38,15 @@ final class CaptureController: ObservableObject {
     private var levelTask: Task<Void, Never>?
     private var workTask: Task<Void, Never>?
 
+    // Arrêt automatique sur silence (captures déclenchées : Action Button / widget / Siri).
+    // Mains libres : tu parles, l'enregistrement s'arrête seul quand tu te tais.
+    private var autoStopArmed = false
+    private var hasSpoken = false
+    private var lastLoudAt: Date?
+    private let silenceThreshold: Float = 0.08   // niveau lissé au-dessus = parole
+    private let silenceTimeout: TimeInterval = 1.8 // silence continu avant arrêt auto
+    private let maxAutoDuration: TimeInterval = 60 // cap dur de sécurité
+
     init(transcriber: Transcriber, parser: TaskParser, captureStore: CaptureStore,
          router: IOSTaskRouter, processor: CaptureProcessor) {
         self.transcriber = transcriber
@@ -59,7 +68,9 @@ final class CaptureController: ObservableObject {
 
     // MARK: - Cycle press-and-hold
 
-    func begin() {
+    /// `autoStop` (déclencheurs sans maintien : Action Button / widget / Siri) : arrêt automatique
+    /// dès que le silence dure `silenceTimeout` après que tu aies parlé → capture mains libres.
+    func begin(autoStop: Bool = false) {
         generation &+= 1
         workTask?.cancel()
         transcript = ""
@@ -78,13 +89,30 @@ final class CaptureController: ObservableObject {
         phase = .listening
         audio.start()
         liveActivity.start()
+        autoStopArmed = autoStop
+        hasSpoken = false
+        lastLoudAt = nil
+        let startedAt = Date()
         levelTask?.cancel()
         levelTask = Task { [weak self] in
             while let self, !Task.isCancelled {
                 self.level = self.audio.level
+                if self.autoStopArmed { self.checkAutoStop(startedAt: startedAt) }
                 try? await Task.sleep(nanoseconds: 50_000_000)
             }
         }
+    }
+
+    /// Surveille le silence pour stopper seul une capture déclenchée (mains libres).
+    private func checkAutoStop(startedAt: Date) {
+        let now = Date()
+        let elapsed = now.timeIntervalSince(startedAt)
+        // Cap dur : ne jamais enregistrer indéfiniment si l'auto-stop rate.
+        if elapsed > maxAutoDuration { autoStopArmed = false; end(); return }
+        if level > silenceThreshold { hasSpoken = true; lastLoudAt = now }
+        // Laisse au moins 0,6 s pour commencer à parler avant d'armer le silence.
+        guard hasSpoken, elapsed > 0.6, let last = lastLoudAt else { return }
+        if now.timeIntervalSince(last) > silenceTimeout { autoStopArmed = false; end() }
     }
 
     func cancel() {
@@ -96,6 +124,7 @@ final class CaptureController: ObservableObject {
     }
 
     func end() {
+        autoStopArmed = false
         levelTask?.cancel()
         let result = audio.stop()
         let gen = generation
@@ -201,6 +230,7 @@ final class CaptureController: ObservableObject {
     }
 
     private func reset() {
+        autoStopArmed = false
         phase = .idle
         transcript = ""
         addedSummaries = []
