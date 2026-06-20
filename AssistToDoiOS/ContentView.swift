@@ -40,7 +40,7 @@ struct ContentView: View {
                 }
         }
         .overlay(alignment: .bottom) {
-            CaptureButton { model.autoStartCapture = false; model.showCapture = true }
+            CaptureButton { model.autoStartCapture = true; model.showCapture = true }
                 .padding(.bottom, 24)
         }
         .sheet(isPresented: $model.showCapture) {
