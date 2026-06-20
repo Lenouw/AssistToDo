@@ -24,6 +24,9 @@ struct CapturesView: View {
                         description: Text("Tes notes vocales apparaissent ici, même en cas d'échec de traitement."))
                 } else {
                     List { ForEach(store.captures, id: \.id) { row($0) } }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .background(Color.atdBg.ignoresSafeArea())
                 }
             }
             .navigationTitle("Captures")
@@ -42,9 +45,10 @@ struct CapturesView: View {
             statusIcon(c.status).frame(width: 18).padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
                 Text(c.parsedSummary ?? c.transcript ?? "(en attente de traitement)")
+                    .foregroundStyle(Color.atdInk)
                     .lineLimit(3).fixedSize(horizontal: false, vertical: true)
                 Text("\(Self.df.string(from: c.createdAt)) · \(statusLabel(c.status))")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(Color.atdInkSecondary)
             }
             Spacer(minLength: 6)
             Menu {
@@ -60,7 +64,7 @@ struct CapturesView: View {
                 Divider()
                 Button(role: .destructive) { delete(c) } label: { Label("Supprimer", systemImage: "trash") }
             } label: {
-                Image(systemName: "ellipsis.circle").foregroundStyle(.secondary)
+                Image(systemName: "ellipsis.circle").foregroundStyle(Color.atdInkSecondary)
             }
         }
         .swipeActions(edge: .trailing) {
@@ -70,9 +74,9 @@ struct CapturesView: View {
 
     @ViewBuilder private func statusIcon(_ s: CaptureStatus) -> some View {
         switch s {
-        case .done:   Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-        case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-        default:      Image(systemName: "clock").foregroundStyle(.secondary)
+        case .done:   Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.atdSuccess)
+        case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.atdRecording)
+        default:      Image(systemName: "clock").foregroundStyle(Color.atdInkSecondary)
         }
     }
 

@@ -10,13 +10,27 @@ import WidgetKit
 import SwiftUI
 import ActivityKit
 
+// Accent "Studio nuit" (le widget ne lie pas AssistToDoKit → couleur définie localement).
+private let atdAccent = Color(red: 110/255, green: 86/255, blue: 247/255)
+private let atdRecording = Color(red: 255/255, green: 92/255, blue: 92/255)
+private let atdSuccess = Color(red: 61/255, green: 220/255, blue: 151/255)
+
+private func phaseColor(_ phase: CaptureActivityAttributes.Phase) -> Color {
+    switch phase {
+    case .listening:  return atdRecording
+    case .processing: return atdAccent
+    case .added:      return atdSuccess
+    case .ignored:    return atdAccent
+    }
+}
+
 struct CaptureLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CaptureActivityAttributes.self) { context in
             // Écran verrouillé / bannière.
             HStack(spacing: 12) {
                 Image(systemName: icon(context.state.phase))
-                    .font(.title2).foregroundStyle(.tint)
+                    .font(.title2).foregroundStyle(phaseColor(context.state.phase))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title(context.state.phase)).font(.headline)
                     if !context.state.detail.isEmpty {
@@ -30,7 +44,7 @@ struct CaptureLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Image(systemName: icon(context.state.phase)).foregroundStyle(.tint)
+                    Image(systemName: icon(context.state.phase)).foregroundStyle(phaseColor(context.state.phase))
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(title(context.state.phase)).font(.caption).bold()
@@ -41,11 +55,13 @@ struct CaptureLiveActivity: Widget {
                     }
                 }
             } compactLeading: {
-                Image(systemName: icon(context.state.phase)).foregroundStyle(.tint)
+                Image(systemName: icon(context.state.phase)).foregroundStyle(phaseColor(context.state.phase))
             } compactTrailing: {
-                if context.state.phase == .listening { Image(systemName: "waveform") }
+                if context.state.phase == .listening {
+                    Image(systemName: "waveform").foregroundStyle(atdRecording).symbolEffect(.variableColor.iterative)
+                }
             } minimal: {
-                Image(systemName: icon(context.state.phase)).foregroundStyle(.tint)
+                Image(systemName: icon(context.state.phase)).foregroundStyle(phaseColor(context.state.phase))
             }
         }
     }
