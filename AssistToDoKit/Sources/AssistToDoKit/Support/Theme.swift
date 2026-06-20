@@ -19,6 +19,14 @@ public extension Color {
                   opacity: alpha)
     }
 
+    /// Depuis une chaîne "RRGGBB" (ou "#RRGGBB") — ex. couleur d'un agenda Apple. nil si invalide.
+    init?(hexString: String) {
+        var s = hexString
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6, let v = UInt32(s, radix: 16) else { return nil }
+        self.init(hex: v)
+    }
+
     // Palette "Clarté chaude" (direction C) : crème chaud, encre presque noire chaude, accent bleu
     // profond. Neutres teintés (jamais de #fff/#000 purs). La couleur sert la hiérarchie, pas l'inverse.
     static let atdBg            = Color(hex: 0xF6F3EE) // fond app (crème chaud)

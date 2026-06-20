@@ -17,9 +17,14 @@ public struct TodayItem: Identifiable {
     public let title: String
     public let date: Date?     // début (event) ou échéance (rappel) ; nil = journée entière
     public let isEvent: Bool   // true = Calendrier, false = Rappel
+    public let calendarTitle: String?  // nom de l'agenda source (event)
+    public let colorHex: String?       // couleur de l'agenda source (RRGGBB), pour distinguer visuellement
+    public let dayStart: Date?         // jour (00:00 Paris) de l'item, pour grouper l'agenda multi-jours
 
-    public init(id: String, title: String, date: Date?, isEvent: Bool) {
+    public init(id: String, title: String, date: Date?, isEvent: Bool,
+                calendarTitle: String? = nil, colorHex: String? = nil, dayStart: Date? = nil) {
         self.id = id; self.title = title; self.date = date; self.isEvent = isEvent
+        self.calendarTitle = calendarTitle; self.colorHex = colorHex; self.dayStart = dayStart
     }
 }
 
@@ -30,7 +35,8 @@ public final class EventKitService {
     public enum RoutingError: Error { case accessDenied, noReminderList, noCalendar, noEventIdentifier }
 
     // Noms en cache (rafraîchis quand l'accès est accordé). Lus par le prompt + les Réglages.
-    public private(set) var calendarTitles: [String] = []
+    public private(set) var calendarTitles: [String] = []        // agendas modifiables (routage)
+    public private(set) var allEventCalendarTitles: [String] = [] // TOUS les agendas (même abonnés) — réglage d'affichage
     public private(set) var reminderListTitles: [String] = []
 
     // MARK: - Accès
@@ -72,9 +78,16 @@ public final class EventKitService {
     }
 
     private func refreshCalendars() {
-        calendarTitles = Self.uniqued(store.calendars(for: .event)
-            .filter { $0.allowsContentModifications }
-            .map { $0.title })
+        let cals = store.calendars(for: .event)
+        calendarTitles = Self.uniqued(cals.filter { $0.allowsContentModifications }.map { $0.title })
+        allEventCalendarTitles = Self.uniqued(cals.map { $0.title })  // inclut les agendas abonnés (lecture seule)
+    }
+
+    /// CGColor d'un calendrier → "RRGGBB" (pour colorer l'agenda par source).
+    private static func hex(_ cg: CGColor?) -> String? {
+        guard let cg, let c = cg.components, c.count >= 3 else { return nil }
+        let r = Int((c[0] * 255).rounded()), g = Int((c[1] * 255).rounded()), b = Int((c[2] * 255).rounded())
+        return String(format: "%02X%02X%02X", max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
     }
     private func refreshReminderLists() {
         reminderListTitles = Self.uniqued(store.calendars(for: .reminder)
@@ -155,10 +168,33 @@ public final class EventKitService {
                 if lhs.isAllDay != rhs.isAllDay { return lhs.isAllDay }   // journée entière en premier
                 return lhs.startDate < rhs.startDate
             }
-            .map { TodayItem(id: $0.eventIdentifier ?? UUID().uuidString,
-                             title: $0.title ?? "Sans titre",
-                             date: $0.isAllDay ? nil : $0.startDate,
-                             isEvent: true) }
+            .map { Self.todayItem(from: $0) }
+    }
+
+    /// Événements des `days` prochains jours (Paris, à partir d'aujourd'hui), en excluant les agendas
+    /// dont le titre est dans `hidden`. Chaque item porte sa couleur d'agenda + son jour (pour grouper).
+    public func fetchUpcomingEvents(days: Int, hidden: Set<String> = []) -> [TodayItem] {
+        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else { return [] }
+        let start = ParisCalendar.startOfDay(for: Date())
+        guard let end = ParisCalendar.calendar.date(byAdding: .day, value: max(1, days), to: start) else { return [] }
+        let pred = store.predicateForEvents(withStart: start, end: end, calendars: nil)
+        return store.events(matching: pred)
+            .filter { !hidden.contains($0.calendar.title) }
+            .sorted { lhs, rhs in
+                if lhs.startDate != rhs.startDate { return lhs.startDate < rhs.startDate }
+                return lhs.isAllDay && !rhs.isAllDay
+            }
+            .map { Self.todayItem(from: $0) }
+    }
+
+    private static func todayItem(from ev: EKEvent) -> TodayItem {
+        TodayItem(id: ev.eventIdentifier ?? UUID().uuidString,
+                  title: ev.title ?? "Sans titre",
+                  date: ev.isAllDay ? nil : ev.startDate,
+                  isEvent: true,
+                  calendarTitle: ev.calendar.title,
+                  colorHex: hex(ev.calendar.cgColor),
+                  dayStart: ParisCalendar.startOfDay(for: ev.startDate))
     }
 
     /// Tous les rappels Apple non complétés AYANT une date d'échéance (Paris), triés par échéance.

@@ -14,6 +14,7 @@ import AssistToDoKit
 
 enum DispatchZone: String, CaseIterable, Identifiable {
     case todo = "À faire"
+    case code = "Code"
     case reminders = "Rappels"
     case agenda = "Agenda"
     case done = "Fait"
@@ -30,6 +31,7 @@ struct ListsView: View {
 
     @State private var zone: DispatchZone = .todo
     @State private var openReminders: [TodayItem] = []   // tous les rappels datés non terminés
+    @State private var agenda: [TodayItem] = []          // événements aujourd'hui → J+3 (filtrés/colorés)
     @State private var editingTask: TaskRecord?
     @State private var editText = ""
     @State private var showDone = false
@@ -38,16 +40,16 @@ struct ListsView: View {
         Group {
             if layout == .stacked { stackedLayout } else { segmentedLayout }
         }
-        .task { await refreshReminders() }
+        .task { await refreshReminders(); await refreshAgenda() }
         .refreshable {
             SyncCoordinator.shared?.syncNow()
-            await store.refreshToday()
             await refreshReminders()
+            await refreshAgenda()
         }
         .onChange(of: zone) { _, z in
             Task {
                 if z == .reminders { await refreshReminders() }
-                if z == .agenda { await store.refreshToday() }
+                if z == .agenda { await refreshAgenda() }
             }
         }
         .alert("Modifier", isPresented: editingBinding) {
@@ -74,6 +76,7 @@ struct ListsView: View {
             List {
                 switch zone {
                 case .todo:      todoRows
+                case .code:      codeRows
                 case .reminders: reminderRows
                 case .agenda:    eventRows
                 case .done:      doneRows
@@ -92,8 +95,9 @@ struct ListsView: View {
             todayHeader
             List {
                 Section("À faire") { todoRows }
+                Section("Claude Code") { codeRows }
                 Section("Rappels") { reminderRows }
-                Section("Agenda · aujourd'hui") { eventRows }
+                Section("Agenda") { eventRows }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -133,11 +137,23 @@ struct ListsView: View {
     }
 
     @ViewBuilder private var todoRows: some View {
-        let items = (store.thoughts.filter { $0.destination == .local } + store.codeTasks)
-            .filter { !$0.isDone }
+        // À faire = vidage de cerveau SEUL (les tâches Claude Code ont leur propre onglet).
+        let items = store.thoughts
+            .filter { $0.destination == .local && $0.localList == .braindump && !$0.isDone }
             .sorted { priorityRank($0) < priorityRank($1) }
         if items.isEmpty {
             emptyState("Cerveau vide", "Maintiens le micro pour vider ce que tu as en tête.", "sparkles")
+        }
+        ForEach(items) { taskRow($0) }
+    }
+
+    @ViewBuilder private var codeRows: some View {
+        let items = store.codeTasks
+            .filter { !$0.isDone }
+            .sorted { priorityRank($0) < priorityRank($1) }
+        if items.isEmpty {
+            emptyState("Pas de tâche de code", "Dicte « Claude Code : … » pour en ajouter ici.",
+                       "chevron.left.forwardslash.chevron.right")
         }
         ForEach(items) { taskRow($0) }
     }
@@ -165,27 +181,39 @@ struct ListsView: View {
                 await model.requestRemindersAndCalendar(); await refreshReminders()
             }
         } else {
-            let end = endOfToday
-            let due = openReminders.filter { ($0.date ?? .distantPast) < end }
-            let upcoming = openReminders.filter { ($0.date ?? .distantFuture) >= end }
-            if due.isEmpty && upcoming.isEmpty { emptyRow("Aucun rappel") }
-            ForEach(due) { reminderRow($0) }
-            if !upcoming.isEmpty {
-                Text("À venir").font(.caption).foregroundStyle(.secondary)
-                ForEach(upcoming) { reminderRow($0) }
+            let startToday = ParisCalendar.startOfDay(for: Date())
+            let endToday = endOfToday
+            // Ordre utile : aujourd'hui, puis à venir (au plus tôt d'abord), puis en retard (le plus
+            // RÉCENT d'abord → les vieux rappels de 2021 tombent en bas, plus en haut de liste).
+            let today = openReminders.filter { d in
+                guard let dt = d.date else { return false }; return dt >= startToday && dt < endToday
             }
+            let upcoming = openReminders.filter { ($0.date ?? .distantPast) >= endToday }
+                .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
+            let overdue = openReminders.filter { ($0.date ?? .distantFuture) < startToday }
+                .sorted { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
+            if today.isEmpty && upcoming.isEmpty && overdue.isEmpty { emptyRow("Aucun rappel") }
+            if !today.isEmpty { sectionLabel("Aujourd'hui"); ForEach(today) { reminderRow($0) } }
+            if !upcoming.isEmpty { sectionLabel("À venir"); ForEach(upcoming) { reminderRow($0) } }
+            if !overdue.isEmpty { sectionLabel("En retard"); ForEach(overdue) { reminderRow($0) } }
         }
     }
 
     @ViewBuilder private var eventRows: some View {
         if !EventKitService.shared.hasCalendarAccess {
             permissionRow("Autoriser le calendrier") {
-                await model.requestRemindersAndCalendar(); await store.refreshToday()
+                await model.requestRemindersAndCalendar(); await refreshAgenda()
             }
-        } else if store.todayEvents.isEmpty {
-            emptyRow("Aucun événement aujourd'hui")
+        } else if agenda.isEmpty {
+            emptyRow("Aucun événement à venir")
         } else {
-            ForEach(store.todayEvents) { eventRow($0) }
+            // Groupé par jour (aujourd'hui → J+3), un en-tête par jour. On ne recrée pas l'agenda,
+            // juste un aperçu déroulant des 4 prochains jours.
+            let groups = Dictionary(grouping: agenda) { $0.dayStart ?? .distantPast }
+            ForEach(groups.keys.sorted(), id: \.self) { day in
+                sectionLabel(Self.dayLabel(day))
+                ForEach(groups[day] ?? []) { eventRow($0) }
+            }
         }
     }
 
@@ -287,9 +315,11 @@ struct ListsView: View {
         }
     }
 
-    /// Événement en mini-bloc horaire : heure en gras à gauche, repère de temps, titre.
+    /// Événement en mini-bloc horaire : heure à gauche, repère COLORÉ selon l'agenda source, titre +
+    /// nom de l'agenda (pour distinguer studio / Fluffy Cat Hotel / perso même à la même heure).
     private func eventRow(_ item: TodayItem) -> some View {
-        HStack(spacing: 12) {
+        let color = item.colorHex.flatMap { Color(hexString: $0) } ?? Color.atdZoneAgenda
+        return HStack(spacing: 12) {
             Group {
                 if let d = item.date {
                     Text(d, style: .time).font(.subheadline.weight(.semibold)).foregroundStyle(Color.atdInk)
@@ -298,8 +328,16 @@ struct ListsView: View {
                 }
             }
             .frame(width: 50, alignment: .leading)
-            Capsule().fill(Color.atdZoneAgenda).frame(width: 3, height: 26)
-            Text(item.title).foregroundStyle(Color.atdInk)
+            Capsule().fill(color).frame(width: 3, height: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title).foregroundStyle(Color.atdInk)
+                if let cal = item.calendarTitle {
+                    HStack(spacing: 5) {
+                        Circle().fill(color).frame(width: 6, height: 6)
+                        Text(cal).font(.caption2).foregroundStyle(Color.atdInkTertiary)
+                    }
+                }
+            }
             Spacer(minLength: 0)
         }
         .padding(.vertical, 3)
@@ -344,6 +382,26 @@ struct ListsView: View {
         f.dateFormat = "EEEE d MMMM"; return f
     }()
 
+    /// Petit en-tête de sous-groupe dans une liste (Aujourd'hui / À venir / En retard / un jour).
+    private func sectionLabel(_ t: String) -> some View {
+        Text(t.uppercased())
+            .font(.caption2.weight(.semibold)).foregroundStyle(Color.atdInkTertiary)
+            .listRowBackground(Color.clear).listRowSeparator(.hidden)
+    }
+
+    private static func dayLabel(_ d: Date) -> String {
+        let cal = ParisCalendar.calendar
+        let today = ParisCalendar.startOfDay(for: Date())
+        if cal.isDate(d, inSameDayAs: today) { return "Aujourd'hui" }
+        if let tmr = cal.date(byAdding: .day, value: 1, to: today), cal.isDate(d, inSameDayAs: tmr) { return "Demain" }
+        return dayLabelFmt.string(from: d).capitalizedFirst
+    }
+    private static let dayLabelFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR"); f.timeZone = ParisCalendar.tz
+        f.dateFormat = "EEEE d MMM"; return f
+    }()
+
     // MARK: - Actions / données
 
     private var endOfToday: Date {
@@ -367,6 +425,11 @@ struct ListsView: View {
 
     private func refreshReminders() async {
         openReminders = await EventKitService.shared.fetchOpenReminders()
+    }
+
+    private func refreshAgenda() async {
+        let hidden = Set(UserDefaults.standard.stringArray(forKey: "hiddenCalendars") ?? [])
+        agenda = EventKitService.shared.fetchUpcomingEvents(days: 4, hidden: hidden)
     }
 }
 

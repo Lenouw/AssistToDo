@@ -1,6 +1,6 @@
 # Chantier "AssistToDo iPhone — premium" (2026-06-20)
 
-Direction design validée : **B · Studio nuit** (dark, gris chaud foncé, accent violet #6E56F7, mono liste dev).
+Direction design validée : **C · Clarté chaude** (clair, fond crème, accent bleu profond #2E5FCB). [B Studio nuit testée puis abandonnée : trop sombre.]
 Mode : design + features en parallèle.
 
 ## Design (Studio nuit)
@@ -8,7 +8,7 @@ Mode : design + features en parallèle.
 - [x] Vraie waveform en barres audio-réactives (CaptureView) — moment signature
 - [x] États capture soignés (écoute/transcription/résultat/ajouté) + dot recording
 - [x] Bouton héros : accent, anneau de respiration, spring + haptique au touch
-- [ ] Listes : fond bg, .listStyle(.plain), cartes surface, couleurs par zone
+- [x] Listes : fond bg, .listStyle(.plain), cartes surface, couleurs par zone
 - [x] Checkbox bounce + strikethrough + haptique
 - [x] Captures : cartes + dot d'état partagé + play accent
 - [x] Live Activity / Dynamic Island : tint accent + mini-waveform + dot
@@ -26,3 +26,16 @@ Mode : design + features en parallèle.
 - [ ] Recherche universelle
 - [ ] Tags/zones de vie sur les tâches + filtres
 - [ ] Brief studio avant RDV client
+
+
+## Design direction C — TERMINÉ (commits 049dc04 → 885bff9)
+- [x] Palette claire crème + bleu profond, thème clair verrouillé
+- [x] En-tête "Aujourd'hui" + date (plus le nom de l'app)
+- [x] Hiérarchie de priorité visible (tri + drapeau + semibold + fond teinté haute, basse grisée)
+- [x] Lignes scannables (colonne d'alignement constante, méta ciblée)
+- [x] Empty state invitant
+- [x] Agenda en mini-blocs horaires
+- [x] Rappels scannables + "En retard" rouge
+- [x] Captures en cartes + onde + pastille de statut
+- [x] Réglages + sheet Fait accordés au crème
+- [x] Capture : transcript title3 lisible

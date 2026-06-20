@@ -38,6 +38,7 @@ struct SettingsView: View {
     @State private var apiKey = ""
     @State private var savedFlash = false
     @State private var copiedFlash = false
+    @State private var hiddenCalendars: Set<String> = []   // agendas masqués de la zone Agenda
 
     // Slugs WhisperKit vérifiés (repo argmaxinc/whisperkit-coreml), mêmes que macOS.
     private let whisperModels: [(slug: String, label: String)] = [
@@ -80,6 +81,7 @@ struct SettingsView: View {
                 }
 
                 calendarSection
+                agendaVisibilitySection
 
                 Section("Affichage") {
                     Picker("Disposition de l'écran", selection: $iosLayout) {
@@ -116,6 +118,7 @@ struct SettingsView: View {
             .onAppear {
                 toudouToken = KeychainStore.toudouToken()
                 apiKey = KeychainStore.apiKey()
+                hiddenCalendars = Set(UserDefaults.standard.stringArray(forKey: "hiddenCalendars") ?? [])
             }
             .alert("Enregistré", isPresented: $savedFlash) { Button("OK", role: .cancel) {} }
             .alert("Liste copiée", isPresented: $copiedFlash) {
@@ -192,6 +195,30 @@ struct SettingsView: View {
         Picker(label, selection: selection) {
             Text("Système (défaut)").tag("")
             ForEach(EventKitService.shared.calendarTitles, id: \.self) { Text($0).tag($0) }
+        }
+    }
+
+    // MARK: - Agendas affichés dans la zone Agenda
+    //
+    // Décocher un agenda le masque de la zone Agenda (ex. l'agenda partagé d'un client comme
+    // « Fluffy Cat Hotel »). Persisté dans UserDefaults("hiddenCalendars"), lu par ListsView.
+
+    @ViewBuilder private var agendaVisibilitySection: some View {
+        if EventKitService.shared.hasCalendarAccess, !EventKitService.shared.allEventCalendarTitles.isEmpty {
+            Section {
+                ForEach(EventKitService.shared.allEventCalendarTitles, id: \.self) { name in
+                    Toggle(name, isOn: Binding(
+                        get: { !hiddenCalendars.contains(name) },
+                        set: { shown in
+                            if shown { hiddenCalendars.remove(name) } else { hiddenCalendars.insert(name) }
+                            UserDefaults.standard.set(Array(hiddenCalendars), forKey: "hiddenCalendars")
+                        }))
+                }
+            } header: {
+                Text("Agendas affichés")
+            } footer: {
+                Text("Décoche un agenda pour le masquer de la zone Agenda.")
+            }
         }
     }
 
