@@ -41,8 +41,13 @@ struct CapturesView: View {
     }
 
     private func row(_ c: CaptureRecord) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            statusIcon(c.status).frame(width: 18).padding(.top, 2)
+        HStack(alignment: .top, spacing: 12) {
+            ZStack(alignment: .bottomTrailing) {
+                Circle().fill(Color.atdAccentSoft).frame(width: 38, height: 38)
+                    .overlay(Image(systemName: "waveform").foregroundStyle(Color.atdAccent))
+                Circle().fill(dotColor(c.status)).frame(width: 11, height: 11)
+                    .overlay(Circle().stroke(Color.atdSurface, lineWidth: 2))
+            }
             VStack(alignment: .leading, spacing: 3) {
                 Text(c.parsedSummary ?? c.transcript ?? "(en attente de traitement)")
                     .foregroundStyle(Color.atdInk)
@@ -67,16 +72,21 @@ struct CapturesView: View {
                 Image(systemName: "ellipsis.circle").foregroundStyle(Color.atdInkSecondary)
             }
         }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.atdSurface))
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) { delete(c) } label: { Label("Supprimer", systemImage: "trash") }
         }
     }
 
-    @ViewBuilder private func statusIcon(_ s: CaptureStatus) -> some View {
+    private func dotColor(_ s: CaptureStatus) -> Color {
         switch s {
-        case .done:   Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.atdSuccess)
-        case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.atdRecording)
-        default:      Image(systemName: "clock").foregroundStyle(Color.atdInkSecondary)
+        case .done:   return .atdSuccess
+        case .failed: return .atdRecording
+        default:      return .atdInkTertiary
         }
     }
 

@@ -74,8 +74,8 @@ struct CaptureView: View {
         case .transcribing:
             Text("Je transcris…").font(.title3.weight(.semibold)).foregroundStyle(Color.atdInk)
         case .result:
-            Text(capture.transcript).font(.body).foregroundStyle(Color.atdInk)
-                .multilineTextAlignment(.center)
+            Text(capture.transcript).font(.title3).foregroundStyle(Color.atdInk)
+                .multilineTextAlignment(.center).lineSpacing(4)
         case .added:
             addedView
         case .ignored:

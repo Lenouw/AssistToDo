@@ -262,34 +262,47 @@ struct ListsView: View {
     }
 
     private func reminderRow(_ item: TodayItem) -> some View {
-        HStack(spacing: 12) {
+        let overdue = (item.date ?? .distantFuture) < Date()
+        return HStack(alignment: .top, spacing: 12) {
             Button { Haptics.light(); completeReminder(item.id) } label: {
-                Image(systemName: "circle").foregroundStyle(Color.atdInkSecondary)
+                Image(systemName: "circle").font(.system(size: 21)).foregroundStyle(Color.atdInkTertiary)
             }
             .buttonStyle(.plain)
-            Image(systemName: "bell").font(.caption).foregroundStyle(Color.atdZoneReminders)
-            Text(item.title).foregroundStyle(Color.atdInk)
-            Spacer()
-            if let d = item.date {
-                Text(d, style: .date).font(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title).foregroundStyle(Color.atdInk)
+                if let d = item.date {
+                    HStack(spacing: 4) {
+                        Image(systemName: overdue ? "exclamationmark.circle.fill" : "bell")
+                        Text(overdue ? "En retard · " : "").bold() + Text(d, style: .date)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(overdue ? Color.atdRecording : Color.atdInkSecondary)
+                }
             }
+            Spacer(minLength: 0)
         }
+        .padding(.vertical, 3)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button { completeReminder(item.id) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
         }
     }
 
+    /// Événement en mini-bloc horaire : heure en gras à gauche, repère de temps, titre.
     private func eventRow(_ item: TodayItem) -> some View {
-        HStack {
-            Image(systemName: "calendar").foregroundStyle(Color.atdZoneAgenda)
-            Text(item.title).foregroundStyle(Color.atdInk)
-            Spacer()
-            if let d = item.date {
-                Text(d, style: .time).font(.caption).foregroundStyle(Color.atdInkSecondary)
-            } else {
-                Text("Journée").font(.caption).foregroundStyle(Color.atdInkSecondary)
+        HStack(spacing: 12) {
+            Group {
+                if let d = item.date {
+                    Text(d, style: .time).font(.subheadline.weight(.semibold)).foregroundStyle(Color.atdInk)
+                } else {
+                    Text("Jour").font(.caption.weight(.medium)).foregroundStyle(Color.atdInkSecondary)
+                }
             }
+            .frame(width: 50, alignment: .leading)
+            Capsule().fill(Color.atdZoneAgenda).frame(width: 3, height: 26)
+            Text(item.title).foregroundStyle(Color.atdInk)
+            Spacer(minLength: 0)
         }
+        .padding(.vertical, 3)
     }
 
     private func permissionRow(_ label: String, _ action: @escaping () async -> Void) -> some View {
