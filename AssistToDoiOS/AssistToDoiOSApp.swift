@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AssistToDoKit
 
 @main
 struct AssistToDoiOSApp: App {
@@ -18,6 +19,8 @@ struct AssistToDoiOSApp: App {
                 .environmentObject(model)
                 .environmentObject(model.store)
                 .environmentObject(model.capture)
+                .tint(.atdAccent)                     // identité Studio nuit
+                .preferredColorScheme(.dark)          // dark verrouillé (direction B)
                 .task { await model.requestNotifications() }
         }
         .onChange(of: scenePhase) { _, phase in

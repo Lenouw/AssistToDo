@@ -78,7 +78,10 @@ struct ListsView: View {
                 case .done:      doneRows
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
+        .background(Color.atdBg.ignoresSafeArea())
     }
 
     // MARK: - Disposition empilée (À faire + Rappels + Agenda en scroll, Fait via l'horloge)
@@ -89,6 +92,9 @@ struct ListsView: View {
             Section("Rappels") { reminderRows }
             Section("Agenda · aujourd'hui") { eventRows }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.atdBg.ignoresSafeArea())
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button { showDone = true } label: { Image(systemName: "clock.arrow.circlepath") }
@@ -154,21 +160,25 @@ struct ListsView: View {
 
     private func taskRow(_ rec: TaskRecord) -> some View {
         HStack(spacing: 12) {
-            Button { store.toggleDone(id: rec.id) } label: {
+            Button {
+                Haptics.light()
+                store.toggleDone(id: rec.id)
+            } label: {
                 Image(systemName: rec.isDone ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(rec.isDone ? Color.accentColor : .secondary)
+                    .foregroundStyle(rec.isDone ? Color.atdAccent : Color.atdInkSecondary)
+                    .symbolEffect(.bounce, value: rec.isDone)
             }
             .buttonStyle(.plain)
             if rec.localList == .code {
                 Image(systemName: "chevron.left.forwardslash.chevron.right")
-                    .font(.caption2).foregroundStyle(.purple)
+                    .font(.caption2).foregroundStyle(Color.atdCode)
             }
             Text(rec.text)
                 .strikethrough(rec.isDone)
-                .foregroundStyle(rec.isDone ? .secondary : .primary)
+                .foregroundStyle(rec.isDone ? Color.atdInkSecondary : Color.atdInk)
             Spacer()
             if rec.destination == .reminders {
-                Image(systemName: "bell").font(.caption).foregroundStyle(.secondary)
+                Image(systemName: "bell").font(.caption).foregroundStyle(Color.atdZoneReminders)
             }
         }
         // Swipe gauche→droite (parité Mac) : Fait · Modifier · Déplacer.
@@ -206,12 +216,12 @@ struct ListsView: View {
 
     private func reminderRow(_ item: TodayItem) -> some View {
         HStack(spacing: 12) {
-            Button { completeReminder(item.id) } label: {
-                Image(systemName: "circle").foregroundStyle(.secondary)
+            Button { Haptics.light(); completeReminder(item.id) } label: {
+                Image(systemName: "circle").foregroundStyle(Color.atdInkSecondary)
             }
             .buttonStyle(.plain)
-            Image(systemName: "bell").font(.caption).foregroundStyle(.orange)
-            Text(item.title)
+            Image(systemName: "bell").font(.caption).foregroundStyle(Color.atdZoneReminders)
+            Text(item.title).foregroundStyle(Color.atdInk)
             Spacer()
             if let d = item.date {
                 Text(d, style: .date).font(.caption).foregroundStyle(.secondary)
@@ -224,13 +234,13 @@ struct ListsView: View {
 
     private func eventRow(_ item: TodayItem) -> some View {
         HStack {
-            Image(systemName: "calendar").foregroundStyle(.blue)
-            Text(item.title)
+            Image(systemName: "calendar").foregroundStyle(Color.atdZoneAgenda)
+            Text(item.title).foregroundStyle(Color.atdInk)
             Spacer()
             if let d = item.date {
-                Text(d, style: .time).font(.caption).foregroundStyle(.secondary)
+                Text(d, style: .time).font(.caption).foregroundStyle(Color.atdInkSecondary)
             } else {
-                Text("Journée").font(.caption).foregroundStyle(.secondary)
+                Text("Journée").font(.caption).foregroundStyle(Color.atdInkSecondary)
             }
         }
     }

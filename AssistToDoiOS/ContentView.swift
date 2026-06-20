@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import AssistToDoKit
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
@@ -98,17 +99,30 @@ struct ContentView: View {
 }
 
 /// Gros bouton micro flottant pour lancer une capture manuelle.
+/// Anneau de respiration au repos : signale « prêt à t'écouter ».
 private struct CaptureButton: View {
     let action: () -> Void
+    @State private var breathing = false
+
     var body: some View {
-        Button(action: action) {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
             Image(systemName: "mic.fill")
-                .font(.system(size: 26, weight: .semibold))
+                .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(width: 64, height: 64)
-                .background(Circle().fill(Color.accentColor))
-                .shadow(radius: 8, y: 3)
+                .frame(width: 72, height: 72)
+                .background(Circle().fill(Color.atdAccent))
+                .overlay(
+                    Circle().stroke(Color.atdAccent, lineWidth: 2)
+                        .scaleEffect(breathing ? 1.25 : 1)
+                        .opacity(breathing ? 0 : 0.6)
+                        .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: false), value: breathing)
+                )
+                .shadow(color: Color.atdAccent.opacity(0.4), radius: 16, y: 6)
         }
         .accessibilityLabel("Nouvelle note vocale")
+        .onAppear { breathing = true }
     }
 }
