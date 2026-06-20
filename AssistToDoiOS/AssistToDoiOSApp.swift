@@ -19,8 +19,8 @@ struct AssistToDoiOSApp: App {
                 .environmentObject(model)
                 .environmentObject(model.store)
                 .environmentObject(model.capture)
-                .tint(.atdAccent)                     // identité Studio nuit
-                .preferredColorScheme(.dark)          // dark verrouillé (direction B)
+                .tint(.atdAccent)                     // identité Clarté chaude
+                .preferredColorScheme(.light)         // clair verrouillé (direction C, fond crème)
                 .task { await model.requestNotifications() }
         }
         .onChange(of: scenePhase) { _, phase in

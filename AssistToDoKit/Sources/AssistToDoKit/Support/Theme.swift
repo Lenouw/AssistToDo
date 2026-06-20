@@ -19,24 +19,30 @@ public extension Color {
                   opacity: alpha)
     }
 
-    // Palette "Studio nuit". Préfixe atd pour éviter toute collision.
-    static let atdBg            = Color(hex: 0x0E0E11) // fond app (presque noir chaud)
-    static let atdSurface       = Color(hex: 0x17171C) // cartes
-    static let atdSurfaceRaised = Color(hex: 0x1F1F26) // cartes surélevées / sheets
-    static let atdInk           = Color(hex: 0xECECEF) // texte primaire
-    static let atdInkSecondary  = Color(hex: 0x8A8A94) // texte secondaire
-    static let atdAccent        = Color(hex: 0x6E56F7) // violet électrique (action principale)
-    static let atdAccentSoft    = Color(hex: 0x6E56F7, alpha: 0.16)
-    static let atdRecording     = Color(hex: 0xFF5C5C) // enregistrement en cours
-    static let atdSuccess       = Color(hex: 0x3DDC97) // ajouté / fait
-    static let atdHairline      = Color.white.opacity(0.08)
+    // Palette "Clarté chaude" (direction C) : crème chaud, encre presque noire chaude, accent bleu
+    // profond. Neutres teintés (jamais de #fff/#000 purs). La couleur sert la hiérarchie, pas l'inverse.
+    static let atdBg            = Color(hex: 0xF6F3EE) // fond app (crème chaud)
+    static let atdSurface       = Color(hex: 0xFCFAF6) // cartes (blanc chaud)
+    static let atdSurfaceRaised = Color(hex: 0xFFFEFB) // sheets
+    static let atdInk           = Color(hex: 0x2C2924) // texte primaire (presque noir chaud)
+    static let atdInkSecondary  = Color(hex: 0x76716A) // texte secondaire
+    static let atdInkTertiary   = Color(hex: 0x9C978F) // texte ternaire (méta discrète)
+    static let atdAccent        = Color(hex: 0x2E5FCB) // bleu profond (action principale)
+    static let atdAccentSoft    = Color(hex: 0x2E5FCB, alpha: 0.12)
+    static let atdRecording     = Color(hex: 0xCE3B36) // enregistrement / en retard
+    static let atdSuccess       = Color(hex: 0x3E9D6A) // ajouté / fait
+    static let atdHairline      = Color.black.opacity(0.07)
+
+    // Hiérarchie de priorité : hue chaude distincte de l'accent → l'importance saute aux yeux.
+    static let atdPriorityHigh  = Color(hex: 0xC8512E) // priorité haute (terracotta chaud)
+    static let atdPriorityMed   = Color(hex: 0xC28A2A) // priorité moyenne (ambre)
 
     // Couleurs d'identité par zone (vue dispatch).
-    static let atdZoneTodo      = Color(hex: 0x6E56F7) // À faire = accent
-    static let atdZoneReminders = Color(hex: 0xE0992F) // Rappels = ambre
-    static let atdZoneAgenda    = Color(hex: 0x4C8DFF) // Agenda = bleu
-    static let atdZoneDone      = Color(hex: 0x3DDC97) // Fait = vert signal
-    static let atdCode          = Color(hex: 0x9B8CFF) // liste Claude Code (violet clair, mono)
+    static let atdZoneTodo      = Color(hex: 0x2E5FCB) // À faire = accent
+    static let atdZoneReminders = Color(hex: 0xC28A2A) // Rappels = ambre
+    static let atdZoneAgenda    = Color(hex: 0x2E5FCB) // Agenda = bleu
+    static let atdZoneDone      = Color(hex: 0x3E9D6A) // Fait = vert
+    static let atdCode          = Color(hex: 0x6A52C8) // liste Claude Code (violet)
 }
 
 #if canImport(UIKit)

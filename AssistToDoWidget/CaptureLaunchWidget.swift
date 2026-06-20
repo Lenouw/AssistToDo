@@ -33,7 +33,7 @@ struct CaptureLaunchWidget: Widget {
 }
 
 struct CaptureWidgetView: View {
-    private let atdAccent = Color(red: 110/255, green: 86/255, blue: 247/255)
+    private let atdAccent = Color(red: 46/255, green: 95/255, blue: 203/255)
     var body: some View {
         Button(intent: RecordVoiceIntent()) {
             VStack(spacing: 6) {

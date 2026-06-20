@@ -10,10 +10,10 @@ import WidgetKit
 import SwiftUI
 import ActivityKit
 
-// Accent "Studio nuit" (le widget ne lie pas AssistToDoKit → couleur définie localement).
-private let atdAccent = Color(red: 110/255, green: 86/255, blue: 247/255)
-private let atdRecording = Color(red: 255/255, green: 92/255, blue: 92/255)
-private let atdSuccess = Color(red: 61/255, green: 220/255, blue: 151/255)
+// Accent "Clarté chaude" (le widget ne lie pas AssistToDoKit → couleur définie localement).
+private let atdAccent = Color(red: 46/255, green: 95/255, blue: 203/255)
+private let atdRecording = Color(red: 206/255, green: 59/255, blue: 54/255)
+private let atdSuccess = Color(red: 62/255, green: 157/255, blue: 106/255)
 
 private func phaseColor(_ phase: CaptureActivityAttributes.Phase) -> Color {
     switch phase {

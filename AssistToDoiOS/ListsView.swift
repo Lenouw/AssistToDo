@@ -64,11 +64,12 @@ struct ListsView: View {
 
     private var segmentedLayout: some View {
         VStack(spacing: 0) {
+            todayHeader
             Picker("Zone", selection: $zone) {
                 ForEach(DispatchZone.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal).padding(.vertical, 6)
+            .padding(.horizontal).padding(.bottom, 8)
 
             List {
                 switch zone {
@@ -87,13 +88,17 @@ struct ListsView: View {
     // MARK: - Disposition empilée (À faire + Rappels + Agenda en scroll, Fait via l'horloge)
 
     private var stackedLayout: some View {
-        List {
-            Section("À faire") { todoRows }
-            Section("Rappels") { reminderRows }
-            Section("Agenda · aujourd'hui") { eventRows }
+        VStack(spacing: 0) {
+            todayHeader
+            List {
+                Section("À faire") { todoRows }
+                Section("Rappels") { reminderRows }
+                Section("Agenda · aujourd'hui") { eventRows }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color.atdBg.ignoresSafeArea())
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .background(Color.atdBg.ignoresSafeArea())
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -112,11 +117,36 @@ struct ListsView: View {
 
     // MARK: - Contenus des zones
 
+    /// En-tête : la journée de l'utilisateur, pas le nom de l'app.
+    private var todayHeader: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text("Aujourd'hui").font(.largeTitle.bold()).foregroundStyle(Color.atdInk)
+            Text(Self.headerDate.string(from: Date()).capitalizedFirst)
+                .font(.subheadline).foregroundStyle(Color.atdInkSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 12)
+        .background(Color.atdBg)
+    }
+
     @ViewBuilder private var todoRows: some View {
         let items = (store.thoughts.filter { $0.destination == .local } + store.codeTasks)
             .filter { !$0.isDone }
-        if items.isEmpty { emptyRow("Parle pour ajouter une tâche") }
+            .sorted { priorityRank($0) < priorityRank($1) }
+        if items.isEmpty {
+            emptyState("Cerveau vide", "Maintiens le micro pour vider ce que tu as en tête.", "sparkles")
+        }
         ForEach(items) { taskRow($0) }
+    }
+
+    /// Ordre d'affichage : haute en premier, puis moyenne, non priorisée, basse en dernier.
+    private func priorityRank(_ r: TaskRecord) -> Int {
+        switch r.priority {
+        case .haut:  return 0
+        case .moyen: return 1
+        case nil:    return 2
+        case .bas:   return 3
+        }
     }
 
     @ViewBuilder private var doneRows: some View {
@@ -159,28 +189,42 @@ struct ListsView: View {
     // MARK: - Lignes
 
     private func taskRow(_ rec: TaskRecord) -> some View {
-        HStack(spacing: 12) {
+        let high = rec.priority == .haut && !rec.isDone
+        let low = rec.priority == .bas
+        return HStack(alignment: .top, spacing: 12) {
             Button {
                 Haptics.light()
                 store.toggleDone(id: rec.id)
             } label: {
                 Image(systemName: rec.isDone ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(rec.isDone ? Color.atdAccent : Color.atdInkSecondary)
+                    .font(.system(size: 21))
+                    .foregroundStyle(rec.isDone ? Color.atdSuccess : Color.atdInkTertiary)
                     .symbolEffect(.bounce, value: rec.isDone)
             }
             .buttonStyle(.plain)
-            if rec.localList == .code {
-                Image(systemName: "chevron.left.forwardslash.chevron.right")
-                    .font(.caption2).foregroundStyle(Color.atdCode)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    // Priorité haute = drapeau chaud + texte semibold → saute aux yeux.
+                    if high {
+                        Image(systemName: "flag.fill").font(.caption2).foregroundStyle(Color.atdPriorityHigh)
+                    }
+                    if rec.localList == .code {
+                        Image(systemName: "chevron.left.forwardslash.chevron.right")
+                            .font(.caption2).foregroundStyle(Color.atdCode)
+                    }
+                    Text(rec.text)
+                        .font(high ? .body.weight(.semibold) : .body)
+                        .strikethrough(rec.isDone)
+                        .foregroundStyle(rec.isDone ? Color.atdInkTertiary
+                                         : (low ? Color.atdInkSecondary : Color.atdInk))
+                }
+                taskMeta(rec)
             }
-            Text(rec.text)
-                .strikethrough(rec.isDone)
-                .foregroundStyle(rec.isDone ? Color.atdInkSecondary : Color.atdInk)
-            Spacer()
-            if rec.destination == .reminders {
-                Image(systemName: "bell").font(.caption).foregroundStyle(Color.atdZoneReminders)
-            }
+            Spacer(minLength: 0)
         }
+        .padding(.vertical, 5)
+        // Priorité haute : fond de ligne légèrement teinté (hiérarchie sans bordure latérale).
+        .listRowBackground(high ? Color.atdPriorityHigh.opacity(0.06) : Color.clear)
         // Swipe gauche→droite (parité Mac) : Fait · Modifier · Déplacer.
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button { store.toggleDone(id: rec.id) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
@@ -251,9 +295,38 @@ struct ListsView: View {
         }
     }
 
-    private func emptyRow(_ text: String) -> some View {
-        Text(text).foregroundStyle(.secondary).font(.callout)
+    /// Méta sous le libellé : n'affiche une échéance que pour les rappels datés (sinon = bruit).
+    @ViewBuilder private func taskMeta(_ rec: TaskRecord) -> some View {
+        if rec.destination == .reminders, let d = rec.remindAt ?? rec.dueDate {
+            HStack(spacing: 4) {
+                Image(systemName: "bell")
+                Text(d, style: .date)
+            }
+            .font(.caption).foregroundStyle(Color.atdInkSecondary)
+        }
     }
+
+    private func emptyRow(_ text: String) -> some View {
+        Text(text).foregroundStyle(Color.atdInkSecondary).font(.callout)
+    }
+
+    /// Vide invitant (au lieu d'une ligne grise) pour la zone principale.
+    private func emptyState(_ title: String, _ subtitle: String, _ icon: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon).font(.system(size: 34)).foregroundStyle(Color.atdAccent.opacity(0.55))
+            Text(title).font(.headline).foregroundStyle(Color.atdInk)
+            Text(subtitle).font(.subheadline).foregroundStyle(Color.atdInkSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 36)
+        .listRowBackground(Color.clear)
+    }
+
+    private static let headerDate: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR"); f.timeZone = ParisCalendar.tz
+        f.dateFormat = "EEEE d MMMM"; return f
+    }()
 
     // MARK: - Actions / données
 
@@ -279,4 +352,9 @@ struct ListsView: View {
     private func refreshReminders() async {
         openReminders = await EventKitService.shared.fetchOpenReminders()
     }
+}
+
+private extension String {
+    /// "vendredi 20 juin" → "Vendredi 20 juin".
+    var capitalizedFirst: String { isEmpty ? self : prefix(1).uppercased() + dropFirst() }
 }

@@ -18,7 +18,8 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ListsView()
-                .navigationTitle("AssistToDo")
+                .navigationTitle("")
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showCaptures = true } label: {
