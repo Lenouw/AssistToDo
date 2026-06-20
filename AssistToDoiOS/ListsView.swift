@@ -109,6 +109,9 @@ struct ListsView: View {
         .sheet(isPresented: $showDone) {
             NavigationStack {
                 List { doneRows }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.atdBg.ignoresSafeArea())
                     .navigationTitle("Fait")
                     .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("OK") { showDone = false } } }
             }

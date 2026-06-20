@@ -105,6 +105,8 @@ struct SettingsView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.atdBg.ignoresSafeArea())
             .navigationTitle("Réglages")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
