@@ -10,7 +10,9 @@ public final class CaptureStore: ObservableObject {
 
     public init(inMemory: Bool = false) throws {
         let schema = Schema(versionedSchema: AssistToDoSchemaV1.self)
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        let config = inMemory
+            ? ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            : ModelConfiguration(schema: schema, url: CapturePaths.storeURL())
         container = try ModelContainer(for: schema, configurations: config)
         reload()
     }

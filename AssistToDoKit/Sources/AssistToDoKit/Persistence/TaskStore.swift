@@ -39,7 +39,9 @@ public final class TaskStore: ObservableObject {
     /// `inMemory` : store volatile pour les tests (aucun fichier sur disque).
     init(inMemory: Bool) {
         let schema = Schema(versionedSchema: AssistToDoSchemaV1.self)
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        let config = inMemory
+            ? ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            : ModelConfiguration(schema: schema, url: CapturePaths.storeURL())
         do {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
