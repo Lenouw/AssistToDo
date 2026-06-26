@@ -33,17 +33,16 @@ struct CaptureLaunchWidget: Widget {
 }
 
 struct CaptureWidgetView: View {
-    private let atdAccent = Color(red: 46/255, green: 95/255, blue: 203/255)
     var body: some View {
         Button(intent: RecordVoiceIntent()) {
             VStack(spacing: 6) {
                 Image(systemName: "mic.fill").font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(atdAccent)
-                Text("Note").font(.caption.weight(.medium)).foregroundStyle(atdAccent)
+                    .foregroundStyle(WidgetBrand.accent)
+                Text("Note").font(.caption.weight(.medium)).foregroundStyle(WidgetBrand.accent)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .buttonStyle(.plain)
-        .containerBackground(atdAccent.opacity(0.16), for: .widget)
+        .containerBackground(WidgetBrand.accent.opacity(0.16), for: .widget)
     }
 }

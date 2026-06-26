@@ -23,10 +23,6 @@ struct CaptureView: View {
     /// permission-async ↔ relâchement. nil = en cours, true/false = réponse.
     @State private var micGranted: Bool?
 
-    /// Tampon glissant des dernières amplitudes (waveform façon Wispr/Superwhisper).
-    private let barCount = 30
-    @State private var levels: [Float] = Array(repeating: 0, count: 30)
-
     var body: some View {
         VStack(spacing: 22) {
             statusText
@@ -38,16 +34,11 @@ struct CaptureView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.atdSurfaceRaised.ignoresSafeArea())
         .task { await prepare() }
-        .onChange(of: capture.level) { _, lvl in pushLevel(lvl) }
         .onChange(of: capture.phase) { _, phase in
             switch phase {
-            case .listening:
-                Haptics.tap()                                       // retour de début de capture
-                levels = Array(repeating: 0, count: barCount)
-            case .added:
-                Haptics.success()                                   // confirmation d'ajout
-            default:
-                break
+            case .listening: Haptics.tap()       // retour de début de capture
+            case .added:     Haptics.success()   // confirmation d'ajout
+            default:         break
             }
             // Referme la feuille une fois la capture terminée (ajouté / ignoré / annulé).
             if phase == .idle, pressStart == nil, hasStarted { dismiss() }
@@ -97,24 +88,12 @@ struct CaptureView: View {
     }
 
     private var waveform: some View {
-        let active = capture.phase == .listening
-        return HStack(alignment: .center, spacing: 3) {
-            ForEach(Array(levels.enumerated()), id: \.offset) { _, lvl in
-                Capsule()
-                    .fill(active ? Color.atdAccent : Color.atdAccent.opacity(0.22))
-                    .frame(width: 3, height: max(3, CGFloat(min(1, lvl)) * 56))
-            }
-        }
-        .frame(height: 64).frame(maxWidth: .infinity)
-        .animation(.easeOut(duration: 0.08), value: levels)
-        .opacity(capture.phase == .result || capture.phase == .added ? 0 : 1)
-        .animation(.easeOut(duration: 0.4), value: capture.phase)
-        .padding(.horizontal)
-    }
-
-    private func pushLevel(_ v: Float) {
-        levels.append(v)
-        if levels.count > barCount { levels.removeFirst(levels.count - barCount) }
+        // Vue isolée (Canvas) : seule la waveform se redessine au fil du niveau, pas tout CaptureView.
+        WaveformView(capture: capture, active: capture.phase == .listening)
+            .frame(height: 64).frame(maxWidth: .infinity)
+            .opacity(capture.phase == .result || capture.phase == .added ? 0 : 1)
+            .animation(.easeOut(duration: 0.4), value: capture.phase)
+            .padding(.horizontal)
     }
 
     private var controlButton: some View {
@@ -180,6 +159,39 @@ struct CaptureView: View {
             model.autoStartCapture = false
             hasStarted = true
             capture.begin(autoStop: true)   // mains libres : s'arrête seul au silence
+        }
+    }
+}
+
+/// Waveform isolée : possède son propre tampon de niveaux et se redessine SEULE via Canvas (un seul
+/// passage de dessin), au lieu de reconstruire toute la feuille de capture + 30 Capsule animées et de
+/// diffuser un diff de tableau à chaque trame (~20 Hz).
+private struct WaveformView: View {
+    @ObservedObject var capture: CaptureController
+    let active: Bool
+    private let barCount = 30
+    @State private var levels: [Float] = Array(repeating: 0, count: 30)
+
+    var body: some View {
+        Canvas { ctx, size in
+            let barWidth: CGFloat = 3, gap: CGFloat = 3
+            let n = levels.count
+            let total = CGFloat(n) * barWidth + CGFloat(max(0, n - 1)) * gap
+            var x = (size.width - total) / 2
+            let color = active ? Color.atdAccent : Color.atdAccent.opacity(0.22)
+            for lvl in levels {
+                let h = max(3, CGFloat(min(1, lvl)) * (size.height - 8))
+                let rect = CGRect(x: x, y: (size.height - h) / 2, width: barWidth, height: h)
+                ctx.fill(Path(roundedRect: rect, cornerRadius: 1.5), with: .color(color))
+                x += barWidth + gap
+            }
+        }
+        .onChange(of: capture.level) { _, v in
+            levels.append(v)
+            if levels.count > barCount { levels.removeFirst(levels.count - barCount) }
+        }
+        .onChange(of: active) { _, on in
+            if on { levels = Array(repeating: 0, count: barCount) }   // repart propre à chaque écoute
         }
     }
 }

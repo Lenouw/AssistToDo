@@ -10,17 +10,12 @@ import WidgetKit
 import SwiftUI
 import ActivityKit
 
-// Accent "Clarté chaude" (le widget ne lie pas AssistToDoKit → couleur définie localement).
-private let atdAccent = Color(red: 46/255, green: 95/255, blue: 203/255)
-private let atdRecording = Color(red: 206/255, green: 59/255, blue: 54/255)
-private let atdSuccess = Color(red: 62/255, green: 157/255, blue: 106/255)
-
 private func phaseColor(_ phase: CaptureActivityAttributes.Phase) -> Color {
     switch phase {
-    case .listening:  return atdRecording
-    case .processing: return atdAccent
-    case .added:      return atdSuccess
-    case .ignored:    return atdAccent
+    case .listening:  return WidgetBrand.recording
+    case .processing: return WidgetBrand.accent
+    case .added:      return WidgetBrand.success
+    case .ignored:    return WidgetBrand.accent
     }
 }
 
@@ -58,7 +53,7 @@ struct CaptureLiveActivity: Widget {
                 Image(systemName: icon(context.state.phase)).foregroundStyle(phaseColor(context.state.phase))
             } compactTrailing: {
                 if context.state.phase == .listening {
-                    Image(systemName: "waveform").foregroundStyle(atdRecording).symbolEffect(.variableColor.iterative)
+                    Image(systemName: "waveform").foregroundStyle(WidgetBrand.recording).symbolEffect(.variableColor.iterative)
                 }
             } minimal: {
                 Image(systemName: icon(context.state.phase)).foregroundStyle(phaseColor(context.state.phase))
