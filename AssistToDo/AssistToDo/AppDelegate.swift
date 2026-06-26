@@ -4,10 +4,13 @@
 //
 
 import AppKit
+import Combine
 import AssistToDoKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var cancellables = Set<AnyCancellable>()
+    private var reminderRefreshTimer: Timer?
     private var store: TaskStore!
     private var menuBar: MenuBarController!
     private var listController: ListWindowController!
@@ -94,6 +97,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Vérifie discrètement s'il existe une version plus récente sur GitHub (silencieux si à jour).
         UpdateChecker.check()
+
+        // Rappels iCloud : couche in-app de « nag ». À chaque changement de la liste des rappels
+        // ouverts, on (re)programme les 2 notifs/jour pour ceux en retard. Refresh initial + périodique
+        // (toutes les 10 min) pour que l'état « en retard » et les nags restent à jour dans la journée.
+        store.$openReminders
+            .dropFirst()
+            .sink { [weak self] _ in self?.notifications.rescheduleReminderNags() }
+            .store(in: &cancellables)
+        Task { [weak self] in await self?.store.refreshToday(); self?.notifications.rescheduleReminderNags() }
+        reminderRefreshTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.store.refreshToday()
+                self?.store.reload()   // bascule les tâches faites > 24h vers l'Archive
+            }
+        }
     }
 
     /// Force la fermeture de toute autre instance d'AssistToDo (même bundle id), puis attend

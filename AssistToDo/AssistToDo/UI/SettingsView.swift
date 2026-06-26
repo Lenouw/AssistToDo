@@ -29,6 +29,9 @@ struct SettingsView: View {
     @AppStorage("studioBlockEnd") private var studioBlockEnd: Int = 20
     @AppStorage("toudouBaseURL") private var toudouBaseURL: String = "https://toudou-one.vercel.app"
     @AppStorage("captureRetentionDays") private var captureRetentionDays: Int = 30
+    @AppStorage("inappReminderNagEnabled") private var nagEnabled: Bool = true
+    @AppStorage("inappReminderMorningMin") private var morningMin: Int = 630      // 10:30
+    @AppStorage("inappReminderAfternoonMin") private var afternoonMin: Int = 930   // 15:30
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
@@ -56,6 +59,19 @@ struct SettingsView: View {
         ("openai_whisper-large-v3_turbo", "Large v3 Turbo · très précis (défaut)"),
         ("openai_whisper-large-v3", "Large v3 · précision max, le plus lent")
     ]
+
+    /// Pont entre des minutes-depuis-minuit (stockées) et une Date pour le DatePicker (heure Paris).
+    private func timeBinding(_ minutes: Binding<Int>) -> Binding<Date> {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Europe/Paris") ?? .current
+        return Binding(
+            get: { cal.date(bySettingHour: minutes.wrappedValue / 60, minute: minutes.wrappedValue % 60, second: 0, of: Date()) ?? Date() },
+            set: { newDate in
+                let c = cal.dateComponents([.hour, .minute], from: newDate)
+                minutes.wrappedValue = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+            }
+        )
+    }
 
     var body: some View {
         Form {
@@ -137,6 +153,16 @@ struct SettingsView: View {
                     Text("Cible précise possible à la voix : « dans mon calendrier BoulouFlo », « dans ma liste Courses », « dans ma note Maison ».")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+            }
+
+            Section("Relance des rappels (iCloud)") {
+                Toggle("Me relancer tant que le rappel n'est pas fait", isOn: $nagEnabled)
+                if nagEnabled {
+                    DatePicker("Relance du matin", selection: timeBinding($morningMin), displayedComponents: .hourAndMinute)
+                    DatePicker("Relance de l'après-midi", selection: timeBinding($afternoonMin), displayedComponents: .hourAndMinute)
+                }
+                Text("iCloud te notifie à l'heure du rappel. Une fois l'heure passée et tant que tu n'as pas coché, l'app prend le relais et te relance le matin + l'après-midi (sans modifier ton rappel iCloud).")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Règles de classement") {

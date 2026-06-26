@@ -18,7 +18,7 @@ final class AutoDismissPanel: NSPanel {
 }
 
 enum PanelMode {
-    case list, settings, captures
+    case list, settings, captures, archive
 }
 
 @MainActor
@@ -38,11 +38,14 @@ struct PanelRootView: View {
         case .list:
             ListView(store: store,
                      onOpenSettings: { modeModel.mode = .settings },
-                     onOpenCaptures: { modeModel.mode = .captures })
+                     onOpenCaptures: { modeModel.mode = .captures },
+                     onOpenArchive: { modeModel.mode = .archive })
         case .settings:
             subScreen("Réglages") { SettingsView() }
         case .captures:
             CapturesView(store: captureStore, processor: processor, onBack: { modeModel.mode = .list })
+        case .archive:
+            subScreen("Archive") { ArchiveView(store: store) }
         }
     }
 
