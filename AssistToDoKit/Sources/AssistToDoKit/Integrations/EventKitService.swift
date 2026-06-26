@@ -83,9 +83,13 @@ public final class EventKitService {
         allEventCalendarTitles = Self.uniqued(cals.map { $0.title })  // inclut les agendas abonnés (lecture seule)
     }
 
-    /// CGColor d'un calendrier → "RRGGBB" (pour colorer l'agenda par source).
+    /// CGColor d'un calendrier → "RRGGBB". Convertit d'abord en sRGB : un calendrier en niveaux de
+    /// gris n'expose que 2 composantes (gris, alpha) → sans conversion on perdait sa couleur.
     private static func hex(_ cg: CGColor?) -> String? {
-        guard let cg, let c = cg.components, c.count >= 3 else { return nil }
+        guard let cg else { return nil }
+        let converted = CGColorSpace(name: CGColorSpace.sRGB)
+            .flatMap { cg.converted(to: $0, intent: .defaultIntent, options: nil) } ?? cg
+        guard let c = converted.components, c.count >= 3 else { return nil }
         let r = Int((c[0] * 255).rounded()), g = Int((c[1] * 255).rounded()), b = Int((c[2] * 255).rounded())
         return String(format: "%02X%02X%02X", max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
     }
@@ -173,28 +177,38 @@ public final class EventKitService {
 
     /// Événements des `days` prochains jours (Paris, à partir d'aujourd'hui), en excluant les agendas
     /// dont le titre est dans `hidden`. Chaque item porte sa couleur d'agenda + son jour (pour grouper).
-    public func fetchUpcomingEvents(days: Int, hidden: Set<String> = []) -> [TodayItem] {
+    /// `async` + requête EventKit hors du main thread (sinon l'UI gèle sur de gros calendriers).
+    public func fetchUpcomingEvents(days: Int, hidden: Set<String> = []) async -> [TodayItem] {
         guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else { return [] }
         let start = ParisCalendar.startOfDay(for: Date())
         guard let end = ParisCalendar.calendar.date(byAdding: .day, value: max(1, days), to: start) else { return [] }
-        let pred = store.predicateForEvents(withStart: start, end: end, calendars: nil)
-        return store.events(matching: pred)
-            .filter { !hidden.contains($0.calendar.title) }
-            .sorted { lhs, rhs in
-                if lhs.startDate != rhs.startDate { return lhs.startDate < rhs.startDate }
-                return lhs.isAllDay && !rhs.isAllDay
+        return await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async { [store] in
+                let pred = store.predicateForEvents(withStart: start, end: end, calendars: nil)
+                let items = store.events(matching: pred)
+                    .filter { !hidden.contains($0.calendar.title) }
+                    .sorted { lhs, rhs in
+                        if lhs.startDate != rhs.startDate { return lhs.startDate < rhs.startDate }
+                        return lhs.isAllDay && !rhs.isAllDay
+                    }
+                    .map { Self.todayItem(from: $0, windowStart: start) }
+                cont.resume(returning: items)
             }
-            .map { Self.todayItem(from: $0) }
+        }
     }
 
-    private static func todayItem(from ev: EKEvent) -> TodayItem {
-        TodayItem(id: ev.eventIdentifier ?? UUID().uuidString,
-                  title: ev.title ?? "Sans titre",
-                  date: ev.isAllDay ? nil : ev.startDate,
-                  isEvent: true,
-                  calendarTitle: ev.calendar.title,
-                  colorHex: hex(ev.calendar.cgColor),
-                  dayStart: ParisCalendar.startOfDay(for: ev.startDate))
+    private static func todayItem(from ev: EKEvent, windowStart: Date? = nil) -> TodayItem {
+        // Jour de regroupement borné au début de la fenêtre : un événement en cours commencé AVANT
+        // aujourd'hui (congé, booking multi-jours) se range sous « Aujourd'hui », pas sous un jour passé.
+        let evDay = ParisCalendar.startOfDay(for: ev.startDate)
+        let day = windowStart.map { Swift.max($0, evDay) } ?? evDay
+        return TodayItem(id: ev.eventIdentifier ?? UUID().uuidString,
+                         title: ev.title ?? "Sans titre",
+                         date: ev.isAllDay ? nil : ev.startDate,
+                         isEvent: true,
+                         calendarTitle: ev.calendar.title,
+                         colorHex: hex(ev.calendar.cgColor),
+                         dayStart: day)
     }
 
     /// Tous les rappels Apple non complétés AYANT une date d'échéance (Paris), triés par échéance.

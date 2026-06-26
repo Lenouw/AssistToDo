@@ -43,7 +43,6 @@ final class CaptureController: ObservableObject {
     private var autoStopArmed = false
     private var hasSpoken = false
     private var lastLoudAt: Date?
-    private let silenceThreshold: Float = 0.08   // niveau lissé au-dessus = parole
     private let silenceTimeout: TimeInterval = 1.8 // silence continu avant arrêt auto
     private let maxAutoDuration: TimeInterval = 60 // cap dur de sécurité
 
@@ -109,7 +108,8 @@ final class CaptureController: ObservableObject {
         let elapsed = now.timeIntervalSince(startedAt)
         // Cap dur : ne jamais enregistrer indéfiniment si l'auto-stop rate.
         if elapsed > maxAutoDuration { autoStopArmed = false; end(); return }
-        if level > silenceThreshold { hasSpoken = true; lastLoudAt = now }
+        // Détecteur calibré (RMS brut > seuil), indépendant du gain micro : marche aussi voix basse.
+        if audio.voiceActive { hasSpoken = true; lastLoudAt = now }
         // Laisse au moins 0,6 s pour commencer à parler avant d'armer le silence.
         guard hasSpoken, elapsed > 0.6, let last = lastLoudAt else { return }
         if now.timeIntervalSince(last) > silenceTimeout { autoStopArmed = false; end() }

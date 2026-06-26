@@ -18,6 +18,9 @@ public final class AudioCapture: ObservableObject {
 
     /// Niveau audio normalisé 0…1 pour l'affichage des ondes.
     @Published public var level: Float = 0
+    /// Parole détectée sur la DERNIÈRE trame (RMS brut > seuil calibré). Sert à l'arrêt-auto sur
+    /// silence : même détecteur que celui qui décide d'écrire le fichier → cohérent quel que soit le gain.
+    public private(set) var voiceActive: Bool = false
 
     public private(set) var didDetectSpeech = false
     private var startTime: Date?
@@ -115,8 +118,10 @@ public final class AudioCapture: ObservableObject {
             // Enveloppe : monte vite, descend doucement → ondes fluides (pas de clignotement
             // quand le volume retombe entre deux syllabes).
             let target = min(1, rms * 30)
+            let active = rms > self.speechThreshold
             DispatchQueue.main.async {
                 self.level = max(target, self.level * 0.82)
+                self.voiceActive = active
             }
         }
 

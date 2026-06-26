@@ -212,6 +212,7 @@ struct SettingsView: View {
                         set: { shown in
                             if shown { hiddenCalendars.remove(name) } else { hiddenCalendars.insert(name) }
                             UserDefaults.standard.set(Array(hiddenCalendars), forKey: "hiddenCalendars")
+                            model.agendaVisibilityVersion += 1   // déclenche le refresh de la vue Agenda
                         }))
                 }
             } header: {

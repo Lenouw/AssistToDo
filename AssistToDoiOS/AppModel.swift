@@ -33,6 +33,8 @@ final class AppModel: ObservableObject {
     @Published var transcriberReady = false
     /// État détaillé de préparation (téléchargement %, préparation) pour un bandeau informatif.
     @Published var transcriberReadiness: Transcriber.Readiness = .downloading(0)
+    /// Incrémenté quand la visibilité des agendas change (Réglages) → la vue Agenda se rafraîchit.
+    @Published var agendaVisibilityVersion = 0
 
     // Slug WhisperKit (même liste que macOS, vérifiée sur argmaxinc/whisperkit-coreml).
     // Défaut iPhone : "small" (FR correct, ~480 Mo) ; les modèles large restent dispo en option.

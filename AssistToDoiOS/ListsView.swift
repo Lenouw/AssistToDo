@@ -52,6 +52,9 @@ struct ListsView: View {
                 if z == .agenda { await refreshAgenda() }
             }
         }
+        .onChange(of: model.agendaVisibilityVersion) { _, _ in
+            Task { await refreshAgenda() }   // un agenda a été masqué/affiché dans les Réglages
+        }
         .alert("Modifier", isPresented: editingBinding) {
             TextField("Texte", text: $editText)
             Button("Annuler", role: .cancel) { editingTask = nil }
@@ -140,7 +143,7 @@ struct ListsView: View {
         // À faire = vidage de cerveau SEUL (les tâches Claude Code ont leur propre onglet).
         let items = store.thoughts
             .filter { $0.destination == .local && $0.localList == .braindump && !$0.isDone }
-            .sorted { priorityRank($0) < priorityRank($1) }
+            .sorted(by: byPriorityThenRecent)
         if items.isEmpty {
             emptyState("Cerveau vide", "Maintiens le micro pour vider ce que tu as en tête.", "sparkles")
         }
@@ -150,7 +153,7 @@ struct ListsView: View {
     @ViewBuilder private var codeRows: some View {
         let items = store.codeTasks
             .filter { !$0.isDone }
-            .sorted { priorityRank($0) < priorityRank($1) }
+            .sorted(by: byPriorityThenRecent)
         if items.isEmpty {
             emptyState("Pas de tâche de code", "Dicte « Claude Code : … » pour en ajouter ici.",
                        "chevron.left.forwardslash.chevron.right")
@@ -166,6 +169,13 @@ struct ListsView: View {
         case nil:    return 2
         case .bas:   return 3
         }
+    }
+
+    /// Tri stable : priorité d'abord, puis le plus récent (créé) à priorité égale (la majorité
+    /// des tâches n'a pas de priorité → sans clé secondaire, `sort` non stable les fait sautiller).
+    private func byPriorityThenRecent(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
+        let ra = priorityRank(a), rb = priorityRank(b)
+        return ra != rb ? ra < rb : a.createdAt > b.createdAt
     }
 
     @ViewBuilder private var doneRows: some View {
@@ -429,7 +439,7 @@ struct ListsView: View {
 
     private func refreshAgenda() async {
         let hidden = Set(UserDefaults.standard.stringArray(forKey: "hiddenCalendars") ?? [])
-        agenda = EventKitService.shared.fetchUpcomingEvents(days: 4, hidden: hidden)
+        agenda = await EventKitService.shared.fetchUpcomingEvents(days: 4, hidden: hidden)
     }
 }
 
