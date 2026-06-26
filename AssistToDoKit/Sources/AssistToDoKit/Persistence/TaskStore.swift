@@ -380,7 +380,9 @@ public final class TaskStore: ObservableObject {
                 if !e.syncDirty || w.updatedAt > e.updatedAt {
                     e.text = w.text
                     e.isDone = w.done
-                    e.doneAt = w.done ? (e.doneAt ?? Date()) : nil
+                    // doneAt = updatedAt serveur (≈ quand la tâche a été cochée sur Toudou), PAS Date()
+                    // (l'heure du pull) — sinon l'archivage 24h ne se déclenche jamais pour l'historique.
+                    e.doneAt = w.done ? w.updatedAt : nil
                     e.localListRaw = list.rawValue   // la version serveur fait foi sur la sous-liste
                     e.updatedAt = w.updatedAt
                     e.remoteKnown = true
@@ -392,7 +394,7 @@ public final class TaskStore: ObservableObject {
                 guard let uuid = UUID(uuidString: w.id) else { continue }
                 let e = TaskEntity(id: uuid, text: w.text, createdAt: Date(), dueDate: today, remindAt: nil,
                                    notify: false, notificationId: nil, priorityRaw: nil, tags: [],
-                                   isDone: w.done, doneAt: w.done ? Date() : nil, rolloverCount: 0,
+                                   isDone: w.done, doneAt: w.done ? w.updatedAt : nil, rolloverCount: 0,
                                    rawTranscript: w.text, parseStatusRaw: "parsed",
                                    destinationRaw: "local", externalId: nil, orderIndex: nextTop)
                 e.localListRaw = list.rawValue   // place le miroir dans la bonne sous-liste (braindump/code)
