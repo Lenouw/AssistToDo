@@ -13,6 +13,23 @@ struct ArchiveView: View {
     @ObservedObject var store: TaskStore
 
     var body: some View {
+        VStack(spacing: 0) {
+            Button {
+                store.archiveAllDoneNow()
+            } label: {
+                Label("Archiver les tâches faites maintenant", systemImage: "archivebox.fill")
+                    .font(.system(size: 11))
+            }
+            .buttonStyle(.plain).foregroundStyle(.secondary)
+            .padding(.horizontal, 14).padding(.bottom, 8)
+            .help("Vide d'un coup tout l'historique déjà coché (sans attendre 24h)")
+
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         Group {
             if store.archived.isEmpty {
                 VStack(spacing: 8) {

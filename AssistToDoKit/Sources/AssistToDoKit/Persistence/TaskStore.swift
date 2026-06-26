@@ -119,6 +119,18 @@ public final class TaskStore: ObservableObject {
         e.isDone && (e.doneAt ?? .distantPast) < Date().addingTimeInterval(-24 * 3600)
     }
 
+    /// Archive TOUT DE SUITE l'historique : recule le doneAt des tâches faites au-delà des 24h
+    /// (sans toucher celles déjà plus anciennes). Le prochain cycle de sync les retire de Toudou.
+    /// Nettoyage manuel ponctuel pour ne pas attendre 24h sur le passif déjà coché.
+    public func archiveAllDoneNow() {
+        let cutoff = Date().addingTimeInterval(-25 * 3600)
+        for e in fetchAll() where e.isDone && !e.tombstone
+            && (e.localListRaw == "braindump" || e.localListRaw == "code") {
+            if (e.doneAt ?? .distantPast) > cutoff { e.doneAt = cutoff }
+        }
+        save(); reload()
+    }
+
     /// Déplace une tâche locale d'une sous-liste à l'autre (vidage de cerveau ↔ code).
     /// Pour respecter la sync : on crée une nouvelle identité dans la liste cible et on retire l'ancienne
     /// (tombstone si elle était sur Toudou, sinon suppression locale).
@@ -380,9 +392,10 @@ public final class TaskStore: ObservableObject {
                 if !e.syncDirty || w.updatedAt > e.updatedAt {
                     e.text = w.text
                     e.isDone = w.done
-                    // doneAt = updatedAt serveur (≈ quand la tâche a été cochée sur Toudou), PAS Date()
-                    // (l'heure du pull) — sinon l'archivage 24h ne se déclenche jamais pour l'historique.
-                    e.doneAt = w.done ? w.updatedAt : nil
+                    // doneAt STABLE : posé une fois (updatedAt serveur ≈ date de complétion), jamais
+                    // réécrit par un pull suivant. Sinon le compteur 24h d'archivage repartirait à zéro
+                    // à chaque sync. nil si la tâche redevient non faite.
+                    e.doneAt = w.done ? (e.doneAt ?? w.updatedAt) : nil
                     e.localListRaw = list.rawValue   // la version serveur fait foi sur la sous-liste
                     e.updatedAt = w.updatedAt
                     e.remoteKnown = true
