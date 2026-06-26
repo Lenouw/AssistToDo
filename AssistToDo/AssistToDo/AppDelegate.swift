@@ -4,10 +4,13 @@
 //
 
 import AppKit
+import Combine
 import AssistToDoKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var cancellables = Set<AnyCancellable>()
+    private var reminderRefreshTimer: Timer?
     private var store: TaskStore!
     private var menuBar: MenuBarController!
     private var listController: ListWindowController!
@@ -41,7 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription + parsing.
-        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "base"
+        // Défaut aligné sur SettingsView : large-v3-turbo (le distil perdait les dates FR).
+        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "openai_whisper-large-v3_turbo"
         let llmModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"
         transcriber = Transcriber(model: whisper)   // pré-charge le modèle au lancement
         notifications = NotificationManager(store: store)
@@ -93,6 +97,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Vérifie discrètement s'il existe une version plus récente sur GitHub (silencieux si à jour).
         UpdateChecker.check()
+
+        // Rappels iCloud : couche in-app de « nag ». À chaque changement de la liste des rappels
+        // ouverts, on (re)programme les 2 notifs/jour pour ceux en retard. Refresh initial + périodique
+        // (toutes les 10 min) pour que l'état « en retard » et les nags restent à jour dans la journée.
+        store.$openReminders
+            .dropFirst()
+            .sink { [weak self] _ in self?.notifications.rescheduleReminderNags() }
+            .store(in: &cancellables)
+        Task { [weak self] in await self?.store.refreshToday(); self?.notifications.rescheduleReminderNags() }
+        reminderRefreshTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.store.refreshToday()
+                self?.store.reload()   // bascule les tâches faites > 24h vers l'Archive
+            }
+        }
     }
 
     /// Force la fermeture de toute autre instance d'AssistToDo (même bundle id), puis attend

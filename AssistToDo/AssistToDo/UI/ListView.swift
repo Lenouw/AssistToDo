@@ -18,6 +18,7 @@ struct ListView: View {
     @ObservedObject var store: TaskStore
     var onOpenSettings: () -> Void = {}
     var onOpenCaptures: () -> Void = {}
+    var onOpenArchive: () -> Void = {}
 
     @State private var editingId: UUID?
     @State private var editText = ""
@@ -59,16 +60,16 @@ struct ListView: View {
         let cH = avail - bH - tH
 
         VStack(spacing: 0) {
-            pane(title: "Vidage de cerveau", systemImage: "brain", count: store.thoughts.count, height: bH) {
-                taskList(store.thoughts, move: moveBrain)
+            pane(title: "Vidage de cerveau", systemImage: "brain", count: store.thoughts.count + store.openReminders.count, height: bH, tint: .indigo) {
+                brainList
             }
             handle(base: $dragBaseBrain, value: $brainH, lower: minPane, upper: avail - tH - minPane)
-            pane(title: "Claude Code", systemImage: "chevron.left.forwardslash.chevron.right", count: store.codeTasks.count, height: cH) {
+            pane(title: "Claude Code", systemImage: "chevron.left.forwardslash.chevron.right", count: store.codeTasks.count, height: cH, tint: .green) {
                 if store.codeTasks.isEmpty { paneHint("Dicte « Claude Code : … » pour ajouter ici") }
                 else { taskList(store.codeTasks, move: moveCode) }
             }
             handle(base: $dragBaseToday, value: $todayH, lower: minPane, upper: avail - bH - minPane, inverted: true)
-            pane(title: "Aujourd'hui · iCloud", systemImage: "calendar", count: store.todayEvents.count + store.todayReminders.count, height: tH) {
+            pane(title: "Calendrier · iCloud", systemImage: "calendar", count: store.todayEvents.count, height: tH, tint: .blue) {
                 todayContent
             }
         }
@@ -76,15 +77,18 @@ struct ListView: View {
 
     /// Une zone : barre de titre fine + contenu qui remplit la hauteur allouée.
     private func pane<Content: View>(title: String, systemImage: String, count: Int, height: CGFloat,
-                                     @ViewBuilder content: () -> Content) -> some View {
+                                     tint: Color, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Image(systemName: systemImage).font(.system(size: 10)).foregroundStyle(.tertiary)
-                Text(title.uppercased()).font(.system(size: 9, weight: .semibold)).tracking(0.5).foregroundStyle(.tertiary)
-                if count > 0 { Text("\(count)").font(.system(size: 9)).foregroundStyle(.quaternary) }
+                Image(systemName: systemImage).font(.system(size: 10, weight: .semibold)).foregroundStyle(tint)
+                Text(title.uppercased()).font(.system(size: 9, weight: .semibold)).tracking(0.5).foregroundStyle(tint)
+                if count > 0 { Text("\(count)").font(.system(size: 9, weight: .medium)).foregroundStyle(tint.opacity(0.6)) }
                 Spacer()
             }
-            .padding(.horizontal, 14).padding(.top, 6).padding(.bottom, 2)
+            .padding(.horizontal, 14).padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(tint.opacity(0.16))                  // bandeau coloré = séparation visuelle nette par catégorie
+            .overlay(alignment: .bottom) { Rectangle().fill(tint.opacity(0.45)).frame(height: 1) }
             content()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
@@ -101,7 +105,8 @@ struct ListView: View {
     private func handle(base: Binding<Double?>, value: Binding<Double>, lower: CGFloat, upper: CGFloat, inverted: Bool = false) -> some View {
         ZStack {
             Rectangle().fill(.clear)
-            Capsule().fill(.secondary.opacity(0.35)).frame(width: 36, height: 4)
+            Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1)   // vraie barre pleine largeur
+            Capsule().fill(.secondary.opacity(0.55)).frame(width: 40, height: 5) // poignée de redimensionnement
         }
         .frame(height: handleH)
         .frame(maxWidth: .infinity)
@@ -146,15 +151,45 @@ struct ListView: View {
         store.reorderLocal(orderedIds: ids)
     }
 
-    // MARK: - Zone du jour (lecture seule)
+    // MARK: - Cerveau : rappels iCloud (en haut) + braindump, dans UNE seule List qui scrolle
+
+    /// Rappels iCloud ouverts épinglés en haut (section non réordonnable) + pensées braindump
+    /// (section réordonnable + swipes). Tout scrolle ensemble → gère N rappels sans déborder.
+    private var brainList: some View {
+        List {
+            if !store.openReminders.isEmpty {
+                Section {
+                    ForEach(store.openReminders) { item in
+                        ReminderRowView(
+                            item: item,
+                            timeText: Self.reminderLabel(item.date),
+                            onComplete: { Task { await store.completeReminder(id: item.id) } },
+                            onPostpone: { Task { await store.postponeReminderToTomorrow(id: item.id) } }
+                        )
+                        .listRowBackground(Color.orange.opacity(0.06))
+                        .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
+                    }
+                }
+            }
+            Section {
+                ForEach(store.thoughts) { thoughtRow($0) }
+                    .onMove(perform: moveBrain)
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: store.thoughts)
+        .animation(.default, value: store.openReminders)
+    }
+
+    // MARK: - Zone du bas : calendrier iCloud (lecture seule)
 
     private var todayContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(store.todayEvents) { todayRow($0, icon: "calendar", tint: .blue) }
-                ForEach(store.todayReminders) { todayRow($0, icon: "bell", tint: .orange) }
-                if store.todayEvents.isEmpty && store.todayReminders.isEmpty {
-                    Text("Rien aujourd'hui").font(.caption).foregroundStyle(.quaternary)
+                if store.todayEvents.isEmpty {
+                    Text("Aucun événement aujourd'hui").font(.caption).foregroundStyle(.quaternary)
                 }
             }
             .padding(.horizontal, 14).padding(.vertical, 4)
@@ -173,6 +208,7 @@ struct ListView: View {
             Text(item.title).font(.system(size: 12)).foregroundStyle(.primary).lineLimit(1)
             Spacer(minLength: 0)
         }
+        .help(item.title)
     }
 
     // MARK: - En-tête
@@ -188,6 +224,9 @@ struct ListView: View {
                 Text("Mes pensées vocales").font(.system(size: 11)).foregroundStyle(.tertiary)
             }
             Spacer()
+            Button(action: onOpenArchive) { Image(systemName: "archivebox") }
+                .buttonStyle(.plain).help("Archive (tâches faites)")
+                .accessibilityLabel("Ouvrir l'archive")
             Button(action: onOpenCaptures) { Image(systemName: "waveform") }
                 .buttonStyle(.plain).help("Captures (historique vocal, re-traiter)")
                 .accessibilityLabel("Ouvrir les captures")
@@ -219,20 +258,20 @@ struct ListView: View {
         } else {
             ThoughtRow(task: task, timeLabel: Self.timeLabel(task)) { store.toggleDone(id: task.id) }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) { store.delete(id: task.id) } label: { Label("Supprimer", systemImage: "trash") }
+                    Button(role: .destructive) { store.delete(id: task.id) } label: { Label("Supprimer", systemImage: "trash") }.labelStyle(.titleAndIcon)
                     if task.destination == .local {
-                        Button { store.postponeToTomorrow(id: task.id) } label: { Label("Demain", systemImage: "arrow.uturn.forward") }.tint(.orange)
+                        Button { store.postponeToTomorrow(id: task.id) } label: { Label("Demain", systemImage: "arrow.uturn.forward") }.labelStyle(.titleAndIcon).tint(.orange)
                     }
                 }
                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    Button { store.toggleDone(id: task.id) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
+                    Button { store.toggleDone(id: task.id) } label: { Label("Fait", systemImage: "checkmark.circle") }.labelStyle(.titleAndIcon).tint(.green)
                     if task.destination != .reminders {
-                        Button { startEditing(task) } label: { Label("Modifier", systemImage: "pencil") }.tint(.blue)
+                        Button { startEditing(task) } label: { Label("Modifier", systemImage: "pencil") }.labelStyle(.titleAndIcon).tint(.blue)
                     }
                     if task.destination == .local {
                         Button { store.moveToList(id: task.id, to: task.localList == .code ? .braindump : .code) } label: {
                             Label(task.localList == .code ? "Vidage de cerveau" : "Claude Code", systemImage: "arrow.left.arrow.right")
-                        }.tint(.purple)
+                        }.labelStyle(.titleAndIcon).tint(.purple)
                     }
                 }
                 .contextMenu {
@@ -274,7 +313,15 @@ struct ListView: View {
         return dayShort.string(from: d)
     }
 
-    private static let hm: DateFormatter = {
+    /// Libellé d'un rappel : heure si c'est aujourd'hui, sinon date courte ("hier", "ven. 26").
+    static func reminderLabel(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        if ParisCalendar.calendar.isDateInToday(date) { return hm.string(from: date) }
+        if ParisCalendar.calendar.isDateInYesterday(date) { return "hier" }
+        return dayShort.string(from: date)
+    }
+
+    static let hm: DateFormatter = {
         let f = DateFormatter()
         f.timeZone = TimeZone(identifier: "Europe/Paris"); f.locale = Locale(identifier: "fr_FR")
         f.dateFormat = "HH:mm"; return f
@@ -352,6 +399,83 @@ private struct ThoughtRow: View {
         case .reminders: return .orange
         case .notes: return .pink
         case .calendar: return .blue
+        }
+    }
+}
+
+/// Ligne de rappel Apple dans la zone du jour : cocher (fait) ou décaler à demain, chaque action
+/// demandant un 2e clic de confirmation (anti mis-clic). Les rappels en retard pulsent doucement.
+private struct ReminderRowView: View {
+    let item: TodayItem
+    let timeText: String?
+    let onComplete: () -> Void
+    let onPostpone: () -> Void
+
+    private enum Pending { case complete, postpone }
+    @State private var pending: Pending?
+    @State private var pulse = false
+    @State private var expanded = false
+
+    private var overdue: Bool {
+        guard let d = item.date else { return false }
+        return d < Date()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let pending {
+                HStack(spacing: 8) {
+                    Image(systemName: pending == .complete ? "checkmark.circle.fill" : "calendar.badge.clock")
+                        .font(.caption).foregroundStyle(pending == .complete ? Color.green : Color.orange).frame(width: 14)
+                    Text(item.title).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Button(pending == .complete ? "Valider ?" : "Demain ?") {
+                        if pending == .complete { onComplete() } else { onPostpone() }
+                        self.pending = nil
+                    }
+                    .buttonStyle(.borderedProminent).controlSize(.mini)
+                    .tint(pending == .complete ? .green : .orange)
+                    Button { self.pending = nil } label: { Image(systemName: "xmark").font(.system(size: 9)) }
+                        .buttonStyle(.borderless).controlSize(.mini).foregroundStyle(.secondary)
+                }
+            } else {
+                HStack(alignment: .top, spacing: 8) {
+                    Button { pending = .complete } label: {
+                        Image(systemName: "circle").font(.caption).foregroundStyle(.orange)
+                    }
+                    .buttonStyle(.plain).frame(width: 14).help("Marquer comme fait")
+                    if let timeText {
+                        Text(timeText).font(.system(size: 11).monospacedDigit())
+                            .foregroundStyle(overdue ? Color.orange : Color.secondary)
+                    } else {
+                        Text("journée").font(.system(size: 11)).foregroundStyle(.tertiary)
+                    }
+                    // Titre cliquable : se déplie en entier (clic) ; texte complet aussi au survol.
+                    Text(item.title).font(.system(size: 12)).foregroundStyle(.primary)
+                        .lineLimit(expanded ? nil : 1)
+                        .fixedSize(horizontal: false, vertical: expanded)
+                        .contentShape(Rectangle())
+                        .onTapGesture { withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() } }
+                    Spacer(minLength: 4)
+                    Button { pending = .postpone } label: {
+                        Image(systemName: "arrow.right.to.line").font(.system(size: 10))
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).help("Décaler à demain")
+                }
+                if expanded, let sub = item.subtitle, !sub.isEmpty {
+                    Text(sub).font(.system(size: 10)).foregroundStyle(.tertiary).padding(.leading, 22)
+                }
+            }
+        }
+        .help(item.title)
+        .padding(.vertical, 2).padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.orange.opacity(overdue ? (pulse ? 0.22 : 0.07) : 0))
+        )
+        .onAppear {
+            guard overdue else { return }
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true }
         }
     }
 }

@@ -14,7 +14,7 @@ import UserNotifications
 import KeyboardShortcuts
 
 struct SettingsView: View {
-    @AppStorage("whisperModel") private var whisperModel: String = "base"
+    @AppStorage("whisperModel") private var whisperModel: String = "openai_whisper-large-v3_turbo"
     @AppStorage("routingEnabled") private var routingEnabled: Bool = true
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
@@ -29,6 +29,9 @@ struct SettingsView: View {
     @AppStorage("studioBlockEnd") private var studioBlockEnd: Int = 20
     @AppStorage("toudouBaseURL") private var toudouBaseURL: String = "https://toudou-one.vercel.app"
     @AppStorage("captureRetentionDays") private var captureRetentionDays: Int = 30
+    @AppStorage("inappReminderNagEnabled") private var nagEnabled: Bool = true
+    @AppStorage("inappReminderMorningMin") private var morningMin: Int = 630      // 10:30
+    @AppStorage("inappReminderAfternoonMin") private var afternoonMin: Int = 930   // 15:30
 
     @State private var apiKey: String = ""
     @State private var apiKeySaved: Bool = false
@@ -50,12 +53,25 @@ struct SettingsView: View {
     // (slug WhisperKit exact, libellé). Slugs vérifiés sur le repo argmaxinc/whisperkit-coreml.
     private let models: [(slug: String, label: String)] = [
         ("tiny", "Tiny · ultra rapide, basique"),
-        ("base", "Base · rapide (défaut)"),
+        ("base", "Base · rapide"),
         ("small", "Small · plus précis"),
-        ("distil-whisper_distil-large-v3_turbo", "Distil Large v3 Turbo · précis, assez rapide"),
-        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · très précis, plus lent"),
+        ("distil-whisper_distil-large-v3_turbo", "Distil Large v3 Turbo · rapide mais perd les dates FR"),
+        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · très précis (défaut)"),
         ("openai_whisper-large-v3", "Large v3 · précision max, le plus lent")
     ]
+
+    /// Pont entre des minutes-depuis-minuit (stockées) et une Date pour le DatePicker (heure Paris).
+    private func timeBinding(_ minutes: Binding<Int>) -> Binding<Date> {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Europe/Paris") ?? .current
+        return Binding(
+            get: { cal.date(bySettingHour: minutes.wrappedValue / 60, minute: minutes.wrappedValue % 60, second: 0, of: Date()) ?? Date() },
+            set: { newDate in
+                let c = cal.dateComponents([.hour, .minute], from: newDate)
+                minutes.wrappedValue = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+            }
+        )
+    }
 
     var body: some View {
         Form {
@@ -139,6 +155,16 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Relance des rappels (iCloud)") {
+                Toggle("Me relancer tant que le rappel n'est pas fait", isOn: $nagEnabled)
+                if nagEnabled {
+                    DatePicker("Relance du matin", selection: timeBinding($morningMin), displayedComponents: .hourAndMinute)
+                    DatePicker("Relance de l'après-midi", selection: timeBinding($afternoonMin), displayedComponents: .hourAndMinute)
+                }
+                Text("iCloud te notifie à l'heure du rappel. Une fois l'heure passée et tant que tu n'as pas coché, l'app prend le relais et te relance le matin + l'après-midi (sans modifier ton rappel iCloud).")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Section("Règles de classement") {
                 TextEditor(text: $customRoutingRules)
                     .font(.callout)
@@ -176,7 +202,7 @@ struct SettingsView: View {
                                 .font(.caption).foregroundStyle(.green)
                         }
                     }
-                    Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow() }
+                    Button("Resynchroniser tout") { SyncCoordinator.shared?.syncNow(full: true) }
                     Text("Synchronise tes listes « vide-tête » et « Claude Code » avec ton propre serveur Toudou (deux sens, texte + coché). Optionnel.")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {

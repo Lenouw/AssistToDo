@@ -12,18 +12,20 @@ import EventKit
 import AssistToDoCore
 
 /// Ligne d'agenda du jour (lecture seule) affichée en bas du panneau.
-public struct TodayItem: Identifiable {
+public struct TodayItem: Identifiable, Equatable {
     public let id: String
     public let title: String
-    public let date: Date?     // début (event) ou échéance (rappel) ; nil = journée entière
-    public let isEvent: Bool   // true = Calendrier, false = Rappel
+    public let date: Date?      // début (event) ou échéance (rappel) ; nil = journée entière
+    public let isEvent: Bool    // true = Calendrier, false = Rappel
+    public let subtitle: String?       // nom de la liste / calendrier Apple (rappels)
     public let calendarTitle: String?  // nom de l'agenda source (event)
     public let colorHex: String?       // couleur de l'agenda source (RRGGBB), pour distinguer visuellement
     public let dayStart: Date?         // jour (00:00 Paris) de l'item, pour grouper l'agenda multi-jours
 
-    public init(id: String, title: String, date: Date?, isEvent: Bool,
+    public init(id: String, title: String, date: Date?, isEvent: Bool, subtitle: String? = nil,
                 calendarTitle: String? = nil, colorHex: String? = nil, dayStart: Date? = nil) {
         self.id = id; self.title = title; self.date = date; self.isEvent = isEvent
+        self.subtitle = subtitle
         self.calendarTitle = calendarTitle; self.colorHex = colorHex; self.dayStart = dayStart
     }
 }
@@ -206,43 +208,78 @@ public final class EventKitService {
                          title: ev.title ?? "Sans titre",
                          date: ev.isAllDay ? nil : ev.startDate,
                          isEvent: true,
+                         subtitle: ev.calendar.title,
                          calendarTitle: ev.calendar.title,
                          colorHex: hex(ev.calendar.cgColor),
                          dayStart: day)
     }
 
-    /// Tous les rappels Apple non complétés AYANT une date d'échéance (Paris), triés par échéance.
-    /// Source commune ; les appelants filtrent la fenêtre voulue. Vide si accès non accordé.
-    private func datedIncompleteReminders() async -> [TodayItem] {
+    /// Rappels Apple dus aujourd'hui (Paris), non complétés. Vide si accès non accordé.
+    public func fetchTodayReminders() async -> [TodayItem] {
         guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return [] }
         let lists = store.calendars(for: .reminder)
         let pred = store.predicateForReminders(in: lists)
         let reminders: [EKReminder] = await withCheckedContinuation { cont in
             store.fetchReminders(matching: pred) { cont.resume(returning: $0 ?? []) }
         }
+        let start = ParisCalendar.startOfDay(for: Date())
+        guard let end = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
         return reminders
             .filter { !$0.isCompleted }
             .compactMap { r -> TodayItem? in
                 guard let comps = r.dueDateComponents,
-                      let due = ParisCalendar.calendar.date(from: comps) else { return nil }
-                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false)
+                      let due = ParisCalendar.calendar.date(from: comps),
+                      due >= start, due < end else { return nil }
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title)
             }
             .sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
     }
 
-    /// Rappels Apple dus aujourd'hui (Paris), non complétés. Vide si accès non accordé. (Utilisé par macOS.)
-    public func fetchTodayReminders() async -> [TodayItem] {
-        let start = ParisCalendar.startOfDay(for: Date())
-        guard let end = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
-        return await datedIncompleteReminders().filter {
-            guard let d = $0.date else { return false }
-            return d >= start && d < end
+    /// Rappels Apple OUVERTS (non complétés) à traiter dans l'app : échéance aujourd'hui, EN RETARD,
+    /// ou sans date. Les rappels futurs (demain+) sont exclus (pas encore actifs). iCloud reste la
+    /// source ; l'app les fait juste « rouler » jusqu'à validation, sans modifier leur date.
+    public func fetchOpenReminders() async -> [TodayItem] {
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return [] }
+        let lists = store.calendars(for: .reminder)
+        let pred = store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: lists)
+        let reminders: [EKReminder] = await withCheckedContinuation { cont in
+            store.fetchReminders(matching: pred) { cont.resume(returning: $0 ?? []) }
         }
+        let cal = ParisCalendar.calendar
+        guard let endToday = cal.date(byAdding: .day, value: 1, to: ParisCalendar.startOfDay(for: Date())) else { return [] }
+        return reminders
+            .filter { !$0.isCompleted }
+            .compactMap { r -> TodayItem? in
+                let due = r.dueDateComponents.flatMap { cal.date(from: $0) }
+                if let due, due >= endToday { return nil }   // échéance future → pas encore active
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title)
+            }
+            // En retard / dus en premier (date la plus ancienne en haut), sans date à la fin.
+            .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
 
-    /// Tous les rappels Apple datés non complétés (iOS : la vue sépare « dûs » / « à venir »).
-    public func fetchOpenReminders() async -> [TodayItem] {
-        await datedIncompleteReminders()
+    /// Marque comme faits TOUS les rappels iCloud ouverts « actifs » (échéance passée/aujourd'hui ou
+    /// sans date). Ne touche PAS les rappels datés dans le futur. Renvoie le nombre validé.
+    @discardableResult
+    public func completeAllOpenReminders() async -> Int {
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return 0 }
+        let lists = store.calendars(for: .reminder)
+        let pred = store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: lists)
+        let reminders: [EKReminder] = await withCheckedContinuation { cont in
+            store.fetchReminders(matching: pred) { cont.resume(returning: $0 ?? []) }
+        }
+        let cal = ParisCalendar.calendar
+        guard let endToday = cal.date(byAdding: .day, value: 1, to: ParisCalendar.startOfDay(for: Date())) else { return 0 }
+        var n = 0
+        for r in reminders where !r.isCompleted {
+            let due = r.dueDateComponents.flatMap { cal.date(from: $0) }
+            if let due, due >= endToday { continue }   // garde les rappels futurs intacts
+            r.isCompleted = true
+            try? store.save(r, commit: false)
+            n += 1
+        }
+        try? store.commit()
+        return n
     }
 
     // MARK: - Modification d'items existants (depuis le panneau)
@@ -257,6 +294,24 @@ public final class EventKitService {
     public func deleteReminder(id: String) {
         guard let reminder = store.calendarItem(withIdentifier: id) as? EKReminder else { return }
         try? store.remove(reminder, commit: true)
+    }
+
+    /// Décale un rappel à DEMAIN (même heure si une heure est posée), Europe/Paris.
+    public func postponeReminderToTomorrow(id: String) {
+        guard let r = store.calendarItem(withIdentifier: id) as? EKReminder else { return }
+        let cal = ParisCalendar.calendar
+        let base = r.dueDateComponents.flatMap { cal.date(from: $0) } ?? Date()
+        guard let tomorrow = cal.date(byAdding: .day, value: 1, to: base) else { return }
+        var comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: tomorrow)
+        comps.calendar = cal
+        comps.timeZone = ParisCalendar.tz
+        r.dueDateComponents = comps
+        // Recale l'alarme absolue sur la nouvelle échéance si une alarme existait.
+        if let alarms = r.alarms, !alarms.isEmpty {
+            alarms.forEach { r.removeAlarm($0) }
+            r.addAlarm(EKAlarm(absoluteDate: tomorrow))
+        }
+        try? store.save(r, commit: true)
     }
 
     public func deleteEvent(id: String) {

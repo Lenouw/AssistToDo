@@ -15,20 +15,20 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.1.10</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>12</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSUIElement</key>
 	<true/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>AssistToDo enregistre votre voix pour créer des tâches.</string>
-	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>AssistToDo crée des événements dans votre calendrier à partir de vos captures vocales.</string>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>AssistToDo crée des rappels dans l'app Rappels à partir de vos captures vocales.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>AssistToDo ajoute vos courses et notes dictées à l'app Notes.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>AssistToDo crée des événements dans votre calendrier à partir de vos captures vocales.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AssistToDo enregistre votre voix pour créer des tâches.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>AssistToDo crée des rappels dans l'app Rappels à partir de vos captures vocales.</string>
 </dict>
 </plist>

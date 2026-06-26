@@ -26,6 +26,10 @@ public final class TaskStore: ObservableObject {
     /// Agenda du jour, lecture seule, lu en direct d'iCloud.
     @Published public private(set) var todayEvents: [TodayItem] = []
     @Published public private(set) var todayReminders: [TodayItem] = []
+    /// Rappels iCloud ouverts (aujourd'hui + en retard + sans date) affichés EN HAUT du cerveau.
+    @Published public private(set) var openReminders: [TodayItem] = []
+    /// Tâches faites depuis plus de 24h (braindump + code), sorties des listes actives vers l'Archive.
+    @Published public private(set) var archived: [TaskRecord] = []
     @Published public private(set) var badgeCount: Int = 0
 
     private let lastRolloverKey = "lastRolloverDay"
@@ -39,7 +43,9 @@ public final class TaskStore: ObservableObject {
     /// `inMemory` : store volatile pour les tests (aucun fichier sur disque).
     init(inMemory: Bool) {
         let schema = Schema(versionedSchema: AssistToDoSchemaV1.self)
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        let config = inMemory
+            ? ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            : ModelConfiguration(schema: schema, url: CapturePaths.storeURL())
         do {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
@@ -63,15 +69,21 @@ public final class TaskStore: ObservableObject {
     public func reload() {
         // Exclut les tombstones (supprimées localement, delete en attente de push vers Toudou).
         let all = fetchAll().filter { !$0.tombstone }.map { $0.toRecord() }
-        // Vidage de cerveau : local "braindump" + Rappels Apple. (Courses/notes et events vivent chez Apple.)
+        // Une tâche faite reste visible (barrée) 24h dans sa liste, puis part dans l'Archive.
+        let cutoff = Date().addingTimeInterval(-24 * 3600)
+        func archivedNow(_ r: TaskRecord) -> Bool { r.isDone && (r.doneAt ?? .distantPast) < cutoff }
+        // Vidage de cerveau : local "braindump" UNIQUEMENT (rappels iCloud affichés à part en haut).
         thoughts = all.filter {
-            ($0.destination == .local && $0.localList == .braindump) || $0.destination == .reminders
+            $0.destination == .local && $0.localList == .braindump && !archivedNow($0)
         }.sorted(by: Self.manualOrder)
         // To-do Claude Code : local "code".
-        codeTasks = all.filter { $0.destination == .local && $0.localList == .code }
+        codeTasks = all.filter { $0.destination == .local && $0.localList == .code && !archivedNow($0) }
             .sorted(by: Self.manualOrder)
         shoppingItems = all.filter { $0.destination == .local && $0.localList == .shopping }
             .sorted(by: Self.manualOrder)
+        // Archive : tâches faites depuis plus de 24h (braindump + code), plus récentes en haut.
+        archived = all.filter { ($0.localList == .braindump || $0.localList == .code) && archivedNow($0) }
+            .sorted { ($0.doneAt ?? .distantPast) > ($1.doneAt ?? .distantPast) }
         badgeCount = thoughts.filter { !$0.isDone }.count
     }
 
@@ -99,6 +111,24 @@ public final class TaskStore: ObservableObject {
         // La liste de courses (shopping, iOS) reste locale.
         e.destinationRaw == "local" && e.remindAt == nil
             && (e.localListRaw == "braindump" || e.localListRaw == "code")
+    }
+
+    /// Archivée = faite depuis plus de 24h. Sortie des listes actives ET retirée de Toudou
+    /// (mais gardée localement dans l'Archive — voir collectPendingOps / applyPushApplied / applyPulled).
+    static func isArchived(_ e: TaskEntity) -> Bool {
+        e.isDone && (e.doneAt ?? .distantPast) < Date().addingTimeInterval(-24 * 3600)
+    }
+
+    /// Archive TOUT DE SUITE l'historique : recule le doneAt des tâches faites au-delà des 24h
+    /// (sans toucher celles déjà plus anciennes). Le prochain cycle de sync les retire de Toudou.
+    /// Nettoyage manuel ponctuel pour ne pas attendre 24h sur le passif déjà coché.
+    public func archiveAllDoneNow() {
+        let cutoff = Date().addingTimeInterval(-25 * 3600)
+        for e in fetchAll() where e.isDone && !e.tombstone
+            && (e.localListRaw == "braindump" || e.localListRaw == "code") {
+            if (e.doneAt ?? .distantPast) > cutoff { e.doneAt = cutoff }
+        }
+        save(); reload()
     }
 
     /// Déplace une tâche locale d'une sous-liste à l'autre (vidage de cerveau ↔ code).
@@ -141,8 +171,22 @@ public final class TaskStore: ObservableObject {
     public func refreshToday() async {
         let events = EventKitService.shared.fetchTodayEvents()
         let reminders = await EventKitService.shared.fetchTodayReminders()
+        let open = await EventKitService.shared.fetchOpenReminders()
         todayEvents = events
         todayReminders = reminders
+        openReminders = open
+    }
+
+    /// Valide un rappel Apple (coché = fait) puis rafraîchit la zone du jour.
+    public func completeReminder(id: String) async {
+        EventKitService.shared.setReminderCompleted(id: id, completed: true)
+        await refreshToday()
+    }
+
+    /// Décale un rappel Apple à demain puis rafraîchit (il quitte la liste « aujourd'hui »).
+    public func postponeReminderToTomorrow(id: String) async {
+        EventKitService.shared.postponeReminderToTomorrow(id: id)
+        await refreshToday()
     }
 
     /// Calendrier et Notes ne sont plus affichés dans l'app : on purge leurs miroirs locaux.
@@ -282,7 +326,14 @@ public final class TaskStore: ObservableObject {
     func collectPendingOps(for list: LocalList) -> [SyncOp] {
         var ops: [SyncOp] = []
         var toDelete: [TaskEntity] = []
-        for e in fetchAll() where e.syncDirty && e.localListRaw == list.rawValue {
+        for e in fetchAll() where e.localListRaw == list.rawValue {
+            // Archivée (faite > 24h) et encore connue de Toudou → on la retire de la liste Toudou
+            // (une seule fois ; on la garde dans l'Archive locale). N'a pas besoin d'être dirty.
+            if Self.isArchived(e), e.remoteKnown, !e.tombstone {
+                ops.append(SyncOp(kind: .delete, id: e.id.uuidString, text: nil, done: nil, updatedAt: e.updatedAt))
+                continue
+            }
+            guard e.syncDirty else { continue }
             if e.tombstone {
                 if e.remoteKnown {
                     ops.append(SyncOp(kind: .delete, id: e.id.uuidString, text: nil, done: nil, updatedAt: e.updatedAt))
@@ -309,6 +360,9 @@ public final class TaskStore: ObservableObject {
             guard let e = byId[r.id] else { continue }
             if e.tombstone {
                 context.delete(e)      // delete propagé (ou stale = serveur a déjà une version) → on lâche le tombstone
+            } else if Self.isArchived(e) {
+                e.remoteKnown = false  // retirée de Toudou ; détachée (plus poussée), gardée dans l'Archive locale
+                e.syncDirty = false
             } else {
                 e.remoteKnown = true   // existe désormais sur Toudou (create/update appliqué ou serveur plus récent)
                 e.syncDirty = false    // si stale, le pull ramènera la version serveur
@@ -329,14 +383,19 @@ public final class TaskStore: ObservableObject {
 
         for w in tasks {
             if let e = byId[w.id] {
-                if w.deleted { context.delete(e); continue }
+                // Tombstone serveur : on supprime, SAUF si on l'a déjà archivée localement (c'est NOUS
+                // qui l'avons retirée de Toudou à l'archivage → garder la copie dans l'Archive).
+                if w.deleted { if !Self.isArchived(e) { context.delete(e) }; continue }
                 // On accepte le serveur sauf si un changement local non encore poussé est plus récent.
                 // Strictement `>` : à timestamp ÉGAL, l'édition locale dirty (pas encore poussée) gagne,
                 // sinon un écho serveur à la même seconde écraserait la modif que l'on s'apprête à pousser.
                 if !e.syncDirty || w.updatedAt > e.updatedAt {
                     e.text = w.text
                     e.isDone = w.done
-                    e.doneAt = w.done ? (e.doneAt ?? Date()) : nil
+                    // doneAt STABLE : posé une fois (updatedAt serveur ≈ date de complétion), jamais
+                    // réécrit par un pull suivant. Sinon le compteur 24h d'archivage repartirait à zéro
+                    // à chaque sync. nil si la tâche redevient non faite.
+                    e.doneAt = w.done ? (e.doneAt ?? w.updatedAt) : nil
                     e.localListRaw = list.rawValue   // la version serveur fait foi sur la sous-liste
                     e.updatedAt = w.updatedAt
                     e.remoteKnown = true
@@ -348,7 +407,7 @@ public final class TaskStore: ObservableObject {
                 guard let uuid = UUID(uuidString: w.id) else { continue }
                 let e = TaskEntity(id: uuid, text: w.text, createdAt: Date(), dueDate: today, remindAt: nil,
                                    notify: false, notificationId: nil, priorityRaw: nil, tags: [],
-                                   isDone: w.done, doneAt: w.done ? Date() : nil, rolloverCount: 0,
+                                   isDone: w.done, doneAt: w.done ? w.updatedAt : nil, rolloverCount: 0,
                                    rawTranscript: w.text, parseStatusRaw: "parsed",
                                    destinationRaw: "local", externalId: nil, orderIndex: nextTop)
                 e.localListRaw = list.rawValue   // place le miroir dans la bonne sous-liste (braindump/code)
