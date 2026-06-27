@@ -43,6 +43,9 @@ struct CapturesView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Sécurité énergie : libère le lecteur audio en quittant l'écran → jamais de contexte
+        // haut-parleur laissé ouvert (qui empêcherait la veille / ferait chauffer la machine).
+        .onDisappear { player?.stop(); player = nil }
     }
 
     private func row(_ c: CaptureRecord) -> some View {
