@@ -129,10 +129,15 @@ struct ContentView: View {
     /// Le journal des captures n'a pas pu s'ouvrir sur disque : les captures de cette session
     /// seraient PERDUES au prochain lancement. Avant : silencieux → « mes vocaux disparaissent ».
     private var volatileStoreBanner: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: "externaldrive.badge.exclamationmark").foregroundStyle(.red)
-            Text("Journal des captures indisponible : historique non enregistré (relance l'app)")
-                .font(.caption).foregroundStyle(Color.atdInk)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Journal des captures indisponible : historique non enregistré")
+                    .font(.caption).foregroundStyle(Color.atdInk)
+                if let err = model.captureStoreError {
+                    Text(err).font(.caption2).foregroundStyle(Color.atdInkSecondary).lineLimit(3)
+                }
+            }
             Spacer()
         }
         .padding(.horizontal, 16).padding(.vertical, 8)

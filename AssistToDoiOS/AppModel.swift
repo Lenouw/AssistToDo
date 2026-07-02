@@ -83,23 +83,20 @@ final class AppModel: ObservableObject {
     /// true = le journal des captures n'a PAS pu s'ouvrir sur disque (repli mémoire volatile).
     /// Affiché en bandeau rouge : sinon les captures « disparaissent » silencieusement au relaunch.
     let captureStoreIsVolatile: Bool
+    /// Erreur exacte d'ouverture du journal (diagnostic affiché dans le bandeau).
+    let captureStoreError: String?
 
     init() {
         #if DEBUG
         Self.seedDevSecretsIfNeeded()   // confort de dév : injecte les secrets s'ils manquent
         #endif
         let store = TaskStore()
-        // Journal de capture (filet) : store persistant, repli en mémoire si la création échoue.
-        let captureStore: CaptureStore
-        if let persistent = try? CaptureStore() {
-            captureStore = persistent
-            captureStoreIsVolatile = false
-        } else {
-            captureStore = (try? CaptureStore(inMemory: true)) ?? { fatalError("CaptureStore inMemory impossible") }()
-            captureStoreIsVolatile = true
-            Logger(subsystem: "com.assisttodo", category: "CaptureStore")
-                .fault("Journal des captures INDISPONIBLE sur disque → repli mémoire (volatile)")
-        }
+        // Journal de capture : PARTAGE le container SwiftData de TaskStore (même fichier). Ouvrir
+        // une 2ᵉ connexion sur le même .store échouait par intermittence (verrou SQLite au boot)
+        // → repli mémoire silencieux → captures « disparues ». Un seul container = plus de course.
+        let captureStore = CaptureStore(sharing: store.container)
+        captureStoreIsVolatile = false
+        captureStoreError = nil
         let notifications = NotificationManager(store: store)
         let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? Self.defaultWhisperModel
         let transcriber = Transcriber(model: whisper)

@@ -17,6 +17,15 @@ public final class CaptureStore: ObservableObject {
         reload()
     }
 
+    /// Partage le ModelContainer d'un autre store (TaskStore) au lieu d'ouvrir une 2ᵉ connexion
+    /// sur le MÊME fichier. Deux containers sur un même .store = course au verrou SQLite au
+    /// démarrage → échec INTERMITTENT d'ouverture (incident device 2026-07-02 : journal des
+    /// captures en repli mémoire silencieux, captures « disparues »). Un seul container = fiable.
+    public init(sharing container: ModelContainer) {
+        self.container = container
+        reload()
+    }
+
     public func reload() {
         captures = (try? context.fetch(FetchDescriptor<CaptureRecord>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
