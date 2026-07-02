@@ -31,6 +31,7 @@ struct ListsView: View {
 
     @State private var zone: DispatchZone = .todo
     @State private var agenda: [TodayItem] = []          // événements aujourd'hui → J+3 (filtrés/colorés)
+    @State private var futureReminders: [TodayItem] = [] // rappels datés à venir (demain → +14 j)
     @State private var editingTask: TaskRecord?
     @State private var editText = ""
     @State private var showDone = false
@@ -39,15 +40,16 @@ struct ListsView: View {
         Group {
             if layout == .stacked { stackedLayout } else { segmentedLayout }
         }
-        .task { await store.refreshToday(); await refreshAgenda() }
+        .task { await store.refreshToday(); await refreshReminders(); await refreshAgenda() }
         .refreshable {
             SyncCoordinator.shared?.syncNow()
             await store.refreshToday()
+            await refreshReminders()
             await refreshAgenda()
         }
         .onChange(of: zone) { _, z in
             Task {
-                if z == .reminders { await store.refreshToday() }
+                if z == .reminders { await store.refreshToday(); await refreshReminders() }
                 if z == .agenda { await refreshAgenda() }
             }
         }
@@ -275,12 +277,15 @@ struct ListsView: View {
                 guard let dt = d.date else { return false }; return dt >= startToday
             }
             let undated = open.filter { $0.date == nil }
-            if open.isEmpty {
-                emptyState("Rien à traiter", "Tes rappels du jour et en retard apparaissent ici.", "bell")
+            if open.isEmpty && futureReminders.isEmpty {
+                emptyState("Rien à traiter", "Tes rappels du jour, en retard et à venir apparaissent ici.", "bell")
             }
             if !overdue.isEmpty { sectionLabel("En retard"); ForEach(overdue) { reminderRow($0) } }
             if !today.isEmpty { sectionLabel("Aujourd'hui"); ForEach(today) { reminderRow($0) } }
             if !undated.isEmpty { sectionLabel("Sans date"); ForEach(undated) { reminderRow($0) } }
+            // À VENIR : ce que tu viens de dicter pour demain+ est visible ici (créé dans Rappels
+            // Apple, notifié par iCloud le jour J). Sans ça, un rappel futur semblait « disparu ».
+            if !futureReminders.isEmpty { sectionLabel("À venir"); ForEach(futureReminders) { reminderRow($0) } }
         }
     }
 
@@ -514,16 +519,16 @@ struct ListsView: View {
     // de rappels en retard (sink dans AppModel). Chaque validation = toast avec « Annuler »
     // (faute de manip → retour en arrière en 1 tap).
     private func completeReminder(_ id: String) {
-        Task { await store.completeReminder(id: id) }
+        Task { await store.completeReminder(id: id); await refreshReminders() }
         model.showToast("Rappel fait ✓") { [weak store] in
             EventKitService.shared.setReminderCompleted(id: id, completed: false)
-            Task { await store?.refreshToday() }
+            Task { await store?.refreshToday(); await refreshReminders() }
         }
     }
 
     private func postponeReminder(_ id: String) {
         Haptics.light()
-        Task { await store.postponeReminderToTomorrow(id: id) }
+        Task { await store.postponeReminderToTomorrow(id: id); await refreshReminders() }
         model.showToast("Rappel reporté à demain")
     }
 
@@ -536,6 +541,10 @@ struct ListsView: View {
                 store?.toggleDone(id: rec.id)
             }
         }
+    }
+
+    private func refreshReminders() async {
+        futureReminders = await EventKitService.shared.fetchFutureReminders(days: 14)
     }
 
     private func refreshAgenda() async {

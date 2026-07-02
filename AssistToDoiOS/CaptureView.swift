@@ -22,6 +22,12 @@ struct CaptureView: View {
     /// Autorisation micro demandée À L'APPARITION (pas pendant le geste) pour éviter la course
     /// permission-async ↔ relâchement. nil = en cours, true/false = réponse.
     @State private var micGranted: Bool?
+    /// Mode auto-start GELÉ à l'apparition. `prepare()` remet `model.autoStartCapture` à false
+    /// (anti re-déclenchement) ; comme c'est @Published, ça reconstruisait la feuille en mode
+    /// MANUEL en plein enregistrement → un appui bref appelait `cancel()` (audio écrit mais JAMAIS
+    /// journalisé). On fige donc la valeur par identité de vue pour que l'UI ne bascule plus.
+    @State private var frozenAutoStart: Bool?
+    private var effectiveAutoStart: Bool { frozenAutoStart ?? autoStart }
 
     var body: some View {
         VStack(spacing: 22) {
@@ -33,6 +39,7 @@ struct CaptureView: View {
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.atdSurfaceRaised.ignoresSafeArea())
+        .onAppear { if frozenAutoStart == nil { frozenAutoStart = autoStart } }
         .task { await prepare() }
         .onChange(of: capture.phase) { _, phase in
             switch phase {
@@ -98,7 +105,7 @@ struct CaptureView: View {
 
     private var controlButton: some View {
         Group {
-            if autoStart {
+            if effectiveAutoStart {
                 Button { capture.end() } label: {
                     Label("Terminer", systemImage: "stop.fill").font(.headline)
                 }
@@ -121,7 +128,7 @@ struct CaptureView: View {
     }
 
     @ViewBuilder private var hint: some View {
-        if autoStart {
+        if effectiveAutoStart {
             Text("Parle, ça s'arrête tout seul. (ou « Terminer »)")
                 .font(.caption).foregroundStyle(.secondary)
         } else {
@@ -155,7 +162,7 @@ struct CaptureView: View {
         let ok = await model.requestMicrophone()
         micGranted = ok
         guard ok else { micDenied = true; return }
-        if autoStart {
+        if effectiveAutoStart {
             model.autoStartCapture = false
             hasStarted = true
             capture.begin(autoStop: true)   // mains libres : s'arrête seul au silence

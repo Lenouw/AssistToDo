@@ -258,6 +258,29 @@ public final class EventKitService {
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
 
+    /// Rappels Apple datés à VENIR (demain → +`days` jours), non complétés. Complète `fetchOpenReminders`
+    /// (qui exclut les futurs) pour que l'app iPhone AFFICHE ce qui a été créé (« À venir »), sinon un
+    /// rappel dicté pour demain semble ne rien produire. Trié au plus tôt d'abord.
+    public func fetchFutureReminders(days: Int = 14) async -> [TodayItem] {
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return [] }
+        let lists = store.calendars(for: .reminder)
+        let cal = ParisCalendar.calendar
+        let startToday = ParisCalendar.startOfDay(for: Date())
+        guard let endToday = cal.date(byAdding: .day, value: 1, to: startToday),
+              let horizon = cal.date(byAdding: .day, value: max(1, days), to: startToday) else { return [] }
+        let pred = store.predicateForIncompleteReminders(withDueDateStarting: endToday, ending: horizon, calendars: lists)
+        let reminders: [EKReminder] = await withCheckedContinuation { cont in
+            store.fetchReminders(matching: pred) { cont.resume(returning: $0 ?? []) }
+        }
+        return reminders
+            .filter { !$0.isCompleted }
+            .compactMap { r -> TodayItem? in
+                guard let comps = r.dueDateComponents, let due = cal.date(from: comps) else { return nil }
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title)
+            }
+            .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
+    }
+
     /// Marque comme faits TOUS les rappels iCloud ouverts « actifs » (échéance passée/aujourd'hui ou
     /// sans date). Ne touche PAS les rappels datés dans le futur. Renvoie le nombre validé.
     @discardableResult

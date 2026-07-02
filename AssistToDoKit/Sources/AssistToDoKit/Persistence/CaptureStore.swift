@@ -1,5 +1,8 @@
 import Foundation
+import os
 import SwiftData
+
+private let captureStoreLog = Logger(subsystem: "com.assisttodo", category: "CaptureStore")
 
 @MainActor
 public final class CaptureStore: ObservableObject {
@@ -91,5 +94,13 @@ public final class CaptureStore: ObservableObject {
         if changed { save(); reload() }
     }
 
-    private func save() { try? context.save() }
+    /// Persiste le contexte. NE PLUS avaler l'erreur : un save qui échoue = capture perdue en
+    /// silence (incident 2026-07-02 : audio écrit mais aucune ligne CaptureRecord après le 20 juin).
+    private func save() {
+        do {
+            try context.save()
+        } catch {
+            captureStoreLog.fault("Échec save() du journal de capture : \(String(describing: error), privacy: .public)")
+        }
+    }
 }

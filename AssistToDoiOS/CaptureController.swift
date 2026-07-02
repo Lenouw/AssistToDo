@@ -236,8 +236,19 @@ final class CaptureController: ObservableObject {
         case .notes:     icon = "🛒"
         case .local:     icon = o.record.localList == .code ? "💻" : "🧠"
         }
+        // Rappel / événement : afficher QUAND (sinon un rappel « pour demain » semble n'aller nulle part).
+        if o.destination == .reminders || o.destination == .calendar,
+           let d = o.record.remindAt ?? o.record.dueDate {
+            return "\(icon) \(o.record.text) · \(Self.whenFmt.string(from: d))"
+        }
         return "\(icon) \(o.record.text)"
     }
+
+    private static let whenFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR"); f.timeZone = ParisCalendar.tz
+        f.dateFormat = "EEE d MMM 'à' HH:mm"; return f
+    }()
 
     // MARK: - Privé
 
