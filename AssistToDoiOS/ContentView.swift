@@ -61,14 +61,24 @@ struct ContentView: View {
                     VStack(spacing: 1) {
                         if !model.transcriberReady { modelLoadingBanner }
                         if routingKeyMissing { routingInactiveBanner }
+                        // Avancement du traitement en arrière-plan : rien ne tombe dans l'oubli.
+                        CapturePipelineStrip(captureStore: model.captureStore) { showCaptures = true }
                     }
                 }
         }
         .onAppear { refreshRoutingBanner() }
         .onChange(of: showSettings) { _, open in if !open { refreshRoutingBanner() } }
         .overlay(alignment: .bottom) {
-            CaptureButton { model.autoStartCapture = true; model.showCapture = true }
-                .padding(.bottom, 24)
+            VStack(spacing: 12) {
+                // Toast de confirmation / annulation : reste ~6 s, même après fermeture de la feuille.
+                if let toast = model.undoToast {
+                    undoToastView(toast)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                CaptureButton { model.autoStartCapture = true; model.showCapture = true }
+            }
+            .padding(.bottom, 24)
+            .animation(.spring(duration: 0.35), value: model.undoToast?.id)
         }
         .sheet(isPresented: $model.showCapture) {
             CaptureView(autoStart: model.autoStartCapture)
@@ -92,6 +102,27 @@ struct ContentView: View {
 
     private func refreshRoutingBanner() {
         routingKeyMissing = routingEnabled && !KeychainStore.hasAPIKey
+    }
+
+    /// Confirmation en bas d'écran : ce qui vient d'être fait + « Annuler » (faute de manip).
+    private func undoToastView(_ toast: AppModel.UndoToast) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text(toast.message)
+                .font(.footnote).foregroundStyle(Color.atdInk)
+                .lineLimit(4).multilineTextAlignment(.leading)
+            if let undo = toast.undo {
+                Button {
+                    undo()
+                    model.undoToast = nil
+                } label: {
+                    Text("Annuler").font(.footnote.weight(.semibold)).foregroundStyle(Color.atdAccent)
+                }
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.atdSurfaceRaised)
+            .shadow(color: .black.opacity(0.12), radius: 10, y: 4))
+        .padding(.horizontal, 24)
     }
 
     /// Sans clé OpenRouter, TOUT tombe dans « À faire » sans structuration. Avant : échec silencieux
@@ -148,6 +179,48 @@ struct ContentView: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .background(.thinMaterial)
+    }
+}
+
+/// Bandeau d'avancement du pipeline de capture : montre EN CLAIR ce qui se passe en arrière-plan
+/// (en attente de transcription / transcription / rangement / à rejouer). Tap = écran Captures.
+/// Invisible quand tout est traité — n'apparaît que quand quelque chose « mouline ».
+private struct CapturePipelineStrip: View {
+    @ObservedObject var captureStore: CaptureStore
+    let openCaptures: () -> Void
+
+    var body: some View {
+        if let status = pipelineText {
+            Button(action: openCaptures) {
+                HStack(spacing: 8) {
+                    if status.spinning { ProgressView().controlSize(.small) }
+                    else { Image(systemName: "clock.arrow.circlepath").font(.caption).foregroundStyle(.orange) }
+                    Text(status.text).font(.caption).foregroundStyle(Color.atdInk)
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(Color.atdInkSecondary)
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(.thinMaterial)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var pipelineText: (text: String, spinning: Bool)? {
+        let captures = captureStore.captures
+        var recorded = 0, working = 0, toReplay = 0
+        for c in captures {
+            switch c.status {
+            case .recorded: recorded += 1
+            case .transcribing, .transcribed, .routing: working += 1
+            case .failed: toReplay += 1
+            case .done: if c.needsEnrichment { toReplay += 1 }
+            }
+        }
+        if working > 0 { return ("Traitement en cours… (transcription / rangement)", true) }
+        if recorded > 0 { return ("\(recorded) capture\(recorded > 1 ? "s" : "") en attente de transcription", true) }
+        if toReplay > 0 { return ("\(toReplay) capture\(toReplay > 1 ? "s" : "") à rejouer (voir Captures)", false) }
+        return nil
     }
 }
 

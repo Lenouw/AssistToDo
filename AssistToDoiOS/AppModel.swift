@@ -35,6 +35,44 @@ final class AppModel: ObservableObject {
     @Published var transcriberReadiness: Transcriber.Readiness = .downloading(0)
     /// Incrémenté quand la visibilité des agendas change (Réglages) → la vue Agenda se rafraîchit.
     @Published var agendaVisibilityVersion = 0
+    /// Toast « revenir en arrière » : confirmation visible de la dernière action + bouton Annuler.
+    @Published var undoToast: UndoToast?
+
+    struct UndoToast: Identifiable {
+        let id = UUID()
+        let message: String
+        let undo: (() -> Void)?   // nil = confirmation simple, sans annulation possible
+    }
+
+    /// Affiche une confirmation en bas d'écran pendant ~6 s, avec « Annuler » si `undo` est fourni.
+    func showToast(_ message: String, undo: (() -> Void)? = nil) {
+        let toast = UndoToast(message: message, undo: undo)
+        undoToast = toast
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            if self?.undoToast?.id == toast.id { self?.undoToast = nil }
+        }
+    }
+
+    /// Annule une capture entière : supprime ce qu'elle a créé (tâches locales, rappels et
+    /// événements Apple) et marque la capture comme annulée (l'audio reste dans Captures).
+    func undoCapture(outcomes: [RoutedOutcome], captureId: UUID) {
+        for o in outcomes {
+            if let ext = o.record.externalId {
+                switch o.destination {
+                case .calendar:  EventKitService.shared.deleteEvent(id: ext)
+                case .reminders: EventKitService.shared.deleteReminder(id: ext)
+                default: break
+                }
+            }
+            if let sid = o.storedId { store.delete(id: sid) }
+        }
+        captureStore.update(id: captureId) {
+            $0.producedTaskIds = []; $0.parsedSummary = "(annulée)"; $0.needsEnrichment = false
+        }
+        Haptics.light()
+        Task { await store.refreshToday() }
+    }
 
     // Slug WhisperKit (même liste que macOS, vérifiée sur argmaxinc/whisperkit-coreml).
     // Défaut iPhone : "small" (FR correct, ~480 Mo) ; les modèles large restent dispo en option.
@@ -70,6 +108,21 @@ final class AppModel: ObservableObject {
         store.onScheduleReminder = { [weak notifications] rec in notifications?.schedule(for: rec) }
         store.onCancelNotification = { [weak notifications] id in notifications?.cancel(id: id) }
         notifications.onOpenList = { [weak self] in self?.showCapture = false }
+
+        // Confirmation VISIBLE de chaque capture (toast qui reste ~6 s) + « Annuler » si des
+        // éléments ont été créés. La feuille peut se fermer vite : le toast, lui, reste.
+        capture.onAdded = { [weak self] summaries, outcomes, capId in
+            guard let self else { return }
+            let message = summaries.joined(separator: "\n")
+            if outcomes.isEmpty {
+                self.showToast(message)   // enregistrée, traitement à venir (rien à annuler encore)
+            } else {
+                self.showToast(message) { [weak self] in
+                    self?.undoCapture(outcomes: outcomes, captureId: capId)
+                    self?.showToast("Capture annulée")
+                }
+            }
+        }
 
         // Reflète l'état de chargement du modèle Whisper dans l'UI (bandeau d'attente au 1er run).
         transcriber.$isReady.assign(to: &$transcriberReady)

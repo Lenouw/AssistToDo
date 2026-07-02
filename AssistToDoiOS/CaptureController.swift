@@ -26,6 +26,10 @@ final class CaptureController: ObservableObject {
     @Published private(set) var addedSummaries: [String] = []
     @Published var level: Float = 0
 
+    /// Notifie l'app hôte qu'une capture est aboutie (résumés + éléments créés + id de capture) →
+    /// toast de confirmation avec « Annuler ». `outcomes` vide = enregistrée mais pas encore traitée.
+    var onAdded: ((_ summaries: [String], _ outcomes: [RoutedOutcome], _ captureId: UUID) -> Void)?
+
     let audio = AudioCapture()
     private let transcriber: Transcriber
     private let parser: TaskParser
@@ -142,6 +146,7 @@ final class CaptureController: ObservableObject {
                 self.addedSummaries = ["🎙️ Enregistré ! Je transcris dès que le modèle est prêt."]
                 self.phase = .added
                 self.liveActivity.end(phase: .added, detail: "Enregistré, transcription à venir")
+                self.onAdded?(self.addedSummaries, [], capId)
                 try? await Task.sleep(nanoseconds: 2_200_000_000)
                 guard gen == self.generation else { return }
                 self.reset()
@@ -168,7 +173,8 @@ final class CaptureController: ObservableObject {
             self.phase = .result
             self.liveActivity.update(phase: .processing, detail: t.text)
 
-            let (summaries, producedIds, summary, rawOnly) = await self.route(transcript: t.text)
+            let (summaries, outcomes, summary, rawOnly) = await self.route(transcript: t.text)
+            let producedIds = outcomes.compactMap { $0.storedId }
             guard gen == self.generation else { return }
 
             if summaries.isEmpty {
@@ -190,6 +196,7 @@ final class CaptureController: ObservableObject {
             self.addedSummaries = rawOnly
                 ? summaries + ["⚠️ Non structuré (clé OpenRouter ?) — gardé dans À faire, sera rejoué"]
                 : summaries
+            self.onAdded?(self.addedSummaries, outcomes, capId)
             self.phase = .added
             self.liveActivity.end(phase: .added, detail: summaries.first ?? "Ajouté")
             try? await Task.sleep(nanoseconds: 1_800_000_000)
@@ -200,7 +207,7 @@ final class CaptureController: ObservableObject {
 
     // MARK: - Routage (via le routeur partagé, comme le re-traitement)
 
-    private func route(transcript: String) async -> (summaries: [String], producedIds: [UUID], summary: String?, rawOnly: Bool) {
+    private func route(transcript: String) async -> (summaries: [String], outcomes: [RoutedOutcome], summary: String?, rawOnly: Bool) {
         let routingOn = UserDefaults.standard.object(forKey: "routingEnabled") as? Bool ?? true
         let customRules = UserDefaults.standard.string(forKey: "customRoutingRules") ?? ""
         let routed = await parser.parse(
@@ -211,7 +218,7 @@ final class CaptureController: ObservableObject {
         )
         let outcomes = await router.routeDetailed(routed, replacing: [])
         let rawOnly = routed.contains { $0.record.parseStatus == .rawOnly }
-        return (outcomes.map(Self.summaryLine), outcomes.compactMap { $0.storedId }, routed.first?.record.text, rawOnly)
+        return (outcomes.map(Self.summaryLine), outcomes, routed.first?.record.text, rawOnly)
     }
 
     private static func summaryLine(_ o: RoutedOutcome) -> String {

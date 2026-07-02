@@ -309,8 +309,7 @@ struct ListsView: View {
         let low = rec.priority == .bas
         return HStack(alignment: .top, spacing: 12) {
             Button {
-                Haptics.light()
-                store.toggleDone(id: rec.id)
+                toggleTask(rec)
             } label: {
                 Image(systemName: rec.isDone ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 21))
@@ -343,7 +342,7 @@ struct ListsView: View {
         .listRowBackground(high ? Color.atdPriorityHigh.opacity(0.06) : Color.clear)
         // Swipe gauche→droite (parité Mac) : Fait · Modifier · Déplacer.
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            Button { store.toggleDone(id: rec.id) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
+            Button { toggleTask(rec) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
             if rec.destination != .reminders {
                 Button { startEditing(rec) } label: { Label("Modifier", systemImage: "pencil") }.tint(.blue)
             }
@@ -361,7 +360,7 @@ struct ListsView: View {
             }
         }
         .contextMenu {
-            Button(rec.isDone ? "Marquer non faite" : "Marquer faite") { store.toggleDone(id: rec.id) }
+            Button(rec.isDone ? "Marquer non faite" : "Marquer faite") { toggleTask(rec) }
             if rec.destination != .reminders { Button("Modifier") { startEditing(rec) } }
             if rec.destination == .local {
                 Button(rec.localList == .code ? "Vers Vidage de cerveau" : "Vers Claude Code") {
@@ -512,14 +511,31 @@ struct ListsView: View {
     }
 
     // Helpers Kit : rafraîchissent store.openReminders, ce qui re-programme aussi les relances
-    // de rappels en retard (sink dans AppModel).
+    // de rappels en retard (sink dans AppModel). Chaque validation = toast avec « Annuler »
+    // (faute de manip → retour en arrière en 1 tap).
     private func completeReminder(_ id: String) {
         Task { await store.completeReminder(id: id) }
+        model.showToast("Rappel fait ✓") { [weak store] in
+            EventKitService.shared.setReminderCompleted(id: id, completed: false)
+            Task { await store?.refreshToday() }
+        }
     }
 
     private func postponeReminder(_ id: String) {
         Haptics.light()
         Task { await store.postponeReminderToTomorrow(id: id) }
+        model.showToast("Rappel reporté à demain")
+    }
+
+    /// Coche/décoche une tâche ; à la coche, propose l'annulation.
+    private func toggleTask(_ rec: TaskRecord) {
+        Haptics.light()
+        store.toggleDone(id: rec.id)
+        if !rec.isDone {   // rec = état AVANT le tap → on vient de la marquer faite
+            model.showToast("Fait ✓ · \(rec.text)") { [weak store] in
+                store?.toggleDone(id: rec.id)
+            }
+        }
     }
 
     private func refreshAgenda() async {
