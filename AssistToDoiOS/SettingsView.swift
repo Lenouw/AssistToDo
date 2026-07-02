@@ -34,10 +34,14 @@ struct SettingsView: View {
     @AppStorage("eventAlarmsEnabled") private var eventAlarms = true
     @AppStorage("customRoutingRules") private var customRules = ""
 
+    // Relance des rappels en retard (2 notifs/jour) — mêmes clés que le Mac (lues par le Kit).
+    @AppStorage("inappReminderNagEnabled") private var nagEnabled = true
+    @AppStorage("inappReminderMorningMin") private var nagMorningMin = 630    // 10:30
+    @AppStorage("inappReminderAfternoonMin") private var nagAfternoonMin = 930 // 15:30
+
     @State private var toudouToken = ""
     @State private var apiKey = ""
     @State private var savedFlash = false
-    @State private var copiedFlash = false
     @State private var hiddenCalendars: Set<String> = []   // agendas masqués de la zone Agenda
 
     // Slugs WhisperKit vérifiés (repo argmaxinc/whisperkit-coreml), mêmes que macOS.
@@ -92,13 +96,13 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
+                nagSection
+
                 Section("Permissions") {
                     Button("Autoriser le micro") { Task { _ = await model.requestMicrophone() } }
                     Button("Autoriser Rappels + Calendrier") { Task { await model.requestRemindersAndCalendar() } }
                     Button("Autoriser les notifications") { Task { await model.requestNotifications() } }
                 }
-
-                shoppingSection
 
                 Section {
                     HStack {
@@ -121,43 +125,43 @@ struct SettingsView: View {
                 hiddenCalendars = Set(UserDefaults.standard.stringArray(forKey: "hiddenCalendars") ?? [])
             }
             .alert("Enregistré", isPresented: $savedFlash) { Button("OK", role: .cancel) {} }
-            .alert("Liste copiée", isPresented: $copiedFlash) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Colle-la dans tes Notes Apple (tu ajoutes les cases à cocher).")
-            }
         }
     }
 
-    // MARK: - Liste de courses
+    // MARK: - Relance des rappels en retard
     //
-    // L'app ne peut pas écrire de cases cochables dans Apple Notes sur iOS. Les articles dictés
-    // par la voix s'accumulent ici ; tu les copies et tu les colles toi-même dans ta note partagée.
+    // 2 notifications par jour (matin + après-midi) pour chaque rappel iCloud EN RETARD, jusqu'à
+    // validation. iCloud notifie le jour J ; l'app prend le relais ensuite. Mêmes clés que le Mac.
 
-    private var shoppingSection: some View {
-        Section("Liste de courses") {
-            if store.shoppingItems.isEmpty {
-                Text("Vide. Dicte des articles, ils s'ajoutent ici.")
-                    .font(.caption).foregroundStyle(.secondary)
-            } else {
-                ForEach(store.shoppingItems) { Text($0.text) }
+    private var nagSection: some View {
+        Section {
+            Toggle("Relancer les rappels en retard", isOn: $nagEnabled)
+            if nagEnabled {
+                DatePicker("Le matin à", selection: nagTimeBinding($nagMorningMin), displayedComponents: .hourAndMinute)
+                DatePicker("L'après-midi à", selection: nagTimeBinding($nagAfternoonMin), displayedComponents: .hourAndMinute)
             }
-            Button {
-                UIPasteboard.general.string = store.shoppingItems.map { $0.text }.joined(separator: "\n")
-                copiedFlash = true
-            } label: {
-                Label("Copier la liste", systemImage: "doc.on.doc")
-            }
-            .disabled(store.shoppingItems.isEmpty)
-
-            if !store.shoppingItems.isEmpty {
-                Button(role: .destructive) {
-                    for id in store.shoppingItems.map(\.id) { store.delete(id: id) }
-                } label: {
-                    Label("Vider la liste", systemImage: "trash")
-                }
-            }
+        } header: {
+            Text("Relance des rappels")
+        } footer: {
+            Text("2 notifications par jour pour chaque rappel en retard, jusqu'à ce qu'il soit fait (boutons Fait / À demain sur la notification).")
         }
+        .onChange(of: nagEnabled) { _, _ in model.notifications.rescheduleReminderNags() }
+        .onChange(of: nagMorningMin) { _, _ in model.notifications.rescheduleReminderNags() }
+        .onChange(of: nagAfternoonMin) { _, _ in model.notifications.rescheduleReminderNags() }
+    }
+
+    /// Binding Date ↔ minutes-depuis-minuit (Paris) pour les DatePickers d'heure de relance.
+    private func nagTimeBinding(_ minutes: Binding<Int>) -> Binding<Date> {
+        Binding<Date>(
+            get: {
+                ParisCalendar.calendar.date(bySettingHour: minutes.wrappedValue / 60,
+                                            minute: minutes.wrappedValue % 60, second: 0, of: Date()) ?? Date()
+            },
+            set: { d in
+                let c = ParisCalendar.calendar.dateComponents([.hour, .minute], from: d)
+                minutes.wrappedValue = (c.hour ?? 10) * 60 + (c.minute ?? 30)
+            }
+        )
     }
 
     // MARK: - Routage calendrier / rappels

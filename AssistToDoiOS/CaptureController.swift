@@ -74,17 +74,9 @@ final class CaptureController: ObservableObject {
         workTask?.cancel()
         transcript = ""
         addedSummaries = []
-        // Modèle pas encore chargé (1er run = téléchargement) : ne PAS enregistrer dans le vide.
-        guard transcriber.isReady else {
-            let gen = generation
-            phase = .error("Modèle en préparation, réessaie dans un instant")
-            Task { [weak self] in
-                try? await Task.sleep(nanoseconds: 1_600_000_000)
-                guard let self, gen == self.generation else { return }
-                self.reset()
-            }
-            return
-        }
+        // Modèle pas encore prêt (lancement à froid) : on enregistre QUAND MÊME (le micro n'a pas
+        // besoin de Whisper). L'audio est journalisé et transcrit dès que le modèle est chargé
+        // (reprocessPending) → l'idée n'est JAMAIS refusée ni perdue.
         phase = .listening
         audio.start()
         liveActivity.start()
@@ -143,9 +135,21 @@ final class CaptureController: ObservableObject {
 
         workTask = Task { [weak self] in
             guard let self else { return }
-            guard transcriber.isReady, let t = await transcriber.transcribe(path: url.path) else {
+            // Modèle pas prêt (lancement à froid) : l'audio reste journalisé en `.recorded` →
+            // transcrit + routé automatiquement dès que le modèle est chargé. On CONFIRME à
+            // l'utilisateur que son idée est en sécurité (pas un refus).
+            guard transcriber.isReady else {
+                self.addedSummaries = ["🎙️ Enregistré ! Je transcris dès que le modèle est prêt."]
+                self.phase = .added
+                self.liveActivity.end(phase: .added, detail: "Enregistré, transcription à venir")
+                try? await Task.sleep(nanoseconds: 2_200_000_000)
+                guard gen == self.generation else { return }
+                self.reset()
+                return
+            }
+            guard let t = await transcriber.transcribe(path: url.path) else {
                 self.captureStore.update(id: capId) { $0.status = .failed(stage: "transcription", reason: "indisponible") }
-                self.flashError("Transcription indisponible", gen: gen)
+                self.flashError("Transcription indisponible (sera rejouée)", gen: gen)
                 return
             }
             guard gen == self.generation, !Task.isCancelled else { return }
@@ -164,7 +168,7 @@ final class CaptureController: ObservableObject {
             self.phase = .result
             self.liveActivity.update(phase: .processing, detail: t.text)
 
-            let (summaries, producedIds, summary) = await self.route(transcript: t.text)
+            let (summaries, producedIds, summary, rawOnly) = await self.route(transcript: t.text)
             guard gen == self.generation else { return }
 
             if summaries.isEmpty {
@@ -179,8 +183,13 @@ final class CaptureController: ObservableObject {
 
             self.captureStore.update(id: capId) {
                 $0.producedTaskIds = producedIds; $0.parsedSummary = summary; $0.status = .done
+                // Texte brut non structuré (clé OpenRouter absente / réseau KO) → marqué à enrichir :
+                // rejoué automatiquement dès que possible. Avant : mauvais routage silencieux DÉFINITIF.
+                $0.needsEnrichment = rawOnly
             }
-            self.addedSummaries = summaries
+            self.addedSummaries = rawOnly
+                ? summaries + ["⚠️ Non structuré (clé OpenRouter ?) — gardé dans À faire, sera rejoué"]
+                : summaries
             self.phase = .added
             self.liveActivity.end(phase: .added, detail: summaries.first ?? "Ajouté")
             try? await Task.sleep(nanoseconds: 1_800_000_000)
@@ -191,7 +200,7 @@ final class CaptureController: ObservableObject {
 
     // MARK: - Routage (via le routeur partagé, comme le re-traitement)
 
-    private func route(transcript: String) async -> (summaries: [String], producedIds: [UUID], summary: String?) {
+    private func route(transcript: String) async -> (summaries: [String], producedIds: [UUID], summary: String?, rawOnly: Bool) {
         let routingOn = UserDefaults.standard.object(forKey: "routingEnabled") as? Bool ?? true
         let customRules = UserDefaults.standard.string(forKey: "customRoutingRules") ?? ""
         let routed = await parser.parse(
@@ -201,7 +210,8 @@ final class CaptureController: ObservableObject {
             customRules: routingOn ? customRules : ""
         )
         let outcomes = await router.routeDetailed(routed, replacing: [])
-        return (outcomes.map(Self.summaryLine), outcomes.compactMap { $0.storedId }, routed.first?.record.text)
+        let rawOnly = routed.contains { $0.record.parseStatus == .rawOnly }
+        return (outcomes.map(Self.summaryLine), outcomes.compactMap { $0.storedId }, routed.first?.record.text, rawOnly)
     }
 
     private static func summaryLine(_ o: RoutedOutcome) -> String {

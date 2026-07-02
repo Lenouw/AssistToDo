@@ -30,7 +30,6 @@ struct ListsView: View {
     @AppStorage("iosLayout") private var layout: AppLayout = .segmented
 
     @State private var zone: DispatchZone = .todo
-    @State private var openReminders: [TodayItem] = []   // tous les rappels datés non terminés
     @State private var agenda: [TodayItem] = []          // événements aujourd'hui → J+3 (filtrés/colorés)
     @State private var editingTask: TaskRecord?
     @State private var editText = ""
@@ -40,15 +39,15 @@ struct ListsView: View {
         Group {
             if layout == .stacked { stackedLayout } else { segmentedLayout }
         }
-        .task { await refreshReminders(); await refreshAgenda() }
+        .task { await store.refreshToday(); await refreshAgenda() }
         .refreshable {
             SyncCoordinator.shared?.syncNow()
-            await refreshReminders()
+            await store.refreshToday()
             await refreshAgenda()
         }
         .onChange(of: zone) { _, z in
             Task {
-                if z == .reminders { await refreshReminders() }
+                if z == .reminders { await store.refreshToday() }
                 if z == .agenda { await refreshAgenda() }
             }
         }
@@ -140,14 +139,41 @@ struct ListsView: View {
     }
 
     @ViewBuilder private var todoRows: some View {
+        // Rappels iCloud à traiter ÉPINGLÉS en tête du cerveau (parité Mac) : l'écran du matin
+        // répond direct à « qu'est-ce que je dois faire là ? ». En disposition segmentée seulement
+        // (en empilée, la section Rappels est déjà visible en dessous).
+        if layout == .segmented, !store.openReminders.isEmpty {
+            pinnedReminders
+        }
         // À faire = vidage de cerveau SEUL (les tâches Claude Code ont leur propre onglet).
         let items = store.thoughts
             .filter { $0.destination == .local && $0.localList == .braindump && !$0.isDone }
             .sorted(by: byPriorityThenRecent)
-        if items.isEmpty {
+        if items.isEmpty && store.openReminders.isEmpty {
             emptyState("Cerveau vide", "Maintiens le micro pour vider ce que tu as en tête.", "sparkles")
         }
         ForEach(items) { taskRow($0) }
+    }
+
+    /// Jusqu'à 3 rappels ouverts (les en-retard d'abord), avec accès à la zone Rappels complète.
+    @ViewBuilder private var pinnedReminders: some View {
+        let startToday = ParisCalendar.startOfDay(for: Date())
+        let open = store.openReminders.sorted { a, b in
+            let ao = (a.date ?? .distantFuture) < startToday, bo = (b.date ?? .distantFuture) < startToday
+            if ao != bo { return ao }                                   // en retard d'abord
+            return (a.date ?? .distantFuture) < (b.date ?? .distantFuture)
+        }
+        sectionLabel("Rappels à traiter (\(open.count))")
+        ForEach(open.prefix(3)) { reminderRow($0) }
+        if open.count > 3 {
+            Button {
+                zone = .reminders
+            } label: {
+                Text("Voir les \(open.count) rappels →")
+                    .font(.caption.weight(.medium)).foregroundStyle(Color.atdAccent)
+            }
+            .listRowBackground(Color.clear).listRowSeparator(.hidden)
+        }
     }
 
     @ViewBuilder private var codeRows: some View {
@@ -181,31 +207,80 @@ struct ListsView: View {
     @ViewBuilder private var doneRows: some View {
         let items = (store.thoughts + store.codeTasks).filter { $0.isDone }
             .sorted { ($0.doneAt ?? .distantPast) > ($1.doneAt ?? .distantPast) }
-        if items.isEmpty { emptyRow("Rien de coché pour l'instant") }
-        ForEach(items) { taskRow($0) }
+        if items.isEmpty && store.archived.isEmpty { emptyRow("Rien de coché pour l'instant") }
+        if !items.isEmpty {
+            sectionLabel("Dernières 24 h")
+            ForEach(items) { taskRow($0) }
+            // Une tâche cochée reste 24h puis s'archive (et quitte Toudou). Bouton pour ne pas attendre.
+            Button {
+                Haptics.light()
+                store.archiveAllDoneNow()
+            } label: {
+                Label("Archiver les tâches faites maintenant", systemImage: "archivebox")
+                    .font(.callout).foregroundStyle(Color.atdAccent)
+            }
+            .listRowBackground(Color.clear).listRowSeparator(.hidden)
+        }
+        // L'Archive : rien ne disparaît jamais. Restaurer = re-décocher (revient dans sa liste
+        // et sur Toudou) ; supprimer = définitif.
+        if !store.archived.isEmpty {
+            sectionLabel("Archive (\(store.archived.count))")
+            ForEach(store.archived) { archivedRow($0) }
+        }
+    }
+
+    private func archivedRow(_ rec: TaskRecord) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "archivebox").font(.caption).foregroundStyle(Color.atdInkTertiary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rec.text).strikethrough().foregroundStyle(Color.atdInkTertiary)
+                if let d = rec.doneAt {
+                    Text("Faite le ") .font(.caption2).foregroundStyle(Color.atdInkTertiary)
+                    + Text(d, style: .date).font(.caption2).foregroundStyle(Color.atdInkTertiary)
+                }
+            }
+            Spacer(minLength: 0)
+            if rec.localList == .code {
+                Image(systemName: "chevron.left.forwardslash.chevron.right")
+                    .font(.caption2).foregroundStyle(Color.atdCode.opacity(0.6))
+            }
+        }
+        .padding(.vertical, 3)
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button { store.toggleDone(id: rec.id) } label: { Label("Restaurer", systemImage: "arrow.uturn.backward") }.tint(.green)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) { store.delete(id: rec.id) } label: { Label("Supprimer", systemImage: "trash") }
+        }
+        .contextMenu {
+            Button("Restaurer (non faite)") { store.toggleDone(id: rec.id) }
+            Button("Supprimer", role: .destructive) { store.delete(id: rec.id) }
+        }
     }
 
     @ViewBuilder private var reminderRows: some View {
         if !EventKitService.shared.hasRemindersAccess {
             permissionRow("Autoriser les rappels") {
-                await model.requestRemindersAndCalendar(); await refreshReminders()
+                await model.requestRemindersAndCalendar(); await store.refreshToday()
             }
         } else {
+            // Rappels iCloud OUVERTS (aujourd'hui + en retard + sans date ; les futurs vivent dans
+            // l'app Rappels, pas ici). En retard = à traiter d'abord, le plus récent en tête (les
+            // vieux rappels de 2021 tombent en bas). iCloud reste la source, l'app fait rouler.
+            let open = store.openReminders
             let startToday = ParisCalendar.startOfDay(for: Date())
-            let endToday = endOfToday
-            // Ordre utile : aujourd'hui, puis à venir (au plus tôt d'abord), puis en retard (le plus
-            // RÉCENT d'abord → les vieux rappels de 2021 tombent en bas, plus en haut de liste).
-            let today = openReminders.filter { d in
-                guard let dt = d.date else { return false }; return dt >= startToday && dt < endToday
-            }
-            let upcoming = openReminders.filter { ($0.date ?? .distantPast) >= endToday }
-                .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
-            let overdue = openReminders.filter { ($0.date ?? .distantFuture) < startToday }
+            let overdue = open.filter { ($0.date ?? .distantFuture) < startToday }
                 .sorted { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
-            if today.isEmpty && upcoming.isEmpty && overdue.isEmpty { emptyRow("Aucun rappel") }
-            if !today.isEmpty { sectionLabel("Aujourd'hui"); ForEach(today) { reminderRow($0) } }
-            if !upcoming.isEmpty { sectionLabel("À venir"); ForEach(upcoming) { reminderRow($0) } }
+            let today = open.filter { d in
+                guard let dt = d.date else { return false }; return dt >= startToday
+            }
+            let undated = open.filter { $0.date == nil }
+            if open.isEmpty {
+                emptyState("Rien à traiter", "Tes rappels du jour et en retard apparaissent ici.", "bell")
+            }
             if !overdue.isEmpty { sectionLabel("En retard"); ForEach(overdue) { reminderRow($0) } }
+            if !today.isEmpty { sectionLabel("Aujourd'hui"); ForEach(today) { reminderRow($0) } }
+            if !undated.isEmpty { sectionLabel("Sans date"); ForEach(undated) { reminderRow($0) } }
         }
     }
 
@@ -300,28 +375,41 @@ struct ListsView: View {
     }
 
     private func reminderRow(_ item: TodayItem) -> some View {
-        let overdue = (item.date ?? .distantFuture) < Date()
+        let overdue = (item.date ?? .distantFuture) < ParisCalendar.startOfDay(for: Date())
         return HStack(alignment: .top, spacing: 12) {
             Button { Haptics.light(); completeReminder(item.id) } label: {
-                Image(systemName: "circle").font(.system(size: 21)).foregroundStyle(Color.atdInkTertiary)
+                Image(systemName: "circle").font(.system(size: 21))
+                    .foregroundStyle(overdue ? Color.atdRecording : Color.atdInkTertiary)
+                    .symbolEffect(.pulse, options: .repeating, isActive: overdue)
             }
             .buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title).foregroundStyle(Color.atdInk)
-                if let d = item.date {
-                    HStack(spacing: 4) {
+                HStack(spacing: 4) {
+                    if let d = item.date {
                         Image(systemName: overdue ? "exclamationmark.circle.fill" : "bell")
                         Text(overdue ? "En retard · " : "").bold() + Text(d, style: .date)
                     }
-                    .font(.caption)
-                    .foregroundStyle(overdue ? Color.atdRecording : Color.atdInkSecondary)
+                    if let list = item.subtitle {
+                        Text(item.date == nil ? list : "· \(list)")
+                    }
                 }
+                .font(.caption)
+                .foregroundStyle(overdue ? Color.atdRecording : Color.atdInkSecondary)
             }
             Spacer(minLength: 0)
         }
         .padding(.vertical, 3)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button { completeReminder(item.id) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
+        }
+        // Le 2ᵉ geste indispensable du matin : reporter à demain (même heure), sans quitter l'app.
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button { postponeReminder(item.id) } label: { Label("Demain", systemImage: "arrow.uturn.forward") }.tint(.orange)
+        }
+        .contextMenu {
+            Button("Fait") { completeReminder(item.id) }
+            Button("Reporter à demain") { postponeReminder(item.id) }
         }
     }
 
@@ -414,11 +502,6 @@ struct ListsView: View {
 
     // MARK: - Actions / données
 
-    private var endOfToday: Date {
-        let start = ParisCalendar.startOfDay(for: Date())
-        return ParisCalendar.calendar.date(byAdding: .day, value: 1, to: start) ?? start
-    }
-
     private var editingBinding: Binding<Bool> {
         Binding(get: { editingTask != nil }, set: { if !$0 { editingTask = nil } })
     }
@@ -428,13 +511,15 @@ struct ListsView: View {
         editingTask = task
     }
 
+    // Helpers Kit : rafraîchissent store.openReminders, ce qui re-programme aussi les relances
+    // de rappels en retard (sink dans AppModel).
     private func completeReminder(_ id: String) {
-        EventKitService.shared.setReminderCompleted(id: id, completed: true)
-        Task { await refreshReminders() }
+        Task { await store.completeReminder(id: id) }
     }
 
-    private func refreshReminders() async {
-        openReminders = await EventKitService.shared.fetchOpenReminders()
+    private func postponeReminder(_ id: String) {
+        Haptics.light()
+        Task { await store.postponeReminderToTomorrow(id: id) }
     }
 
     private func refreshAgenda() async {

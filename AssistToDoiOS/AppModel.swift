@@ -74,7 +74,28 @@ final class AppModel: ObservableObject {
         // Reflète l'état de chargement du modèle Whisper dans l'UI (bandeau d'attente au 1er run).
         transcriber.$isReady.assign(to: &$transcriberReady)
         transcriber.$readiness.assign(to: &$transcriberReadiness)
+
+        // Nag des rappels en retard : re-programme les 2 notifs/jour à CHAQUE évolution des rappels
+        // iCloud ouverts (cocher, reporter, sync iCloud en arrière-plan). Idempotent côté Kit.
+        store.$openReminders
+            .removeDuplicates()
+            .sink { [weak notifications] _ in
+                Task { @MainActor in notifications?.rescheduleReminderNags() }
+            }
+            .store(in: &cancellables)
+
+        // Modèle de transcription prêt → rejoue les captures en attente (audio capté à froid,
+        // échec de transcription…) : la promesse « aucune idée perdue » tient toute seule.
+        transcriber.$isReady
+            .removeDuplicates()
+            .filter { $0 }
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.capture.reprocessPending() }
+            }
+            .store(in: &cancellables)
     }
+
+    private var cancellables: Set<AnyCancellable> = []
 
     // MARK: - Cycle de vie
 
@@ -82,10 +103,12 @@ final class AppModel: ObservableObject {
     func onForeground() {
         sync.start()
         capture.reprocessPending()   // rejoue les captures en échec / à enrichir (filet)
+        store.reload()               // ré-applique la frontière d'archivage 24h (tâches faites → Archive)
         // Différé hors de l'init : refresh des noms calendrier/rappel (lecture EventKit) + agenda du jour.
         Task {
             EventKitService.shared.refreshCachedNames()
-            await store.refreshToday()
+            await store.refreshToday()               // remplit aussi openReminders (rappels ouverts)
+            notifications.rescheduleReminderNags()   // relance des rappels en retard (2 notifs/jour)
         }
         if PendingCapture.consume() {
             autoStartCapture = true
