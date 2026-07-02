@@ -14,12 +14,19 @@ import WhisperKit
 public final class Transcriber: ObservableObject {
     private let log = Logger(subsystem: "com.assisttodo", category: "Transcriber")
     @Published public private(set) var isReady = false
+    /// Vrai pendant le téléchargement initial du modèle « small » (depuis notre GitHub, 1 seule fois).
+    @Published public private(set) var downloading = false
     /// Modèle réellement chargé (peut différer du modèle demandé en cas de repli).
     @Published public private(set) var loadedModel: String?
 
+    public typealias Provision = @Sendable () async -> (modelFolder: String, tokenizerFolder: URL)?
+
     private var whisper: WhisperKit?
     private let model: String
-    /// Repli si le modèle demandé ne se réchauffe pas (tokenizer HF indispo, compile ANE, etc.).
+    /// Fournit le modèle offline « small » (téléchargé 1 fois depuis notre GitHub). Injecté par l'app.
+    private let provision: Provision?
+    /// Modèle offline provisionné, servant aussi de repli fiable si le modèle demandé échoue.
+    private static let offlineModel = "openai_whisper-small"
     private static let fallbackModel = "openai_whisper-base"
 
     public struct Transcription {
@@ -27,28 +34,44 @@ public final class Transcriber: ObservableObject {
         public let avgLogProb: Float
     }
 
-    public init(model: String) {
+    public init(model: String, provision: Provision? = nil) {
         self.model = model
+        self.provision = provision
         Task { await load() }
     }
 
     private func load() async {
-        // Essaie le modèle demandé, puis le modèle de repli. Chaque essai n'est validé qu'après un
-        // WARMUP réussi (une vraie mini-transcription) : ça force le téléchargement du tokenizer (HF)
-        // + la compile CoreML, et garantit qu'isReady=true veut dire "transcrit vraiment".
-        var tried = Set<String>()
-        for candidate in [model, Self.fallbackModel]
-            where !candidate.isEmpty && tried.insert(candidate).inserted {
-            if await tryLoad(candidate) { return }
+        // 1) Modèle demandé. Si c'est le modèle offline (small) → chemins provisionnés (GitHub, sans HF).
+        if model == Self.offlineModel {
+            if await loadProvisioned() { return }
+        } else if await tryLoad(model) {   // autres modèles (ex large-v3-turbo) → cache/HuggingFace
+            return
         }
-        log.error("❌ aucun modèle Whisper n'a pu se charger (ni \(self.model, privacy: .public) ni le repli)")
+        // 2) Repli fiable : le small offline provisionné (aucun HF), sinon base via HF.
+        if await loadProvisioned() { return }
+        _ = await tryLoad(Self.fallbackModel)
+        if !isReady { log.error("❌ aucun modèle Whisper n'a pu se charger") }
     }
 
-    private func tryLoad(_ m: String) async -> Bool {
+    /// Charge « small » depuis les fichiers provisionnés (téléchargés 1 fois depuis notre GitHub),
+    /// en OFFLINE total (download:false, tokenizer local). Télécharge d'abord si nécessaire.
+    private func loadProvisioned() async -> Bool {
+        guard let provision else { return false }
+        downloading = true
+        let paths = await provision()
+        downloading = false
+        guard let paths else { log.error("provisionnement du modèle offline échoué"); return false }
+        return await tryLoad(Self.offlineModel, modelFolder: paths.modelFolder, tokenizerFolder: paths.tokenizerFolder)
+    }
+
+    private func tryLoad(_ m: String, modelFolder: String? = nil, tokenizerFolder: URL? = nil) async -> Bool {
         let wk: WhisperKit
         do {
-            log.notice("chargement modèle \(m, privacy: .public)…")
-            wk = try await WhisperKit(WhisperKitConfig(model: m))
+            log.notice("chargement modèle \(m, privacy: .public)\(modelFolder == nil ? "" : " (offline)")…")
+            // Dossiers fournis → offline (download:false). Sinon cache/HuggingFace.
+            let config = WhisperKitConfig(model: m, modelFolder: modelFolder,
+                                          tokenizerFolder: tokenizerFolder, download: modelFolder == nil)
+            wk = try await WhisperKit(config)
         } catch {
             log.error("init \(m, privacy: .public) échoué : \(String(describing: error), privacy: .public)")
             return false

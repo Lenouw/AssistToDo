@@ -14,7 +14,7 @@ import UserNotifications
 import KeyboardShortcuts
 
 struct SettingsView: View {
-    @AppStorage("whisperModel") private var whisperModel: String = "openai_whisper-large-v3_turbo"
+    @AppStorage("whisperModel") private var whisperModel: String = "openai_whisper-small"
     @AppStorage("routingEnabled") private var routingEnabled: Bool = true
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
@@ -62,12 +62,9 @@ struct SettingsView: View {
 
     // (slug WhisperKit exact, libellé). Slugs vérifiés sur le repo argmaxinc/whisperkit-coreml.
     private let models: [(slug: String, label: String)] = [
-        ("tiny", "Tiny · ultra rapide, basique"),
-        ("base", "Base · rapide"),
-        ("small", "Small · plus précis"),
-        ("distil-whisper_distil-large-v3_turbo", "Distil Large v3 Turbo · rapide mais perd les dates FR"),
-        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · très précis (défaut)"),
-        ("openai_whisper-large-v3", "Large v3 · précision max, le plus lent")
+        ("openai_whisper-small", "Small · hors-ligne, réactif (défaut)"),
+        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · précision max (télécharge ~3 Go, 1 fois)"),
+        ("base", "Base · minimal, ultra rapide")
     ]
 
     /// Pont entre des minutes-depuis-minuit (stockées) et une Date pour le DatePicker (heure Paris).
@@ -336,9 +333,14 @@ struct SettingsView: View {
         // 1) Transcription : état réel du modèle chargé par l'app (warmup réussi = transcrit vraiment).
         let wOK = transcriber.isReady
         let loaded = transcriber.loadedModel ?? whisperModel
-        let wMsg = wOK
-            ? (loaded == whisperModel ? "modèle « \(loaded) » chargé" : "repli sur « \(loaded) » (le modèle réglé n'a pas pu se charger)")
-            : "modèle « \(whisperModel) » pas encore prêt (téléchargement / compile en cours)"
+        let wMsg: String
+        if transcriber.downloading {
+            wMsg = "téléchargement du modèle en cours (1ʳᵉ fois, ~1 min)…"
+        } else if wOK {
+            wMsg = loaded == whisperModel ? "modèle « \(loaded) » chargé" : "repli sur « \(loaded) » (le modèle réglé n'a pas pu se charger)"
+        } else {
+            wMsg = "modèle « \(whisperModel) » pas encore prêt (compile / indispo)"
+        }
         // 2) IA : vrai appel minimal à OpenRouter avec ta clé.
         var orOK = false; var orMsg = ""
         let orModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"

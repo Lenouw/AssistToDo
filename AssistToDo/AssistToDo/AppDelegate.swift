@@ -44,10 +44,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription + parsing.
-        // Défaut aligné sur SettingsView : large-v3-turbo (le distil perdait les dates FR).
-        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "openai_whisper-large-v3_turbo"
+        // Défaut = small OFFLINE (téléchargé 1 fois depuis notre GitHub, plus HuggingFace) : réactif,
+        // fiable. large-v3-turbo reste activable en option (cache/HF) pour la précision max.
+        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "openai_whisper-small"
         let llmModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"
-        transcriber = Transcriber(model: whisper)   // pré-charge le modèle au lancement
+        transcriber = Transcriber(model: whisper, provision: { await ModelProvisioner.ensureSmall() })
         notifications = NotificationManager(store: store)
         notifications.onOpenList = { [weak self] in self?.listController.show() }
         // Le store annule/replanifie les notifs lors des suppressions et reports (swipe).
