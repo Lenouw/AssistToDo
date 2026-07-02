@@ -14,15 +14,17 @@ import WhisperKit
 public final class Transcriber: ObservableObject {
     private let log = Logger(subsystem: "com.assisttodo", category: "Transcriber")
     @Published public private(set) var isReady = false
-    /// Vrai pendant le téléchargement initial du modèle « small » (depuis notre GitHub, 1 seule fois).
+    /// Vrai pendant un téléchargement de modèle (small offline, ou un modèle HF via switchModel).
     @Published public private(set) var downloading = false
+    /// Progression 0…1 d'un téléchargement HF déclenché par switchModel (ex large-v3-turbo).
+    @Published public private(set) var downloadProgress: Double = 0
     /// Modèle réellement chargé (peut différer du modèle demandé en cas de repli).
     @Published public private(set) var loadedModel: String?
 
     public typealias Provision = @Sendable () async -> (modelFolder: String, tokenizerFolder: URL)?
 
     private var whisper: WhisperKit?
-    private let model: String
+    private var model: String
     /// Fournit le modèle offline « small » (téléchargé 1 fois depuis notre GitHub). Injecté par l'app.
     private let provision: Provision?
     /// Modèle offline provisionné, servant aussi de repli fiable si le modèle demandé échoue.
@@ -38,6 +40,26 @@ public final class Transcriber: ObservableObject {
         self.model = model
         self.provision = provision
         Task { await load() }
+    }
+
+    /// Change de modèle À CHAUD (depuis les Réglages), sans relancer l'app. Pour un modèle HF
+    /// (ex large-v3-turbo), télécharge d'abord AVEC progression, puis recharge + warmup.
+    public func switchModel(to newModel: String) async {
+        guard newModel != loadedModel || !isReady else { return }
+        isReady = false; whisper = nil; loadedModel = nil
+        model = newModel
+        if newModel != Self.offlineModel {   // modèle HF → pré-téléchargement avec %
+            downloading = true; downloadProgress = 0
+            do {
+                _ = try await WhisperKit.download(variant: newModel, progressCallback: { [weak self] p in
+                    Task { @MainActor in self?.downloadProgress = p.fractionCompleted }
+                })
+            } catch {
+                log.error("téléchargement \(newModel, privacy: .public) : \(error.localizedDescription, privacy: .public)")
+            }
+            downloading = false
+        }
+        await load()
     }
 
     private func load() async {

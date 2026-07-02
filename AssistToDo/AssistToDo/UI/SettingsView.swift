@@ -119,7 +119,23 @@ struct SettingsView: View {
                 Picker("Modèle Whisper", selection: $whisperModel) {
                     ForEach(models, id: \.slug) { Text($0.label).tag($0.slug) }
                 }
-                Text("Plus le modèle est gros, plus c'est précis mais lent (et lourd à télécharger au 1er usage). Les « Large » comprennent mieux les mots rares. Changement pris en compte au redémarrage.")
+                if transcriber.downloading {
+                    HStack {
+                        ProgressView(value: transcriber.downloadProgress > 0 ? transcriber.downloadProgress : nil)
+                        Text("\(Int(transcriber.downloadProgress * 100)) %").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    Text("Téléchargement du modèle… (une seule fois)").font(.caption).foregroundStyle(.secondary)
+                } else if whisperModel != transcriber.loadedModel {
+                    Button("Télécharger et activer ce modèle") {
+                        Task { await transcriber.switchModel(to: whisperModel) }
+                    }
+                    Text("Télécharge le modèle si besoin et l'active tout de suite, sans redémarrer.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if transcriber.isReady {
+                    Label("Modèle actif : \(transcriber.loadedModel ?? whisperModel)", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green).font(.caption)
+                }
+                Text("Plus le modèle est gros, plus c'est précis mais lourd. Small (défaut) est hors-ligne et réactif. Large v3 Turbo = précision max (~3 Go, téléchargé une fois).")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
