@@ -206,6 +206,27 @@ public final class EventKitService {
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
 
+    /// Rappels iCloud à échéance FUTURE (après aujourd'hui). Sert à confirmer visuellement un rappel
+    /// qu'on vient de créer (section « À venir ») sans déclencher de nag (le nag ne vise que le retard).
+    /// Triés par échéance croissante (le plus proche en premier).
+    public func fetchUpcomingReminders() async -> [TodayItem] {
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return [] }
+        let lists = store.calendars(for: .reminder)
+        let pred = store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: lists)
+        let reminders: [EKReminder] = await withCheckedContinuation { cont in
+            store.fetchReminders(matching: pred) { cont.resume(returning: $0 ?? []) }
+        }
+        let cal = ParisCalendar.calendar
+        guard let endToday = cal.date(byAdding: .day, value: 1, to: ParisCalendar.startOfDay(for: Date())) else { return [] }
+        return reminders
+            .filter { !$0.isCompleted }
+            .compactMap { r -> TodayItem? in
+                guard let due = r.dueDateComponents.flatMap({ cal.date(from: $0) }), due >= endToday else { return nil }
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title)
+            }
+            .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
+    }
+
     /// Marque comme faits TOUS les rappels iCloud ouverts « actifs » (échéance passée/aujourd'hui ou
     /// sans date). Ne touche PAS les rappels datés dans le futur. Renvoie le nombre validé.
     @discardableResult

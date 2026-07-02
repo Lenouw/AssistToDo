@@ -28,6 +28,8 @@ public final class TaskStore: ObservableObject {
     @Published public private(set) var todayReminders: [TodayItem] = []
     /// Rappels iCloud ouverts (aujourd'hui + en retard + sans date) affichés EN HAUT du cerveau.
     @Published public private(set) var openReminders: [TodayItem] = []
+    /// Rappels iCloud à échéance future (section « À venir ») : confirme un rappel qu'on vient de créer.
+    @Published public private(set) var upcomingReminders: [TodayItem] = []
     /// Tâches faites depuis plus de 24h (braindump + code), sorties des listes actives vers l'Archive.
     @Published public private(set) var archived: [TaskRecord] = []
     @Published public private(set) var badgeCount: Int = 0
@@ -172,9 +174,11 @@ public final class TaskStore: ObservableObject {
         let events = EventKitService.shared.fetchTodayEvents()
         let reminders = await EventKitService.shared.fetchTodayReminders()
         let open = await EventKitService.shared.fetchOpenReminders()
+        let upcoming = await EventKitService.shared.fetchUpcomingReminders()
         todayEvents = events
         todayReminders = reminders
         openReminders = open
+        upcomingReminders = upcoming
     }
 
     /// Valide un rappel Apple (coché = fait) puis rafraîchit la zone du jour.

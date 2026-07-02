@@ -123,6 +123,11 @@ final class MacTaskRouter: TaskRouting {
         }
 
         if !toStore.isEmpty { store.add(toStore) }
+        // Un rappel Apple créé n'apparaît pas dans les listes locales : rafraîchir la zone iCloud
+        // pour qu'il s'affiche tout de suite (en haut si dû, « À venir » si futur).
+        if outcomes.contains(where: { $0.destination == .reminders && !$0.fellBack }) {
+            await store.refreshToday()
+        }
         return outcomes
     }
 }

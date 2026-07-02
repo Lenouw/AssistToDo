@@ -60,7 +60,7 @@ struct ListView: View {
         let cH = avail - bH - tH
 
         VStack(spacing: 0) {
-            pane(title: "Vidage de cerveau", systemImage: "brain", count: store.thoughts.count + store.openReminders.count, height: bH, tint: .indigo) {
+            pane(title: "Vidage de cerveau", systemImage: "brain", count: store.thoughts.count + store.openReminders.count + store.upcomingReminders.count, height: bH, tint: .indigo) {
                 brainList
             }
             handle(base: $dragBaseBrain, value: $brainH, lower: minPane, upper: avail - tH - minPane)
@@ -175,11 +175,29 @@ struct ListView: View {
                 ForEach(store.thoughts) { thoughtRow($0) }
                     .onMove(perform: moveBrain)
             }
+            // Rappels iCloud à échéance future : confirmation visuelle de ce qu'on vient de créer.
+            if !store.upcomingReminders.isEmpty {
+                Section {
+                    ForEach(store.upcomingReminders) { item in
+                        ReminderRowView(
+                            item: item,
+                            timeText: Self.upcomingLabel(item.date),
+                            onComplete: { Task { await store.completeReminder(id: item.id) } },
+                            onPostpone: { Task { await store.postponeReminderToTomorrow(id: item.id) } }
+                        )
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
+                    }
+                } header: {
+                    Text("À venir").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                }
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: store.thoughts)
         .animation(.default, value: store.openReminders)
+        .animation(.default, value: store.upcomingReminders)
     }
 
     // MARK: - Zone du bas : calendrier iCloud (lecture seule)
@@ -321,6 +339,13 @@ struct ListView: View {
         return dayShort.string(from: date)
     }
 
+    /// Rappel futur : jour + heure (ex « jeu 3 · 08:45 ») pour la section « À venir ».
+    static func upcomingLabel(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        if ParisCalendar.calendar.isDateInTomorrow(date) { return "demain · " + hm.string(from: date) }
+        return dayShortTime.string(from: date)
+    }
+
     static let hm: DateFormatter = {
         let f = DateFormatter()
         f.timeZone = TimeZone(identifier: "Europe/Paris"); f.locale = Locale(identifier: "fr_FR")
@@ -330,6 +355,11 @@ struct ListView: View {
         let f = DateFormatter()
         f.timeZone = TimeZone(identifier: "Europe/Paris"); f.locale = Locale(identifier: "fr_FR")
         f.dateFormat = "EEE d"; return f
+    }()
+    private static let dayShortTime: DateFormatter = {
+        let f = DateFormatter()
+        f.timeZone = TimeZone(identifier: "Europe/Paris"); f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "EEE d · HH:mm"; return f
     }()
 }
 
