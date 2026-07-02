@@ -333,9 +333,12 @@ struct SettingsView: View {
     private func runTunnelTest() async {
         testing = true; defer { testing = false }
         testResult = nil
-        // 1) Transcription : état réel du modèle chargé par l'app.
+        // 1) Transcription : état réel du modèle chargé par l'app (warmup réussi = transcrit vraiment).
         let wOK = transcriber.isReady
-        let wMsg = wOK ? "modèle chargé" : "modèle « \(whisperModel) » pas prêt (téléchargement en cours ou indisponible)"
+        let loaded = transcriber.loadedModel ?? whisperModel
+        let wMsg = wOK
+            ? (loaded == whisperModel ? "modèle « \(loaded) » chargé" : "repli sur « \(loaded) » (le modèle réglé n'a pas pu se charger)")
+            : "modèle « \(whisperModel) » pas encore prêt (téléchargement / compile en cours)"
         // 2) IA : vrai appel minimal à OpenRouter avec ta clé.
         var orOK = false; var orMsg = ""
         let orModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"
