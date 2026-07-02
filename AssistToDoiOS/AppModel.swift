@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import os
 import SwiftUI
 import Combine
 import AVFoundation
@@ -79,13 +80,26 @@ final class AppModel: ObservableObject {
     static let defaultWhisperModel = "small"
     static let defaultOpenRouterModel = "google/gemini-2.5-flash"
 
+    /// true = le journal des captures n'a PAS pu s'ouvrir sur disque (repli mémoire volatile).
+    /// Affiché en bandeau rouge : sinon les captures « disparaissent » silencieusement au relaunch.
+    let captureStoreIsVolatile: Bool
+
     init() {
         #if DEBUG
         Self.seedDevSecretsIfNeeded()   // confort de dév : injecte les secrets s'ils manquent
         #endif
         let store = TaskStore()
         // Journal de capture (filet) : store persistant, repli en mémoire si la création échoue.
-        let captureStore = (try? CaptureStore()) ?? (try! CaptureStore(inMemory: true))
+        let captureStore: CaptureStore
+        if let persistent = try? CaptureStore() {
+            captureStore = persistent
+            captureStoreIsVolatile = false
+        } else {
+            captureStore = (try? CaptureStore(inMemory: true)) ?? { fatalError("CaptureStore inMemory impossible") }()
+            captureStoreIsVolatile = true
+            Logger(subsystem: "com.assisttodo", category: "CaptureStore")
+                .fault("Journal des captures INDISPONIBLE sur disque → repli mémoire (volatile)")
+        }
         let notifications = NotificationManager(store: store)
         let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? Self.defaultWhisperModel
         let transcriber = Transcriber(model: whisper)

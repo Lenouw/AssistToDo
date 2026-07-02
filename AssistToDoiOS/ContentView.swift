@@ -61,6 +61,7 @@ struct ContentView: View {
                     VStack(spacing: 1) {
                         if !model.transcriberReady { modelLoadingBanner }
                         if routingKeyMissing { routingInactiveBanner }
+                        if model.captureStoreIsVolatile { volatileStoreBanner }
                         // Avancement du traitement en arrière-plan : rien ne tombe dans l'oubli.
                         CapturePipelineStrip(captureStore: model.captureStore) { showCaptures = true }
                     }
@@ -123,6 +124,19 @@ struct ContentView: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.atdSurfaceRaised)
             .shadow(color: .black.opacity(0.12), radius: 10, y: 4))
         .padding(.horizontal, 24)
+    }
+
+    /// Le journal des captures n'a pas pu s'ouvrir sur disque : les captures de cette session
+    /// seraient PERDUES au prochain lancement. Avant : silencieux → « mes vocaux disparaissent ».
+    private var volatileStoreBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "externaldrive.badge.exclamationmark").foregroundStyle(.red)
+            Text("Journal des captures indisponible : historique non enregistré (relance l'app)")
+                .font(.caption).foregroundStyle(Color.atdInk)
+            Spacer()
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .background(.thinMaterial)
     }
 
     /// Sans clé OpenRouter, TOUT tombe dans « À faire » sans structuration. Avant : échec silencieux
@@ -207,7 +221,10 @@ private struct CapturePipelineStrip: View {
     }
 
     private var pipelineText: (text: String, spinning: Bool)? {
-        let captures = captureStore.captures
+        // Même fenêtre que le rejeu auto (48 h) : les vieilles captures ne polluent pas le bandeau,
+        // elles restent traitables à la main dans l'écran Captures.
+        let cutoff = Date().addingTimeInterval(-48 * 3600)
+        let captures = captureStore.captures.filter { $0.createdAt > cutoff }
         var recorded = 0, working = 0, toReplay = 0
         for c in captures {
             switch c.status {

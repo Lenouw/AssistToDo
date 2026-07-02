@@ -9,9 +9,12 @@
 //
 
 import Foundation
+import os
 import SwiftUI
 import AssistToDoCore
 import AssistToDoKit
+
+private let capLog = Logger(subsystem: "com.assisttodo", category: "Capture")
 
 @MainActor
 final class CaptureController: ObservableObject {
@@ -62,10 +65,12 @@ final class CaptureController: ObservableObject {
     var isReady: Bool { transcriber.isReady }
 
     /// Rejoue les captures en attente (échec LLM/routage ou texte brut à enrichir). Best-effort.
+    /// `now` = date de la DICTÉE (pas maintenant) : « demain à 10h » dicté hier doit donner la
+    /// bonne date, pas se re-projeter à partir d'aujourd'hui.
     func reprocessPending() {
         for rec in captureStore.needingProcessing() {
-            let id = rec.id
-            Task { [weak self] in await self?.processor.process(captureId: id, now: Date()) }
+            let id = rec.id, dictatedAt = rec.createdAt
+            Task { [weak self] in await self?.processor.process(captureId: id, now: dictatedAt) }
         }
     }
 
@@ -126,6 +131,7 @@ final class CaptureController: ObservableObject {
         let gen = generation
 
         guard result.didDetectSpeech, let url = result.fileURL else {
+            capLog.error("Capture SANS parole détectée (durée \(result.duration, format: .fixed(precision: 1)) s) → rien journalisé")
             flashError("Rien entendu", gen: gen)
             return
         }
@@ -136,6 +142,7 @@ final class CaptureController: ObservableObject {
         // Journal (filet) : la capture est enregistrée AVANT tout traitement. L'audio (durable,
         // CapturePaths) est la source de vérité ; on met à jour le statut au fil du flux.
         let capId = captureStore.record(audioFilename: url.lastPathComponent, durationSec: result.duration).id
+        capLog.info("Capture journalisée \(capId, privacy: .public) (durée \(result.duration, format: .fixed(precision: 1)) s)")
 
         workTask = Task { [weak self] in
             guard let self else { return }

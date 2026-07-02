@@ -37,8 +37,16 @@ public final class CaptureStore: ObservableObject {
 
     /// Captures à (re)traiter automatiquement : jamais traitées (modèle pas prêt à la capture),
     /// échec transcription/LLM/routage, ou texte brut à enrichir.
+    ///
+    /// ⚠️ GARDE-FOUS (incident 2026-07-02) : le rejeu automatique est limité aux captures RÉCENTES
+    /// (< 48 h) et peu tentées (< 3). Sans ça, de VIEUX audios de test (« ferme le studio demain… »)
+    /// ont été rejoués des jours plus tard → création d'événements calendrier fantômes à chaque
+    /// ouverture de l'app. Les captures plus anciennes restent rejouables MANUELLEMENT (écran
+    /// Captures), jamais automatiquement.
     public func needingProcessing() -> [CaptureRecord] {
-        captures.filter { r in
+        let cutoff = Date().addingTimeInterval(-48 * 3600)
+        return captures.filter { r in
+            guard r.createdAt > cutoff, r.attempts < 3 else { return false }
             if r.needsEnrichment { return true }
             switch r.status {
             case .recorded:
