@@ -35,12 +35,16 @@ public final class CaptureStore: ObservableObject {
         mutate(r); save(); reload()
     }
 
-    /// Captures à (re)traiter automatiquement : échec LLM/routage, ou texte brut à enrichir.
+    /// Captures à (re)traiter automatiquement : TOUT ce qui n'est pas terminé mais a un audio
+    /// (échec à N'IMPORTE quel stage — transcription incluse : ex modèle indispo au moment de la
+    /// capture, réparé depuis — ou pipeline interrompu avant la fin), + texte brut à enrichir.
     public func needingProcessing() -> [CaptureRecord] {
         captures.filter { r in
             if r.needsEnrichment { return true }
-            if case .failed(let stage, _) = r.status, stage == "llm" || stage == "routing" { return true }
-            return false
+            switch r.status {
+            case .done: return false
+            default: return !r.audioFilename.isEmpty
+            }
         }
     }
 

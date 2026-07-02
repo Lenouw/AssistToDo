@@ -7,10 +7,12 @@
 //
 
 import Foundation
+import os
 import WhisperKit
 
 @MainActor
 public final class Transcriber: ObservableObject {
+    private let log = Logger(subsystem: "com.assisttodo", category: "Transcriber")
     @Published public private(set) var isReady = false
 
     private var whisper: WhisperKit?
@@ -30,16 +32,17 @@ public final class Transcriber: ObservableObject {
         do {
             // On charge le modèle SANS prewarm dans la config (prewarm:true faisait planter l'init
             // sur certaines configs → "Transcription indisponible").
+            log.notice("chargement modèle \(self.model, privacy: .public)…")
             let config = WhisperKitConfig(model: model)
             whisper = try await WhisperKit(config)
             isReady = true
-            print("WhisperKit prêt (modèle \(model))")
+            log.notice("✅ WhisperKit prêt (\(self.model, privacy: .public))")
             // Préchauffe APRÈS coup, best-effort : compile le modèle CoreML / chauffe le Neural Engine
             // pour que la 1ʳᵉ capture ne soit pas lente (corrige le démarrage à froid). Séparé de l'init
             // → si ça échoue, isReady reste true et la transcription marche quand même.
             Task { [weak self] in try? await self?.whisper?.prewarmModels() }
         } catch {
-            print("Erreur init WhisperKit: \(error)")
+            log.error("❌ init WhisperKit (\(self.model, privacy: .public)) : \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -58,7 +61,7 @@ public final class Transcriber: ObservableObject {
                 : segments.map { $0.avgLogprob }.reduce(0, +) / Float(segments.count)
             return Transcription(text: text, avgLogProb: avg)
         } catch {
-            print("Erreur transcription: \(error)")
+            log.error("transcription échouée : \(String(describing: error), privacy: .public)")
             return nil
         }
     }

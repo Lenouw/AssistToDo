@@ -32,6 +32,7 @@ struct PanelRootView: View {
     @ObservedObject var modeModel: PanelModeModel
     @ObservedObject var captureStore: CaptureStore
     let processor: CaptureProcessor
+    let transcriber: Transcriber
 
     var body: some View {
         switch modeModel.mode {
@@ -41,7 +42,7 @@ struct PanelRootView: View {
                      onOpenCaptures: { modeModel.mode = .captures },
                      onOpenArchive: { modeModel.mode = .archive })
         case .settings:
-            subScreen("Réglages") { SettingsView() }
+            subScreen("Réglages") { SettingsView(transcriber: transcriber) }
         case .captures:
             CapturesView(store: captureStore, processor: processor, onBack: { modeModel.mode = .list })
         case .archive:
@@ -70,14 +71,16 @@ final class ListWindowController: NSObject, NSWindowDelegate {
     private let store: TaskStore
     private let captureStore: CaptureStore
     private let processor: CaptureProcessor
+    private let transcriber: Transcriber
     private let modeModel = PanelModeModel()
     private var panel: AutoDismissPanel?
     private let width: CGFloat = 340
 
-    init(store: TaskStore, captureStore: CaptureStore, processor: CaptureProcessor) {
+    init(store: TaskStore, captureStore: CaptureStore, processor: CaptureProcessor, transcriber: Transcriber) {
         self.store = store
         self.captureStore = captureStore
         self.processor = processor
+        self.transcriber = transcriber
         super.init()
     }
 
@@ -132,7 +135,8 @@ final class ListWindowController: NSObject, NSWindowDelegate {
 
     private func build() {
         let hosting = NSHostingController(rootView: PanelRootView(store: store, modeModel: modeModel,
-                                                                  captureStore: captureStore, processor: processor))
+                                                                  captureStore: captureStore, processor: processor,
+                                                                  transcriber: transcriber))
         let p = AutoDismissPanel(contentViewController: hosting)
         p.styleMask = [.titled, .fullSizeContentView]
         p.titlebarAppearsTransparent = true

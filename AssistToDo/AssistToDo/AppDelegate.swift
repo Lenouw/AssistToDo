@@ -66,10 +66,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             captureStore: captureStore, macRouter: macRouter, processor: processor
         )
         // Panneau de droite (liste + Réglages + Captures, accessibles depuis son en-tête).
-        listController = ListWindowController(store: store, captureStore: captureStore, processor: processor)
+        listController = ListWindowController(store: store, captureStore: captureStore, processor: processor, transcriber: transcriber)
         // Rétention : purge les audios des captures faites > N jours (défaut 30 ; 0 = indéfini).
         captureStore.purgeAudio(olderThanDays: UserDefaults.standard.object(forKey: "captureRetentionDays") as? Int ?? 30)
-        capture.reprocessPending()   // rejoue les captures en attente (échec LLM/routage)
+        // Rejoue les captures en attente DÈS que le modèle Whisper est prêt. Au lancement le modèle
+        // charge en async : lancer reprocess tout de suite échouerait ("transcription indisponible")
+        // et la capture resterait bloquée. $isReady émet sa valeur courante à l'abonnement, donc ça
+        // couvre aussi le cas "déjà prêt".
+        transcriber.$isReady
+            .filter { $0 }
+            .sink { [weak self] _ in self?.capture.reprocessPending() }
+            .store(in: &cancellables)
         hotkey = HotkeyManager()
         hotkey.onPressStart = { [weak self] in
             self?.pressStart = ProcessInfo.processInfo.systemUptime

@@ -45,6 +45,16 @@ struct SettingsView: View {
     @State private var calendarAccess = false
     @State private var remindersAccess = false
     @State private var importMessage: String?
+
+    @ObservedObject var transcriber: Transcriber
+    @State private var testing = false
+    @State private var testResult: TunnelResult?
+
+    struct TunnelResult {
+        var whisperOK: Bool; var whisperMsg: String
+        var orOK: Bool; var orMsg: String
+        var allOK: Bool { whisperOK && orOK }
+    }
     @State private var noteNames: [String] = []
     @State private var loadingNotes = false
     @State private var calendars: [String] = []
@@ -75,6 +85,33 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Diagnostic du tunnel") {
+                Button {
+                    Task { await runTunnelTest() }
+                } label: {
+                    HStack {
+                        Image(systemName: "stethoscope")
+                        Text("Tester le tunnel (transcription + IA)")
+                        if testing { Spacer(); ProgressView().controlSize(.small) }
+                    }
+                }
+                .disabled(testing)
+                if let r = testResult {
+                    Label(r.whisperOK ? "Transcription (Whisper) : OK" : "Transcription : \(r.whisperMsg)",
+                          systemImage: r.whisperOK ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                        .foregroundStyle(r.whisperOK ? Color.green : Color.red).font(.system(size: 12))
+                    Label(r.orOK ? "IA (OpenRouter / Gemini) : OK" : "IA : \(r.orMsg)",
+                          systemImage: r.orOK ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                        .foregroundStyle(r.orOK ? Color.green : Color.red).font(.system(size: 12))
+                    if r.allOK {
+                        Text("✅ Tout fonctionne, le tunnel est opérationnel.")
+                            .font(.system(size: 12, weight: .medium)).foregroundStyle(.green)
+                    }
+                }
+                Text("Vérifie que le modèle de transcription est chargé ET que l'IA répond avec ta clé. Rouge = c'est là que ça bloque.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Section("Raccourci de capture") {
                 KeyboardShortcuts.Recorder("Maintenir pour parler :", name: .capture)
                 Text("Appui long = capture vocale. Appui bref = ouvre la liste.")
@@ -292,6 +329,26 @@ struct SettingsView: View {
     }
 
     // MARK: - Actions
+
+    private func runTunnelTest() async {
+        testing = true; defer { testing = false }
+        testResult = nil
+        // 1) Transcription : état réel du modèle chargé par l'app.
+        let wOK = transcriber.isReady
+        let wMsg = wOK ? "modèle chargé" : "modèle « \(whisperModel) » pas prêt (téléchargement en cours ou indisponible)"
+        // 2) IA : vrai appel minimal à OpenRouter avec ta clé.
+        var orOK = false; var orMsg = ""
+        let orModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"
+        do {
+            let resp = try await OpenRouterClient(model: orModel, timeout: 15)
+                .complete(system: "Réponds uniquement: ok", user: "ping")
+            orOK = !resp.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            orMsg = orOK ? "réponse reçue" : "réponse vide"
+        } catch {
+            orMsg = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+        }
+        testResult = TunnelResult(whisperOK: wOK, whisperMsg: wMsg, orOK: orOK, orMsg: orMsg)
+    }
 
     private func refresh() {
         apiKeySaved = KeychainStore.hasAPIKey
