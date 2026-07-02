@@ -71,8 +71,8 @@ final class IOSTaskRouter: TaskRouting {
                     let categoryCalendar = item.calendarCategory.flatMap { cat in
                         UserDefaults.standard.string(forKey: "calendar_\(cat.rawValue)")
                     }
-                    let alarmsOn = UserDefaults.standard.object(forKey: "eventAlarmsEnabled") as? Bool ?? true
-                    let offsets: [TimeInterval] = alarmsOn ? [-3600, -86400] : []
+                    let offsets = Self.alarmOffsets(["eventAlarmMin1", "eventAlarmMin2", "eventAlarmMin3"],
+                                                    defaults: [60, 1440, 15])
                     let day = item.record.dueDate ?? Date()
                     var start = item.record.remindAt ?? day
                     var duration = item.durationMinutes ?? 60
@@ -97,9 +97,11 @@ final class IOSTaskRouter: TaskRouting {
                 }
             case .reminders:
                 do {
+                    let remOffsets = Self.alarmOffsets(["reminderAlarmMin1", "reminderAlarmMin2", "reminderAlarmMin3"],
+                                                       defaults: [-1, -1, -1])
                     let extId = try await EventKitService.shared.createReminder(
                         title: item.record.text, due: item.record.remindAt ?? item.record.dueDate,
-                        listName: item.listName, defaultListName: defaultList)
+                        listName: item.listName, defaultListName: defaultList, alarmOffsets: remOffsets)
                     var r = item.record; r.destination = .reminders; r.externalId = extId
                     toStore.append(r)
                     outcomes.append(RoutedOutcome(storedId: r.id, record: r, destination: .reminders, fellBack: false))
@@ -121,5 +123,14 @@ final class IOSTaskRouter: TaskRouting {
 
         if !toStore.isEmpty { store.add(toStore) }
         return outcomes
+    }
+
+    /// Convertit 3 réglages (minutes AVANT l'échéance ; -1 = aucune alarme) en offsets d'alarme
+    /// EventKit (secondes, négatifs). Configurable par l'utilisateur dans les Réglages.
+    static func alarmOffsets(_ keys: [String], defaults: [Int]) -> [TimeInterval] {
+        zip(keys, defaults).compactMap { key, def in
+            let m = UserDefaults.standard.object(forKey: key) as? Int ?? def
+            return m >= 0 ? -Double(m * 60) : nil
+        }
     }
 }

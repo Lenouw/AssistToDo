@@ -390,9 +390,9 @@ struct ListsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title).foregroundStyle(Color.atdInk)
                 HStack(spacing: 4) {
-                    if let d = item.date {
+                    if item.date != nil {
                         Image(systemName: overdue ? "exclamationmark.circle.fill" : "bell")
-                        Text(overdue ? "En retard · " : "").bold() + Text(d, style: .date)
+                        (overdue ? Text("En retard · ").bold() : Text("")) + Text(Self.reminderWhen(item))
                     }
                     if let list = item.subtitle {
                         Text(item.date == nil ? list : "· \(list)")
@@ -502,6 +502,23 @@ struct ListsView: View {
         let f = DateFormatter()
         f.locale = Locale(identifier: "fr_FR"); f.timeZone = ParisCalendar.tz
         f.dateFormat = "EEEE d MMM"; return f
+    }()
+
+    /// Échéance d'un rappel en FRANÇAIS, avec l'heure si le rappel en a une (« jeu. 3 juil. à 15:00 »).
+    private static func reminderWhen(_ item: TodayItem) -> String {
+        guard let d = item.date else { return "" }
+        let f = item.hasTime ? reminderDayTimeFmt : reminderDayFmt
+        return f.string(from: d).capitalizedFirst
+    }
+    private static let reminderDayFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR"); f.timeZone = ParisCalendar.tz
+        f.dateFormat = "EEE d MMM"; return f
+    }()
+    private static let reminderDayTimeFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR"); f.timeZone = ParisCalendar.tz
+        f.dateFormat = "EEE d MMM 'à' HH:mm"; return f
     }()
 
     // MARK: - Actions / données

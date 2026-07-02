@@ -31,13 +31,27 @@ struct SettingsView: View {
     @AppStorage("calendar_studio") private var calStudio = ""
     @AppStorage("studioBlockStart") private var studioStart = 8
     @AppStorage("studioBlockEnd") private var studioEnd = 20
-    @AppStorage("eventAlarmsEnabled") private var eventAlarms = true
     @AppStorage("customRoutingRules") private var customRules = ""
 
     // Relance des rappels en retard (2 notifs/jour) — mêmes clés que le Mac (lues par le Kit).
     @AppStorage("inappReminderNagEnabled") private var nagEnabled = true
     @AppStorage("inappReminderMorningMin") private var nagMorningMin = 630    // 10:30
     @AppStorage("inappReminderAfternoonMin") private var nagAfternoonMin = 930 // 15:30
+
+    // Alarmes par défaut (minutes AVANT l'échéance ; -1 = aucune). 3 créneaux réglables.
+    @AppStorage("eventAlarmMin1") private var evAlarm1 = 60      // 1 h avant
+    @AppStorage("eventAlarmMin2") private var evAlarm2 = 1440    // 1 jour avant
+    @AppStorage("eventAlarmMin3") private var evAlarm3 = 15      // 15 min avant
+    @AppStorage("reminderAlarmMin1") private var remAlarm1 = -1  // aucun pré-rappel par défaut
+    @AppStorage("reminderAlarmMin2") private var remAlarm2 = -1
+    @AppStorage("reminderAlarmMin3") private var remAlarm3 = -1
+
+    // Presets d'alarme (libellé, minutes avant ; -1 = aucune).
+    private let alarmPresets: [(String, Int)] = [
+        ("Aucune", -1), ("À l'heure", 0), ("5 min avant", 5), ("15 min avant", 15),
+        ("30 min avant", 30), ("1 h avant", 60), ("2 h avant", 120),
+        ("1 jour avant", 1440), ("2 jours avant", 2880), ("1 semaine avant", 10080)
+    ]
 
     @State private var toudouToken = ""
     @State private var apiKey = ""
@@ -97,6 +111,8 @@ struct SettingsView: View {
                 }
 
                 nagSection
+                eventAlarmsSection
+                reminderAlarmsSection
 
                 Section("Permissions") {
                     Button("Autoriser le micro") { Task { _ = await model.requestMicrophone() } }
@@ -182,7 +198,6 @@ struct SettingsView: View {
                 calendarPicker("Catégorie · Studio", $calStudio)
                 Stepper("Studio ouvre à \(studioStart) h", value: $studioStart, in: 0...23)
                 Stepper("Studio ferme à \(studioEnd) h", value: $studioEnd, in: 1...24)
-                Toggle("Alarmes sur les événements", isOn: $eventAlarms)
             }
             if EventKitService.shared.hasRemindersAccess {
                 Picker("Liste de rappels par défaut", selection: $defaultReminderList) {
@@ -224,6 +239,38 @@ struct SettingsView: View {
             } footer: {
                 Text("Décoche un agenda pour le masquer de la zone Agenda.")
             }
+        }
+    }
+
+    // MARK: - Alarmes (événements + pré-rappels)
+
+    private var eventAlarmsSection: some View {
+        Section {
+            alarmPicker("Alarme 1", $evAlarm1)
+            alarmPicker("Alarme 2", $evAlarm2)
+            alarmPicker("Alarme 3", $evAlarm3)
+        } header: {
+            Text("Alarmes des événements")
+        } footer: {
+            Text("Jusqu'à 3 alarmes avant chaque événement de calendrier créé. « Aucune » désactive un créneau.")
+        }
+    }
+
+    private var reminderAlarmsSection: some View {
+        Section {
+            alarmPicker("Pré-rappel 1", $remAlarm1)
+            alarmPicker("Pré-rappel 2", $remAlarm2)
+            alarmPicker("Pré-rappel 3", $remAlarm3)
+        } header: {
+            Text("Pré-rappels des rappels")
+        } footer: {
+            Text("Notifications AVANT l'heure du rappel (en plus de l'alarme à l'heure). « Aucune » = pas de pré-rappel.")
+        }
+    }
+
+    private func alarmPicker(_ label: String, _ selection: Binding<Int>) -> some View {
+        Picker(label, selection: selection) {
+            ForEach(alarmPresets, id: \.1) { Text($0.0).tag($0.1) }
         }
     }
 

@@ -21,12 +21,15 @@ public struct TodayItem: Identifiable, Equatable {
     public let calendarTitle: String?  // nom de l'agenda source (event)
     public let colorHex: String?       // couleur de l'agenda source (RRGGBB), pour distinguer visuellement
     public let dayStart: Date?         // jour (00:00 Paris) de l'item, pour grouper l'agenda multi-jours
+    public let hasTime: Bool           // le rappel a une HEURE précise (pas seulement une date)
 
     public init(id: String, title: String, date: Date?, isEvent: Bool, subtitle: String? = nil,
-                calendarTitle: String? = nil, colorHex: String? = nil, dayStart: Date? = nil) {
+                calendarTitle: String? = nil, colorHex: String? = nil, dayStart: Date? = nil,
+                hasTime: Bool = false) {
         self.id = id; self.title = title; self.date = date; self.isEvent = isEvent
         self.subtitle = subtitle
         self.calendarTitle = calendarTitle; self.colorHex = colorHex; self.dayStart = dayStart
+        self.hasTime = hasTime
     }
 }
 
@@ -110,8 +113,10 @@ public final class EventKitService {
     // MARK: - Création
 
     /// Crée le rappel et retourne son identifiant (pour le miroir local).
+    /// `alarmOffsets` = pré-rappels (secondes AVANT l'échéance, négatifs) en plus de l'alarme à l'heure.
     @discardableResult
-    public func createReminder(title: String, due: Date?, listName: String?, defaultListName: String?) async throws -> String {
+    public func createReminder(title: String, due: Date?, listName: String?, defaultListName: String?,
+                               alarmOffsets: [TimeInterval] = []) async throws -> String {
         guard try await ensureRemindersAccess() else { throw RoutingError.accessDenied }
 
         let reminder = EKReminder(eventStore: store)
@@ -124,7 +129,10 @@ public final class EventKitService {
             comps.calendar = ParisCalendar.calendar
             comps.timeZone = ParisCalendar.tz
             reminder.dueDateComponents = comps
-            reminder.addAlarm(EKAlarm(absoluteDate: due))
+            reminder.addAlarm(EKAlarm(absoluteDate: due))                 // alarme à l'échéance
+            for off in alarmOffsets where off < 0 {
+                reminder.addAlarm(EKAlarm(relativeOffset: off))           // pré-rappels (relatifs à l'échéance)
+            }
         }
         try store.save(reminder, commit: true)
         return reminder.calendarItemIdentifier
@@ -230,7 +238,7 @@ public final class EventKitService {
                 guard let comps = r.dueDateComponents,
                       let due = ParisCalendar.calendar.date(from: comps),
                       due >= start, due < end else { return nil }
-                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title)
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title, hasTime: comps.hour != nil)
             }
             .sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
     }
@@ -252,7 +260,7 @@ public final class EventKitService {
             .compactMap { r -> TodayItem? in
                 let due = r.dueDateComponents.flatMap { cal.date(from: $0) }
                 if let due, due >= endToday { return nil }   // échéance future → pas encore active
-                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title)
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title, hasTime: r.dueDateComponents?.hour != nil)
             }
             // En retard / dus en premier (date la plus ancienne en haut), sans date à la fin.
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
@@ -276,7 +284,7 @@ public final class EventKitService {
             .filter { !$0.isCompleted }
             .compactMap { r -> TodayItem? in
                 guard let comps = r.dueDateComponents, let due = cal.date(from: comps) else { return nil }
-                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title)
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title, hasTime: comps.hour != nil)
             }
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
