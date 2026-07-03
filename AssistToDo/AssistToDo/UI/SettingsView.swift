@@ -14,7 +14,7 @@ import UserNotifications
 import KeyboardShortcuts
 
 struct SettingsView: View {
-    @AppStorage("whisperModel") private var whisperModel: String = "openai_whisper-small"
+    @AppStorage("whisperModel") private var whisperModel: String = "large-v3-turbo-q8_0"
     @AppStorage("routingEnabled") private var routingEnabled: Bool = true
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
@@ -60,11 +60,9 @@ struct SettingsView: View {
     @State private var calendars: [String] = []
     @State private var reminderLists: [String] = []
 
-    // (slug WhisperKit exact, libellé). Slugs vérifiés sur le repo argmaxinc/whisperkit-coreml.
+    // Modèle GGML (whisper.cpp). Un seul modèle : large-v3-turbo q8_0, chargé par mmap (instantané).
     private let models: [(slug: String, label: String)] = [
-        ("openai_whisper-small", "Small · hors-ligne, réactif (défaut)"),
-        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · précision max (télécharge ~3 Go, 1 fois)"),
-        ("base", "Base · minimal, ultra rapide")
+        ("large-v3-turbo-q8_0", "Large v3 Turbo · q8_0, chargement instantané (défaut)")
     ]
 
     /// Pont entre des minutes-depuis-minuit (stockées) et une Date pour le DatePicker (heure Paris).
@@ -135,7 +133,7 @@ struct SettingsView: View {
                     Label("Modèle actif : \(transcriber.loadedModel ?? whisperModel)", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green).font(.caption)
                 }
-                Text("Plus le modèle est gros, plus c'est précis mais lourd. Small (défaut) est hors-ligne et réactif. Large v3 Turbo = précision max (~3 Go, téléchargé une fois).")
+                Text("Moteur whisper.cpp (Metal). Le modèle Large v3 Turbo (874 Mo) se télécharge une seule fois depuis notre serveur, puis se charge en ~1 s à chaque lancement, hors-ligne. Aucun temps de chauffe.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -351,11 +349,11 @@ struct SettingsView: View {
         let loaded = transcriber.loadedModel ?? whisperModel
         let wMsg: String
         if transcriber.downloading {
-            wMsg = "téléchargement du modèle en cours (1ʳᵉ fois, ~1 min)…"
+            wMsg = "téléchargement du modèle en cours (1ʳᵉ fois)…"
         } else if wOK {
-            wMsg = loaded == whisperModel ? "modèle « \(loaded) » chargé" : "repli sur « \(loaded) » (le modèle réglé n'a pas pu se charger)"
+            wMsg = "modèle « \(loaded) » chargé"
         } else {
-            wMsg = "modèle « \(whisperModel) » pas encore prêt (compile / indispo)"
+            wMsg = "modèle « \(whisperModel) » pas encore chargé"
         }
         // 2) IA : vrai appel minimal à OpenRouter avec ta clé.
         var orOK = false; var orMsg = ""

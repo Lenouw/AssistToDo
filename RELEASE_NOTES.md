@@ -1,7 +1,10 @@
-## AssistToDo 1.1.16
+## AssistToDo 1.1.17
 
-### Corrigé
-- **Plus de fausse « échec (transcription) » pendant le chargement du modèle.** Le modèle Large v3 Turbo a un temps de chauffe long au premier lancement (compilation interne, ~2-3 min). Pendant ce temps, une capture était marquée en échec alors qu'il fallait juste attendre. Désormais la capture reste **« en attente »** et se traite toute seule dès que le modèle est prêt, sans rien perdre.
+### Nouveau moteur de transcription · chargement instantané
+- Passage de WhisperKit (CoreML/Neural Engine) à **whisper.cpp** (ggml + Metal), le même moteur que l'app Handy.
+- **Fini le temps de chauffe.** Le modèle se charge par mmap en ~1 à 2 secondes, sans aucune compilation. Avant, Large v3 Turbo compilait 2-3 min au premier lancement.
+- Modèle **Large v3 Turbo (q8_0, 874 Mo)** par défaut, précis, téléchargé une seule fois depuis notre serveur puis chargé hors-ligne.
+- Transcription rapide sur GPU Metal (test réel : 8 s d'audio transcrits en ~3 s).
 
-### Conseil
-- Pour une capture **instantanée**, garde le modèle **Small** (hors-ligne, prêt en quelques secondes). Large v3 Turbo donne un peu plus de précision mais demande d'attendre sa chauffe après chaque lancement. Réglages › Transcription.
+### Note
+- Au premier lancement de cette version, si le modèle n'est pas déjà là, il se télécharge une fois (barre de progression dans Réglages › Transcription).
