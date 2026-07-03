@@ -5,6 +5,13 @@ import AssistToDoCore
 public protocol AudioTranscribing {
     /// Retourne nil si le moteur n'est pas prêt OU si la transcription échoue.
     func transcribe(path: String) async -> (text: String, avgLogProb: Float)?
+    /// Le moteur est-il chargé et prêt (warmup fini) ? Permet de distinguer « pas encore prêt »
+    /// (on attend) d'un vrai échec. Défaut = true (mocks de test toujours prêts).
+    var isReady: Bool { get }
+}
+
+public extension AudioTranscribing {
+    var isReady: Bool { true }
 }
 
 public protocol TaskParsing {
@@ -49,6 +56,14 @@ public final class CaptureProcessor {
             store.update(id: captureId) { $0.status = .failed(stage: "transcription", reason: "audio purgé") }
             return
         }
+        // Moteur pas encore prêt (ex large-v3-turbo : warmup long au lancement) → NE PAS échouer.
+        // On laisse la capture « en attente » (recorded), sans consommer de tentative. Le filet la
+        // reprend automatiquement dès que le modèle passe prêt (AppDelegate observe transcriber.isReady).
+        guard transcriber.isReady else {
+            store.update(id: captureId) { $0.status = .recorded; $0.lastError = nil }
+            return
+        }
+
         let audioPath = CapturePaths.url(for: rec.audioFilename).path
         let previous = rec.producedTaskIds
         let duration = rec.durationSec
