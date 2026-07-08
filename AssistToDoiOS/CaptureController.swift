@@ -236,9 +236,13 @@ final class CaptureController: ObservableObject {
         case .notes:     icon = "🛒"
         case .local:     icon = o.record.localList == .code ? "💻" : "🧠"
         }
-        // Rappel / événement : afficher QUAND (sinon un rappel « pour demain » semble n'aller nulle part).
-        if o.destination == .reminders || o.destination == .calendar,
-           let d = o.record.remindAt ?? o.record.dueDate {
+        // Événement : afficher la FENÊTRE réelle (jour + plage), essentiel pour vérifier une
+        // fermeture de studio d'un coup d'œil (« 📅 Fermer le studio · 15 juil · 8:00–20:00 »).
+        if o.destination == .calendar, let detail = o.eventDetail {
+            return "\(icon) \(o.record.text) · \(detail)"
+        }
+        // Rappel : afficher QUAND (sinon un rappel « pour demain » semble n'aller nulle part).
+        if o.destination == .reminders, let d = o.record.remindAt ?? o.record.dueDate {
             return "\(icon) \(o.record.text) · \(Self.whenFmt.string(from: d))"
         }
         return "\(icon) \(o.record.text)"

@@ -21,6 +21,7 @@ struct RoutedOutcome {
     let record: TaskRecord
     let destination: Destination
     let fellBack: Bool
+    var eventDetail: String? = nil   // fenêtre réelle d'un événement calendrier (« 15 juil · 8:00–20:00 »)
 }
 
 @MainActor
@@ -77,7 +78,11 @@ final class IOSTaskRouter: TaskRouting {
                     var start = item.record.remindAt ?? day
                     var duration = item.durationMinutes ?? 60
                     var allDay = item.record.remindAt == nil
-                    if item.record.remindAt == nil, item.calendarCategory == .studio {
+                    // STUDIO — SÉCURITÉ : si AUCUNE heure n'est dictée, on force TOUJOURS les horaires
+                    // de fermeture configurés (le LLM met parfois un début/durée fantaisiste, ex 8h-16h,
+                    // → risque de créneau resté réservable). On ne respecte l'heure du LLM QUE si
+                    // l'utilisateur a réellement dicté une plage horaire.
+                    if item.calendarCategory == .studio, !Self.mentionsExplicitHour(item.record.rawTranscript) {
                         let sh = UserDefaults.standard.object(forKey: "studioBlockStart") as? Int ?? 8
                         let eh = UserDefaults.standard.object(forKey: "studioBlockEnd") as? Int ?? 20
                         start = ParisCalendar.calendar.date(bySettingHour: sh, minute: 0, second: 0, of: day) ?? day
@@ -89,7 +94,12 @@ final class IOSTaskRouter: TaskRouting {
                         calendarName: item.calendarName ?? categoryCalendar,
                         defaultCalendarName: defaultCalendar, alarmOffsets: offsets)
                     var r = item.record; r.destination = .calendar; r.externalId = extId
-                    outcomes.append(RoutedOutcome(storedId: nil, record: r, destination: .calendar, fellBack: false))
+                    // Fenêtre réelle (pour la confirmation) : jour + plage horaire calculés ici.
+                    let end = start.addingTimeInterval(TimeInterval(duration * 60))
+                    let detail = allDay
+                        ? Self.dayFmt.string(from: start)
+                        : "\(Self.dayFmt.string(from: start)) · \(Self.hmFmt.string(from: start))–\(Self.hmFmt.string(from: end))"
+                    outcomes.append(RoutedOutcome(storedId: nil, record: r, destination: .calendar, fellBack: false, eventDetail: detail))
                 } catch {
                     routerLog.error("createEvent a échoué → fallback 'À faire'. Raison : \(String(describing: error), privacy: .public)")
                     let kept = keepLocal(item.record); toStore.append(kept)
@@ -125,6 +135,18 @@ final class IOSTaskRouter: TaskRouting {
         return outcomes
     }
 
+    /// Le texte dicté contient-il une HEURE explicite (« 10h », « 10h30 », « 10:00 », « 10 heures »,
+    /// « midi », « minuit ») ? Sert à décider si une fermeture de studio respecte l'heure dictée ou
+    /// force les horaires configurés (sécurité anti sous-fermeture).
+    static func mentionsExplicitHour(_ text: String) -> Bool {
+        let t = text.lowercased()
+        if t.contains("midi") || t.contains("minuit") { return true }
+        for p in ["\\d{1,2}\\s*[h:]\\d{0,2}", "\\d{1,2}\\s*heures?"] {
+            if t.range(of: p, options: .regularExpression) != nil { return true }
+        }
+        return false
+    }
+
     /// Convertit 3 réglages (minutes AVANT l'échéance ; -1 = aucune alarme) en offsets d'alarme
     /// EventKit (secondes, négatifs). Configurable par l'utilisateur dans les Réglages.
     static func alarmOffsets(_ keys: [String], defaults: [Int]) -> [TimeInterval] {
@@ -133,4 +155,13 @@ final class IOSTaskRouter: TaskRouting {
             return m >= 0 ? -Double(m * 60) : nil
         }
     }
+
+    static let dayFmt: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "fr_FR"); f.timeZone = ParisCalendar.tz
+        f.dateFormat = "EEE d MMM"; return f
+    }()
+    static let hmFmt: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "fr_FR"); f.timeZone = ParisCalendar.tz
+        f.dateFormat = "HH:mm"; return f
+    }()
 }
