@@ -4,6 +4,25 @@ import XCTest
 final class DateResolverTests: XCTestCase {
     private func date(_ iso: String) -> Date { ISO8601DateFormatter().date(from: iso)! }
 
+    // Régression bug « mardi prochain » → mercredi : le jour relatif doit être calculé côté Swift.
+    func test_mardi_prochain_depuis_vendredi() {
+        let now = date("2026-07-17T11:40:00+02:00")   // vendredi
+        XCTAssertEqual(DateResolver.resolveDueDate(text: "mardi prochain", now: now),
+                       date("2026-07-21T00:00:00+02:00"))   // mardi 21, pas mercredi 22
+    }
+    func test_jeudi_prochain_depuis_vendredi() {
+        let now = date("2026-07-17T11:40:00+02:00")
+        XCTAssertEqual(DateResolver.resolveDueDate(text: "jeudi prochain", now: now),
+                       date("2026-07-23T00:00:00+02:00"))
+    }
+    // Recale l'heure du LLM (mauvais jour) sur le bon jour Swift.
+    func test_combine_jour_heure() {
+        let day = date("2026-07-21T00:00:00+02:00")     // bon jour (Swift)
+        let time = date("2026-07-28T16:00:00+02:00")    // mauvais jour, bonne heure (LLM)
+        XCTAssertEqual(DateResolver.combine(day: day, time: time),
+                       date("2026-07-21T16:00:00+02:00"))
+    }
+
     func test_dans_deux_heures() {
         let now = date("2026-06-10T15:30:00+02:00")
         let r = DateResolver.resolveRemind(text: "appeler le médecin dans deux heures", now: now)

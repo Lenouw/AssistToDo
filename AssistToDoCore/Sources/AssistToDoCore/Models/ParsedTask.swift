@@ -23,6 +23,7 @@ public struct ParsedTask: Equatable, Sendable {
     public var destination: Destination
     public var remindAtRaw: String?
     public var dueDateRaw: String?
+    public var whenRaw: String?        // expression temporelle relative brute dictée ("mardi prochain", "demain")
     public var durationMinutes: Int?
     public var listName: String?       // liste Rappels cible
     public var calendarName: String?           // calendrier cible (nom explicite dicté)
@@ -34,13 +35,13 @@ public struct ParsedTask: Equatable, Sendable {
     public var codeTodo: Bool          // to-do de code (liste Claude Code) plutôt que vidage de cerveau
 
     public init(text: String, destination: Destination = .local,
-                remindAtRaw: String? = nil, dueDateRaw: String? = nil,
+                remindAtRaw: String? = nil, dueDateRaw: String? = nil, whenRaw: String? = nil,
                 durationMinutes: Int? = nil, listName: String? = nil, calendarName: String? = nil,
                 calendarCategory: CalendarCategory? = nil, noteName: String? = nil,
                 priority: Priority? = nil, notify: Bool = false, tags: [String] = [],
                 codeTodo: Bool = false) {
         self.text = text; self.destination = destination
-        self.remindAtRaw = remindAtRaw; self.dueDateRaw = dueDateRaw
+        self.remindAtRaw = remindAtRaw; self.dueDateRaw = dueDateRaw; self.whenRaw = whenRaw
         self.durationMinutes = durationMinutes; self.listName = listName; self.calendarName = calendarName
         self.calendarCategory = calendarCategory; self.noteName = noteName
         self.priority = priority; self.notify = notify; self.tags = tags

@@ -7,6 +7,7 @@ public enum ParseResponseDecoder {
         let destination: String?
         let remindAt: String?
         let dueDate: String?
+        let when: String?
         let durationMinutes: Int?
         let listName: String?
         let calendarName: String?
@@ -31,6 +32,7 @@ public enum ParseResponseDecoder {
                 destination: Destination(rawValue: nullable(rt.destination) ?? "") ?? .local,
                 remindAtRaw: nullable(rt.remindAt),
                 dueDateRaw: nullable(rt.dueDate),
+                whenRaw: nullable(rt.when),
                 durationMinutes: rt.durationMinutes,
                 listName: nullable(rt.listName),
                 calendarName: nullable(rt.calendarName),
