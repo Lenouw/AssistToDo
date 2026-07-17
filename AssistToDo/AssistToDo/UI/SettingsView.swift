@@ -19,7 +19,15 @@ struct SettingsView: View {
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
     @AppStorage("defaultNote") private var defaultNote: String = "LISTE Courses MAISON 2026"
-    @AppStorage("eventAlarmsEnabled") private var eventAlarmsEnabled: Bool = true
+    // Deux alertes par défaut pour les événements créés (minutes avant le début ; -1 = aucune).
+    @AppStorage("eventAlarm1Min") private var eventAlarm1Min: Int = 60
+    @AppStorage("eventAlarm2Min") private var eventAlarm2Min: Int = 1440
+    // (minutes avant, libellé). -1 = aucune, 0 = à l'heure.
+    private let alarmChoices: [(min: Int, label: String)] = [
+        (-1, "Aucune"), (0, "À l'heure de l'événement"), (5, "5 min avant"), (15, "15 min avant"),
+        (30, "30 min avant"), (60, "1 heure avant"), (120, "2 heures avant"),
+        (1440, "1 jour avant"), (2880, "2 jours avant"), (10080, "1 semaine avant")
+    ]
     @AppStorage("customRoutingRules") private var customRoutingRules: String = ""
     @AppStorage("calendar_perso") private var calendarPerso: String = ""
     @AppStorage("calendar_commun") private var calendarCommun: String = ""
@@ -175,7 +183,14 @@ struct SettingsView: View {
                         Text("Quand tu fermes le studio sans heure précise, l'événement bloque cette plage (créneau réel, pas journée entière → bloque vraiment les réservations).")
                             .font(.caption).foregroundStyle(.secondary)
                         Picker("Agenda par défaut", selection: $defaultCalendar) { calendarOptions() }
-                        Toggle("Rappels auto sur les événements (1h + 1 jour avant)", isOn: $eventAlarmsEnabled)
+                        Picker("Alerte 1", selection: $eventAlarm1Min) {
+                            ForEach(alarmChoices, id: \.min) { Text($0.label).tag($0.min) }
+                        }
+                        Picker("Alerte 2", selection: $eventAlarm2Min) {
+                            ForEach(alarmChoices, id: \.min) { Text($0.label).tag($0.min) }
+                        }
+                        Text("Alertes ajoutées automatiquement aux événements créés. ⚠️ macOS Calendrier peut AUSSI ajouter sa propre alerte « par défaut » (Calendrier ▸ Réglages ▸ Alertes) : si tu vois un doublon « 1 h avant », mets Alerte 1 sur « Aucune » ou retire le défaut dans Calendrier.")
+                            .font(.caption).foregroundStyle(.secondary)
                         Text("Le LLM classe chaque rdv (perso / commun / pro / studio) et l'ajoute à l'agenda choisi ici.")
                             .font(.caption).foregroundStyle(.secondary)
                     }

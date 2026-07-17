@@ -67,8 +67,14 @@ final class MacTaskRouter: TaskRouting {
                     let categoryCalendar = item.calendarCategory.flatMap { cat in
                         UserDefaults.standard.string(forKey: "calendar_\(cat.rawValue)")
                     }
-                    let alarmsOn = UserDefaults.standard.object(forKey: "eventAlarmsEnabled") as? Bool ?? true
-                    let offsets: [TimeInterval] = alarmsOn ? [-3600, -86400] : []
+                    // Alertes par défaut pilotées par les Réglages (2 alertes, minutes avant ; -1 = aucune).
+                    let a1 = UserDefaults.standard.object(forKey: "eventAlarm1Min") as? Int ?? 60
+                    let a2 = UserDefaults.standard.object(forKey: "eventAlarm2Min") as? Int ?? 1440
+                    var offsets: [TimeInterval] = []
+                    for m in [a1, a2] where m >= 0 {
+                        let o = -Double(m * 60)
+                        if !offsets.contains(o) { offsets.append(o) }   // dédoublonne si les 2 sont identiques
+                    }
 
                     let day = item.record.dueDate ?? Date()
                     var start = item.record.remindAt ?? day
