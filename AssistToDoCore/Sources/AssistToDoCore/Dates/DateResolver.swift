@@ -51,6 +51,18 @@ public enum DateResolver {
         return nil
     }
 
+    /// Recolle l'HEURE de `time` sur le JOUR de `day` (tout en Europe/Paris). Sert à corriger le
+    /// jour d'un rappel horaire quand le LLM s'est trompé de jour de la semaine.
+    public static func combine(day: Date, time: Date) -> Date {
+        let d = cal.dateComponents([.year, .month, .day], from: day)
+        let t = cal.dateComponents([.hour, .minute], from: time)
+        var c = DateComponents()
+        c.year = d.year; c.month = d.month; c.day = d.day
+        c.hour = t.hour; c.minute = t.minute; c.second = 0
+        c.timeZone = ParisCalendar.tz
+        return cal.date(from: c) ?? day
+    }
+
     // MARK: - Helpers
 
     private static func parseRelativeDelay(_ t: String) -> TimeInterval? {

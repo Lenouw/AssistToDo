@@ -53,9 +53,15 @@ public struct TaskParser {
 
     private func routed(from p: ParsedTask, transcript: String, now: Date) -> RoutedTask {
         let today = ParisCalendar.startOfDay(for: now)
-        // LLM d'abord (calculé par tâche), DateResolver en filet sur le texte de la tâche.
-        let remind = parseISODateTime(p.remindAtRaw) ?? DateResolver.resolveRemind(text: p.text, now: now)
-        let resolvedDue = parseDay(p.dueDateRaw) ?? DateResolver.resolveDueDate(text: p.text, now: now)
+        // Jour RELATIF (« mardi prochain », « demain ») : Swift fait AUTORITÉ (les LLM calculent mal le
+        // jour de la semaine). On résout depuis l'expression brute `whenRaw` extraite par le LLM.
+        let swiftDay = DateResolver.resolveDueDate(text: p.whenRaw ?? "", now: now)
+        // Heure : celle du LLM (ou détectée dans le texte). Si on a un jour Swift fiable ET une heure,
+        // on recale l'heure sur le BON jour (corrige un rappel dont le LLM s'est trompé de jour).
+        var remind = parseISODateTime(p.remindAtRaw) ?? DateResolver.resolveRemind(text: p.text, now: now)
+        if let day = swiftDay, let r = remind { remind = DateResolver.combine(day: day, time: r) }
+        // Jour d'échéance : Swift (relatif) d'abord, puis date LLM (utile pour les dates ABSOLUES), puis filet texte.
+        let resolvedDue = swiftDay ?? parseDay(p.dueDateRaw) ?? DateResolver.resolveDueDate(text: p.text, now: now)
         // On ne défaute à "aujourd'hui" QUE pour les tâches locales (liste du jour + rollover).
         // Pour calendar/reminders/notes, dueDate reste nil si rien n'est dicté → pas de date inventée
         // (et le filet de CaptureCoordinator peut rétrograder un event sans date en rappel).

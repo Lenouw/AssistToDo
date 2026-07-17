@@ -8,6 +8,23 @@ public enum ParsePromptBuilder {
         f.formatOptions = [.withInternetDateTime]
         let nowStr = f.string(from: now)
 
+        // Table de référence jour↔date (Europe/Paris), calculée côté Swift. Les LLM calculent TRÈS mal
+        // le jour de la semaine à partir d'une date (ex « mardi prochain » → mercredi) : on leur fournit
+        // la correspondance exacte et on leur interdit de calculer. Fiable car simple lookup.
+        let dayName = DateFormatter()
+        dayName.locale = Locale(identifier: "fr_FR"); dayName.timeZone = ParisCalendar.tz; dayName.dateFormat = "EEEE"
+        let ymd = DateFormatter()
+        ymd.locale = Locale(identifier: "fr_FR"); ymd.timeZone = ParisCalendar.tz; ymd.dateFormat = "yyyy-MM-dd"
+        let startToday = ParisCalendar.startOfDay(for: now)
+        var refLines: [String] = []
+        for d in 0..<15 {
+            if let day = ParisCalendar.calendar.date(byAdding: .day, value: d, to: startToday) {
+                let tag = d == 0 ? "  (aujourd'hui)" : (d == 1 ? "  (demain)" : "")
+                refLines.append("- \(dayName.string(from: day)) \(ymd.string(from: day))\(tag)")
+            }
+        }
+        let refTable = refLines.joined(separator: "\n")
+
         var routing = ""
         if !calendars.isEmpty {
             routing += "\nCalendriers disponibles : \(calendars.joined(separator: ", ")). Pour destination=calendar, mets dans calendarName celui qui colle le mieux au contexte (perso, boulot/pro, famille/couple...). Si aucun ne correspond clairement, calendarName=null."
@@ -23,8 +40,11 @@ public enum ParsePromptBuilder {
         return """
         Tu transformes une phrase dictée en français en tâches JSON.
         Réponds UNIQUEMENT en JSON, sans texte autour, au format :
-        {"tasks":[{"text":"...","destination":"local|reminders|calendar|notes","remindAt":"ISO8601 avec offset ou null","dueDate":"YYYY-MM-DD ou null","durationMinutes":60,"calendarCategory":"perso|commun|pro|studio ou null","calendarName":"nom de calendrier ou null","listName":"nom de liste Rappels ou null","noteName":"nom de note ou null","priority":"bas|moyen|haut ou null","notify":true|false,"tags":[],"codeTodo":true|false}]}
-        Maintenant = \(nowStr) (Europe/Paris). Calcule les temps relatifs par rapport à cet instant.
+        {"tasks":[{"text":"...","destination":"local|reminders|calendar|notes","remindAt":"ISO8601 avec offset ou null","dueDate":"YYYY-MM-DD ou null","when":"expression de jour relative brute ou null","durationMinutes":60,"calendarCategory":"perso|commun|pro|studio ou null","calendarName":"nom de calendrier ou null","listName":"nom de liste Rappels ou null","noteName":"nom de note ou null","priority":"bas|moyen|haut ou null","notify":true|false,"tags":[],"codeTodo":true|false}]}
+        Maintenant = \(nowStr) (Europe/Paris). Calcule les HEURES relatives (« dans 2h », « ce soir ») par rapport à cet instant.
+        DATES : ne calcule PAS toi-même le jour de la semaine (tu te trompes). Pour CHAQUE tâche datée par un jour RELATIF, recopie l'expression EXACTE dictée dans le champ "when" (ex "mardi", "mardi prochain", "demain", "après-demain", "jeudi prochain"), et laisse dueDate = la date de la table correspondante (le code Swift recalcule le jour de façon fiable de toute façon). Si la date est ABSOLUE ("le 25 juillet", "le 3/09") : when=null et mets la vraie date dans dueDate. Si aucune date : when=null, dueDate=null. "when" ne contient JAMAIS d'heure.
+        Table des dates (Europe/Paris) — pour remplir dueDate :
+        \(refTable)
         notify=true uniquement si une heure précise est demandée (ex "dans 2h", "à 18h").
         Découpe les phrases multi-tâches en plusieurs items. Une plage de plusieurs jours (« du 20 au 25 », « du lundi au vendredi ») => un item par jour (une date par item).
         Le champ "text" n'est PAS le transcript brut : rédige un libellé de tâche CLAIR, CONCIS et bien formé en français.
