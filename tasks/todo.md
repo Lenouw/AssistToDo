@@ -1,3 +1,17 @@
+# 🚨 URGENT — Polling sync trop agressif, quota Neon (à faire EN PREMIER, demandé 2026-07-17)
+
+Quota Neon (base Toudou) à **80 %, ~3 jours avant coupure**. Le polling toutes les **45 s** garde la base éveillée 24h/24 (Neon s'endort après ~5 min sans requête).
+
+Fichier : `AssistToDoKit/Sources/AssistToDoKit/Sync/SyncCoordinator.swift` ligne ~46 (`withTimeInterval: 45`). ⚠️ **Kit PARTAGÉ Mac + iOS** → corrige les deux (iOS l'a au merge).
+
+- [ ] Pull toutes les **15 min** au lieu de 45 s (96× moins de requêtes)
+- [ ] **Pull immédiat** à l'activation de l'app / ouverture du panneau / sortie de veille Mac (`NSApplication.didBecomeActiveNotification`, `NSWorkspace.didWakeNotification`, `.task` du panneau)
+- [ ] **Push immédiat** quand une tâche change localement (aujourd'hui `TaskStore.markSyncDirty` ne déclenche RIEN → brancher un callback vers `SyncCoordinator.syncNow()`, débouncé qq secondes)
+- [ ] Vérifier après coup que la base peut dormir (pas de requête pendant > 5 min au repos)
+- [ ] Handoff iOS : hook `scenePhase == .active` côté iPhone (spécifique iOS), le reste vient du Kit
+
+---
+
 # TODO — Migration moteur transcription : WhisperKit → whisper.cpp (2026-07-03)
 
 **But** : chargement instantané (~1 s par mmap, zéro compilation ANE) comme l'app Handy. Modèle large-v3-turbo GGML **q8_0** (874 Mo), chargé 1 fois depuis NOTRE GitHub. Décidé par Florian (frustré du warm-up WhisperKit : 2 min 47 s à froid, 6,6 s à chaud).
