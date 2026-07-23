@@ -102,6 +102,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Synchronisation Toudou (no-op tant que URL + token ne sont pas configurés dans les Réglages).
         sync = SyncCoordinator(store: store)
         sync.start()
+        // Pull immédiat à l'activation de l'app et à la sortie de veille du Mac (le pull de fond est
+        // espacé à 15 min pour laisser la base Toudou dormir → on garde la fraîcheur sur ces signaux).
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.sync.nudge() }
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.sync.nudge() }
+        }
 
         // Vérifie discrètement s'il existe une version plus récente sur GitHub (silencieux si à jour).
         UpdateChecker.check()

@@ -39,6 +39,9 @@ public final class TaskStore: ObservableObject {
     // Câblés par l'app hôte (notifs locales).
     public var onCancelNotification: ((String) -> Void)?
     public var onScheduleReminder: ((TaskRecord) -> String?)?
+    /// Appelé quand une tâche SYNCHRONISABLE (braindump/code) change localement → push immédiat
+    /// (débouncé) vers Toudou, sans attendre le cycle. Câblé par SyncCoordinator.
+    public var onLocalChange: (() -> Void)?
 
     public convenience init() { self.init(inMemory: false) }
 
@@ -167,6 +170,7 @@ public final class TaskStore: ObservableObject {
         guard Self.isSyncable(e) else { return }
         e.updatedAt = Date()
         e.syncDirty = true
+        onLocalChange?()   // push immédiat (débouncé côté SyncCoordinator)
     }
 
     /// Recharge l'agenda du jour (Calendrier + Rappels) en direct d'iCloud, lecture seule.
@@ -206,14 +210,16 @@ public final class TaskStore: ObservableObject {
 
     public func add(_ records: [TaskRecord]) {
         var nextTop = topOrderIndex()   // nouvelles captures insérées en haut
+        var addedSyncable = false
         for var r in records {
             if r.destination == .local { r.orderIndex = nextTop; nextTop -= 1 }
             let e = TaskEntity(record: r)
             context.insert(e)
             // Nouvelle to-do "vide-tête" → à créer sur Toudou (remoteKnown reste false → op create).
-            if Self.isSyncable(e) { e.updatedAt = Date(); e.syncDirty = true }
+            if Self.isSyncable(e) { e.updatedAt = Date(); e.syncDirty = true; addedSyncable = true }
         }
         save(); reload()
+        if addedSyncable { onLocalChange?() }   // push immédiat (débouncé)
     }
 
     // MARK: - Cocher / supprimer (répercuté sur Apple si besoin)

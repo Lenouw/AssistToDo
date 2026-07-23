@@ -2,8 +2,9 @@
 //  SyncCoordinator.swift
 //  AssistToDoKit
 //
-//  Pilote la synchro Toudou : à chaque cycle (lancement + timer ~45s + manuel),
-//  push les ops locaux en attente PUIS pull le delta serveur (cf. spec §8).
+//  Pilote la synchro Toudou : pull de fond toutes les 15 min + pull immédiat à l'activation
+//  (nudge) + push immédiat débouncé au changement local. Chaque cycle push les ops locaux en
+//  attente PUIS pull le delta serveur (cf. spec §8). Le pull espacé laisse Neon s'endormir.
 //  Toudou est la source de vérité ; on n'envoie que les to-do "vide-tête".
 //
 
@@ -21,6 +22,13 @@ public final class SyncCoordinator {
     private let client = ToudouClient()
     private var timer: Timer?
     private var syncing = false
+    private var pushWork: DispatchWorkItem?
+    private var lastActivitySync = Date.distantPast
+
+    /// Intervalle du pull de fond. 15 min (au lieu de 45 s) pour laisser la base Toudou (Neon)
+    /// s'endormir entre les cycles (elle a besoin de ~5 min sans requête). La fraîcheur perçue est
+    /// maintenue par les pulls immédiats à l'activation (nudge) et les pushs immédiats au changement.
+    private static let pollInterval: TimeInterval = 15 * 60
 
     /// Les listes synchronisées : slug Toudou ↔ sous-liste locale.
     private let channels: [(slug: String, list: LocalList)] = [
@@ -38,17 +46,37 @@ public final class SyncCoordinator {
         timer?.invalidate(); timer = nil
         log.notice("start: isConfigured=\(self.client.isConfigured, privacy: .public)")
         guard client.isConfigured else { return }
+        // Push immédiat (débouncé) dès qu'une tâche synchronisable change localement.
+        store.onLocalChange = { [weak self] in self?.pushSoon() }
         // Au lancement : pull COMPLET (since=nil) → réconcilie tout l'état serveur. Indispensable
         // car le curseur peut être en avance sur un store local incomplet (ex : data perdue à une
         // migration) ; un delta `since=curseur` ne re-ramènerait jamais les tâches plus anciennes.
-        // Les cycles suivants (timer 45 s) restent en delta pour rester légers.
+        // Les cycles suivants (timer) restent en delta pour rester légers.
         syncNow(full: true)
-        timer = Timer.scheduledTimer(withTimeInterval: 45, repeats: true) { [weak self] _ in
+        lastActivitySync = Date()
+        timer = Timer.scheduledTimer(withTimeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.syncNow() }
         }
     }
 
-    public func stop() { timer?.invalidate(); timer = nil }
+    public func stop() { timer?.invalidate(); timer = nil; pushWork?.cancel() }
+
+    /// Pull immédiat sur activité utilisateur (app activée, panneau ouvert, sortie de veille du Mac).
+    /// Throttlé pour ne pas réveiller Neon à répétition si plusieurs signaux tombent d'un coup.
+    public func nudge() {
+        guard client.isConfigured else { return }
+        guard Date().timeIntervalSince(lastActivitySync) > 20 else { return }
+        lastActivitySync = Date()
+        syncNow()
+    }
+
+    /// Push immédiat débouncé (2,5 s) : une rafale d'éditions locales = une seule synchro.
+    public func pushSoon() {
+        pushWork?.cancel()
+        let w = DispatchWorkItem { [weak self] in self?.syncNow() }
+        pushWork = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: w)
+    }
 
     /// Un cycle complet : chaque liste indépendamment (push ses ops, puis pull). `full` = ignore le
     /// curseur et pull tout (réconciliation), sinon delta depuis le curseur.

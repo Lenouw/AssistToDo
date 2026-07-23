@@ -47,7 +47,7 @@ struct ListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .task { await store.refreshToday() }
+        .task { await store.refreshToday(); SyncCoordinator.shared?.nudge() }
     }
 
     // MARK: - Zones redimensionnables
