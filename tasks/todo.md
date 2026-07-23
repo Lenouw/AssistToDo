@@ -1,14 +1,9 @@
-# 🚨 URGENT — Polling sync trop agressif, quota Neon (à faire EN PREMIER, demandé 2026-07-17)
+# ✅ Polling sync / quota Neon — FAIT Mac v1.1.20 (2026-07-17)
 
-Quota Neon (base Toudou) à **80 %, ~3 jours avant coupure**. Le polling toutes les **45 s** garde la base éveillée 24h/24 (Neon s'endort après ~5 min sans requête).
-
-Fichier : `AssistToDoKit/Sources/AssistToDoKit/Sync/SyncCoordinator.swift` ligne ~46 (`withTimeInterval: 45`). ⚠️ **Kit PARTAGÉ Mac + iOS** → corrige les deux (iOS l'a au merge).
-
-- [ ] Pull toutes les **15 min** au lieu de 45 s (96× moins de requêtes)
-- [ ] **Pull immédiat** à l'activation de l'app / ouverture du panneau / sortie de veille Mac (`NSApplication.didBecomeActiveNotification`, `NSWorkspace.didWakeNotification`, `.task` du panneau)
-- [ ] **Push immédiat** quand une tâche change localement (aujourd'hui `TaskStore.markSyncDirty` ne déclenche RIEN → brancher un callback vers `SyncCoordinator.syncNow()`, débouncé qq secondes)
-- [ ] Vérifier après coup que la base peut dormir (pas de requête pendant > 5 min au repos)
-- [ ] Handoff iOS : hook `scenePhase == .active` côté iPhone (spécifique iOS), le reste vient du Kit
+- [x] Pull **15 min** au lieu de 45 s (`SyncCoordinator.pollInterval`)
+- [x] **Pull immédiat** activation app / panneau / réveil Mac (`nudge()` + AppDelegate + ListView)
+- [x] **Push immédiat** débouncé au changement local (`onLocalChange` → `pushSoon()`)
+- [ ] **iOS** (via conv iPhone) : cherry-pick le commit perf(sync) sur `feat/ios` + hook `scenePhase==.active` + rebuild/réinstall device. Voir handoff.
 
 ---
 
