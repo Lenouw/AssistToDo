@@ -47,28 +47,22 @@ public final class CaptureStore: ObservableObject {
         mutate(r); save(); reload()
     }
 
-    /// Captures à (re)traiter automatiquement : jamais traitées (modèle pas prêt à la capture),
-    /// échec transcription/LLM/routage, ou texte brut à enrichir.
+    /// Captures à (re)traiter automatiquement : TOUT ce qui n'est pas terminé mais a un audio
+    /// (échec à N'IMPORTE quel stage — transcription incluse : modèle indispo au moment de la
+    /// capture, réparé depuis — ou pipeline interrompu), + texte brut à enrichir.
     ///
-    /// ⚠️ GARDE-FOUS (incident 2026-07-02) : le rejeu automatique est limité aux captures RÉCENTES
-    /// (< 48 h) et peu tentées (< 3). Sans ça, de VIEUX audios de test (« ferme le studio demain… »)
-    /// ont été rejoués des jours plus tard → création d'événements calendrier fantômes à chaque
-    /// ouverture de l'app. Les captures plus anciennes restent rejouables MANUELLEMENT (écran
-    /// Captures), jamais automatiquement.
+    /// ⚠️ GARDE-FOUS (incident 2026-07-02) : rejeu AUTO limité aux captures RÉCENTES (< 48 h) et
+    /// peu tentées (< 3). Sans ça, de VIEUX audios de test (« ferme le studio demain… ») étaient
+    /// rejoués des jours plus tard → événements calendrier fantômes. Les plus anciennes restent
+    /// rejouables MANUELLEMENT (écran Captures), jamais automatiquement.
     public func needingProcessing() -> [CaptureRecord] {
         let cutoff = Date().addingTimeInterval(-48 * 3600)
         return captures.filter { r in
             guard r.createdAt > cutoff, r.attempts < 3 else { return false }
             if r.needsEnrichment { return true }
             switch r.status {
-            case .recorded:
-                // Audio capté alors que le modèle de transcription n'était pas encore prêt
-                // (lancement à froid) → à transcrire dès que possible. Aucune idée perdue.
-                return true
-            case .failed(let stage, _):
-                return stage == "transcription" || stage == "llm" || stage == "routing"
-            default:
-                return false
+            case .done: return false
+            default:    return !r.audioFilename.isEmpty
             }
         }
     }

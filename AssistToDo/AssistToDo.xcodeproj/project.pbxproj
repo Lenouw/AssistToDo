@@ -11,7 +11,6 @@
 		0AD6A9AF7A2BE3124AC614F8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C58C5D5954A860C795E1CDE9 /* Foundation.framework */; };
 		121672D4BF92AC8AF3CDB031 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946BB857D3638DFE351EC26C /* AppModel.swift */; };
 		167B43F72FD9DD1400350027 /* AssistToDoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43F62FD9DD1400350027 /* AssistToDoCore */; };
-		167B43FA2FD9DD6C00350027 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43F92FD9DD6C00350027 /* WhisperKit */; };
 		167B43FD2FD9DD8300350027 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 167B43FC2FD9DD8300350027 /* KeyboardShortcuts */; };
 		193AED1CC87F0FB1C1C59D91 /* CaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E62219EC32E79FCBFC9D85B /* CaptureControl.swift */; };
 		1E934DD55803D158D04A0920 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DAAC800C1684C721B4FD9C4 /* SettingsView.swift */; };
@@ -25,6 +24,7 @@
 		5A6E7B1875C4AD8BA6BE0E53 /* AssistToDoKit in Frameworks */ = {isa = PBXBuildFile; productRef = F1738FABD65263C4CB345370 /* AssistToDoKit */; };
 		5B76A8EDFB53AD1D9E035BF5 /* ListsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECACB8693EDB665BE1DD068D /* ListsView.swift */; };
 		5BCD48052FADB54E7FD8C766 /* AssistToDoWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D045D68C20A41D1F41B070 /* AssistToDoWidgetBundle.swift */; };
+		654BD277BFC9C1BDCBDA2F57 /* ModelProvisioner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E218AA7B51EFDDF05B018A3A /* ModelProvisioner.swift */; };
 		850BA668E6B42E382B19324B /* RecordVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */; };
 		854F685644818D631AAC28EA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DF18B11D4C05AE82F6922A11 /* Assets.xcassets */; };
 		899BE0FCABC72D2D188DC008 /* CaptureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D791C1303866922326C542E8 /* CaptureController.swift */; };
@@ -86,6 +86,7 @@
 		D791C1303866922326C542E8 /* CaptureController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureController.swift; sourceTree = "<group>"; };
 		DB10D949154BFEF3F2FAA826 /* LiveActivityController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
 		DF18B11D4C05AE82F6922A11 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E218AA7B51EFDDF05B018A3A /* ModelProvisioner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelProvisioner.swift; sourceTree = "<group>"; };
 		ECACB8693EDB665BE1DD068D /* ListsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ListsView.swift; sourceTree = "<group>"; };
 		F1B86318D7C309A0DCED7827 /* CaptureView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
 		F6EDA39A73F370E447487484 /* CapturesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CapturesView.swift; sourceTree = "<group>"; };
@@ -106,7 +107,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				167B43FA2FD9DD6C00350027 /* WhisperKit in Frameworks */,
 				167B43F72FD9DD1400350027 /* AssistToDoCore in Frameworks */,
 				167B43FD2FD9DD8300350027 /* KeyboardShortcuts in Frameworks */,
 				5A6E7B1875C4AD8BA6BE0E53 /* AssistToDoKit in Frameworks */,
@@ -185,6 +185,7 @@
 				32381C9EB9AE3176956829F5 /* TranscriberAdapter.swift */,
 				F6EDA39A73F370E447487484 /* CapturesView.swift */,
 				DF18B11D4C05AE82F6922A11 /* Assets.xcassets */,
+				E218AA7B51EFDDF05B018A3A /* ModelProvisioner.swift */,
 			);
 			name = AssistToDoiOS;
 			path = ../AssistToDoiOS;
@@ -237,7 +238,6 @@
 			name = AssistToDo;
 			packageProductDependencies = (
 				167B43F62FD9DD1400350027 /* AssistToDoCore */,
-				167B43F92FD9DD6C00350027 /* WhisperKit */,
 				167B43FC2FD9DD8300350027 /* KeyboardShortcuts */,
 				F1738FABD65263C4CB345370 /* AssistToDoKit */,
 			);
@@ -311,7 +311,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				167B43F52FD9DD1400350027 /* XCLocalSwiftPackageReference "AssistToDoCore" */,
-				167B43F82FD9DD6C00350027 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				167B43FB2FD9DD8300350027 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 				9825B10FAA9FD1AB7B8AEFDC /* XCLocalSwiftPackageReference "AssistToDoKit" */,
 			);
@@ -379,6 +378,7 @@
 				528A8D823DA72203F69E835C /* IOSTaskRouter.swift in Sources */,
 				05D859A5C3459C2080595A2C /* TranscriberAdapter.swift in Sources */,
 				A52C53DC4AC3507B7DDBC3B1 /* CapturesView.swift in Sources */,
+				654BD277BFC9C1BDCBDA2F57 /* ModelProvisioner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -774,14 +774,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		167B43F82FD9DD6C00350027 /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/argmaxinc/WhisperKit";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
 		167B43FB2FD9DD8300350027 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
@@ -801,11 +793,6 @@
 		167B43F62FD9DD1400350027 /* AssistToDoCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AssistToDoCore;
-		};
-		167B43F92FD9DD6C00350027 /* WhisperKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 167B43F82FD9DD6C00350027 /* XCRemoteSwiftPackageReference "WhisperKit" */;
-			productName = WhisperKit;
 		};
 		167B43FC2FD9DD8300350027 /* KeyboardShortcuts */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -44,10 +44,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         // Raccourci global push-to-talk : maintien = capture + HUD, relâche = stop + transcription + parsing.
-        // Défaut aligné sur SettingsView : large-v3-turbo (le distil perdait les dates FR).
-        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "openai_whisper-large-v3_turbo"
+        // Moteur = whisper.cpp (ggml + Metal), modèle large-v3-turbo q8_0 téléchargé 1 fois depuis notre
+        // GitHub puis chargé par mmap → quasi instantané, aucune compilation ANE (fini le warm-up).
+        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? "large-v3-turbo-q8_0"
         let llmModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"
-        transcriber = Transcriber(model: whisper)   // pré-charge le modèle au lancement
+        transcriber = Transcriber(model: whisper, provision: { progress in await ModelProvisioner.ensureTurbo(progress: progress) })
         notifications = NotificationManager(store: store)
         notifications.onOpenList = { [weak self] in self?.listController.show() }
         // Le store annule/replanifie les notifs lors des suppressions et reports (swipe).
@@ -66,10 +67,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             captureStore: captureStore, macRouter: macRouter, processor: processor
         )
         // Panneau de droite (liste + Réglages + Captures, accessibles depuis son en-tête).
-        listController = ListWindowController(store: store, captureStore: captureStore, processor: processor)
+        listController = ListWindowController(store: store, captureStore: captureStore, processor: processor, transcriber: transcriber)
         // Rétention : purge les audios des captures faites > N jours (défaut 30 ; 0 = indéfini).
         captureStore.purgeAudio(olderThanDays: UserDefaults.standard.object(forKey: "captureRetentionDays") as? Int ?? 30)
-        capture.reprocessPending()   // rejoue les captures en attente (échec LLM/routage)
+        // Rejoue les captures en attente DÈS que le modèle Whisper est prêt. Au lancement le modèle
+        // charge en async : lancer reprocess tout de suite échouerait ("transcription indisponible")
+        // et la capture resterait bloquée. $isReady émet sa valeur courante à l'abonnement, donc ça
+        // couvre aussi le cas "déjà prêt".
+        transcriber.$isReady
+            .filter { $0 }
+            .sink { [weak self] _ in self?.capture.reprocessPending() }
+            .store(in: &cancellables)
         hotkey = HotkeyManager()
         hotkey.onPressStart = { [weak self] in
             self?.pressStart = ProcessInfo.processInfo.systemUptime
@@ -94,6 +102,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Synchronisation Toudou (no-op tant que URL + token ne sont pas configurés dans les Réglages).
         sync = SyncCoordinator(store: store)
         sync.start()
+        // Pull immédiat à l'activation de l'app et à la sortie de veille du Mac (le pull de fond est
+        // espacé à 15 min pour laisser la base Toudou dormir → on garde la fraîcheur sur ces signaux).
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.sync.nudge() }
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.sync.nudge() }
+        }
 
         // Vérifie discrètement s'il existe une version plus récente sur GitHub (silencieux si à jour).
         UpdateChecker.check()

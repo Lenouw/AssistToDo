@@ -9,7 +9,21 @@
 import Foundation
 
 public struct OpenRouterClient {
-    enum ClientError: Error { case noKey, badResponse, apiError(String), httpStatus(Int, String) }
+    public enum ClientError: Error, LocalizedError {
+        case noKey, badResponse, apiError(String), httpStatus(Int, String)
+        public var errorDescription: String? {
+            switch self {
+            case .noKey: return "Aucune clé OpenRouter (à mettre dans les Réglages)"
+            case .badResponse: return "Réponse inattendue de l'API"
+            case .apiError(let m): return "Erreur API : \(m)"
+            case .httpStatus(let code, let m):
+                let base = code == 401 ? "clé invalide ou expirée (401)"
+                    : code == 429 ? "quota dépassé / rate-limit (429)"
+                    : "erreur HTTP \(code)"
+                return m.isEmpty ? base : "\(base) — \(m)"
+            }
+        }
+    }
 
     let model: String
     let timeout: TimeInterval

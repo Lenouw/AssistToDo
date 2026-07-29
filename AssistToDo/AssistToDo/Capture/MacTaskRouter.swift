@@ -67,14 +67,24 @@ final class MacTaskRouter: TaskRouting {
                     let categoryCalendar = item.calendarCategory.flatMap { cat in
                         UserDefaults.standard.string(forKey: "calendar_\(cat.rawValue)")
                     }
-                    let alarmsOn = UserDefaults.standard.object(forKey: "eventAlarmsEnabled") as? Bool ?? true
-                    let offsets: [TimeInterval] = alarmsOn ? [-3600, -86400] : []
+                    // Alertes par défaut pilotées par les Réglages (2 alertes, minutes avant ; -1 = aucune).
+                    let a1 = UserDefaults.standard.object(forKey: "eventAlarm1Min") as? Int ?? 60
+                    let a2 = UserDefaults.standard.object(forKey: "eventAlarm2Min") as? Int ?? 1440
+                    var offsets: [TimeInterval] = []
+                    for m in [a1, a2] where m >= 0 {
+                        let o = -Double(m * 60)
+                        if !offsets.contains(o) { offsets.append(o) }   // dédoublonne si les 2 sont identiques
+                    }
 
                     let day = item.record.dueDate ?? Date()
                     var start = item.record.remindAt ?? day
                     var duration = item.durationMinutes ?? 60
                     var allDay = item.record.remindAt == nil
-                    if item.record.remindAt == nil, item.calendarCategory == .studio {
+                    // Studio SANS heure d'horloge réellement dictée (« toute la journée », juste une date…) →
+                    // on applique TA plage configurée (ex 8h-20h), quoi que le LLM ait inventé comme remindAt/
+                    // durée (il met souvent 08:00 + une durée arbitraire pour « toute la journée »). On ne fait
+                    // confiance au LLM que si une vraie heure est dans le transcript (« de 14h à 18h »).
+                    if item.calendarCategory == .studio, !Self.hasDictatedClock(item.record.rawTranscript) {
                         let sh = UserDefaults.standard.object(forKey: "studioBlockStart") as? Int ?? 8
                         let eh = UserDefaults.standard.object(forKey: "studioBlockEnd") as? Int ?? 20
                         start = ParisCalendar.calendar.date(bySettingHour: sh, minute: 0, second: 0, of: day) ?? day
@@ -123,6 +133,18 @@ final class MacTaskRouter: TaskRouting {
         }
 
         if !toStore.isEmpty { store.add(toStore) }
+        // Un rappel Apple créé n'apparaît pas dans les listes locales : rafraîchir la zone iCloud
+        // pour qu'il s'affiche tout de suite (en haut si dû, « À venir » si futur).
+        if outcomes.contains(where: { $0.destination == .reminders && !$0.fellBack }) {
+            await store.refreshToday()
+        }
         return outcomes
+    }
+
+    /// Vrai si le transcript contient une heure d'horloge réellement dictée (« 14h », « 14h30 »,
+    /// « 14:30 », « 8 heures »). Distingue « ferme le studio de 14h à 18h » (heures dictées → on suit
+    /// le LLM) de « ferme le studio toute la journée » (pas d'heure → plage studio configurée).
+    private static func hasDictatedClock(_ transcript: String) -> Bool {
+        transcript.range(of: #"\d{1,2}\s*[h:]"#, options: .regularExpression) != nil
     }
 }

@@ -4,9 +4,11 @@ import XCTest
 
 final class CaptureProcessorTests: XCTestCase {
     struct FakeTranscriber: AudioTranscribing {
-        let ready: Bool; let text: String
+        var isReady: Bool = true      // moteur chargé ?
+        var succeeds: Bool = true     // la transcription réussit-elle (si prête) ?
+        var text: String = ""
         func transcribe(path: String) async -> (text: String, avgLogProb: Float)? {
-            ready ? (text, -0.2) : nil
+            succeeds ? (text, -0.2) : nil
         }
     }
     struct FakeParser: TaskParsing {
@@ -25,8 +27,9 @@ final class CaptureProcessorTests: XCTestCase {
     func test_transcription_failure_keeps_audio_and_marks_failed() async throws {
         let store = try CaptureStore(inMemory: true)
         let rec = store.record(audioFilename: "x.caf", durationSec: 3)
+        // Moteur PRÊT mais la transcription échoue → vrai échec.
         let proc = CaptureProcessor(store: store,
-                                    transcriber: FakeTranscriber(ready: false, text: ""),
+                                    transcriber: FakeTranscriber(isReady: true, succeeds: false),
                                     parser: FakeParser(tasks: []),
                                     router: FakeRouter())
         await proc.process(captureId: rec.id, now: Date())
@@ -40,6 +43,23 @@ final class CaptureProcessorTests: XCTestCase {
     }
 
     @MainActor
+    func test_model_not_ready_waits_without_failing() async throws {
+        let store = try CaptureStore(inMemory: true)
+        let rec = store.record(audioFilename: "x.caf", durationSec: 3)
+        // Moteur PAS prêt (ex large-v3-turbo en warmup) → la capture attend, ne doit PAS échouer.
+        let proc = CaptureProcessor(store: store,
+                                    transcriber: FakeTranscriber(isReady: false),
+                                    parser: FakeParser(tasks: []),
+                                    router: FakeRouter())
+        await proc.process(captureId: rec.id, now: Date())
+        store.reload()
+        let r = store.captures.first!
+        XCTAssertEqual(r.status, .recorded)        // en attente, pas failed
+        XCTAssertEqual(r.attempts, 0)              // aucune tentative consommée
+        XCTAssertEqual(r.audioFilename, "x.caf")   // audio conservé pour le rejeu
+    }
+
+    @MainActor
     func test_success_routes_and_marks_done() async throws {
         let store = try CaptureStore(inMemory: true)
         let rec = store.record(audioFilename: "x.caf", durationSec: 3)
@@ -48,7 +68,7 @@ final class CaptureProcessorTests: XCTestCase {
                             destination: .local, durationMinutes: nil, listName: nil,
                             calendarName: nil, calendarCategory: nil, noteName: nil)
         let proc = CaptureProcessor(store: store,
-                                    transcriber: FakeTranscriber(ready: true, text: "Penser à appeler le plombier"),
+                                    transcriber: FakeTranscriber(isReady: true, succeeds: true, text: "Penser à appeler le plombier"),
                                     parser: FakeParser(tasks: [rt]),
                                     router: router)
         await proc.process(captureId: rec.id, now: Date())
@@ -76,7 +96,7 @@ final class CaptureProcessorTests: XCTestCase {
                             calendarName: nil, calendarCategory: nil, noteName: nil)
         // Transcriber qui planterait s'il était appelé (reroute ne doit PAS transcrire).
         let proc = CaptureProcessor(store: store,
-                                    transcriber: FakeTranscriber(ready: false, text: ""),
+                                    transcriber: FakeTranscriber(isReady: false, succeeds: false),
                                     parser: FakeParser(tasks: [rt]),
                                     router: router)
         await proc.reroute(captureId: rec.id, now: Date())

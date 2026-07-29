@@ -8,7 +8,6 @@
 //
 
 import Foundation
-import os
 import AssistToDoCore
 
 /// Tâche parsée + sa destination (local / Rappels Apple / Calendrier Apple).
@@ -24,7 +23,6 @@ public struct RoutedTask {
 
 public struct TaskParser {
     let client: OpenRouterClient
-    private static let log = Logger(subsystem: "com.assisttodo", category: "TaskParser")
 
     public init(client: OpenRouterClient) {
         self.client = client
@@ -46,9 +44,7 @@ public struct TaskParser {
                 .map { routed(from: $0, transcript: transcript, now: now) }
         } catch {
             // Échec réseau/décodage : on ne peut pas juger → on garde le texte brut (jamais perdu).
-            // Sans clé OpenRouter (ClientError.noKey), TOUTE capture tombe ici → "À faire", jamais
-            // calendrier/rappels. Le log explicite la raison (Console.app, catégorie TaskParser).
-            Self.log.error("Parse échoué → fallback 'À faire' (pas de routage). Raison : \(String(describing: error), privacy: .public)")
+            print("Parse échoué, fallback texte brut : \(error)")
             return [rawFallback(transcript, now: now)]
         }
     }
@@ -58,8 +54,9 @@ public struct TaskParser {
     private func routed(from p: ParsedTask, transcript: String, now: Date) -> RoutedTask {
         let today = ParisCalendar.startOfDay(for: now)
         // Jour RELATIF (« mardi prochain », « demain ») : Swift fait AUTORITÉ (les LLM calculent mal le
-        // jour de la semaine). On résout depuis l'expression brute `whenRaw` extraite par le LLM.
-        let swiftDay = DateResolver.resolveDueDate(text: p.whenRaw ?? "", now: now)
+        // jour de la semaine). Uniquement si `whenRaw` est PUREMENT relatif (sans chiffre) : « jeudi 6
+        // août » est une date ABSOLUE (jour = étiquette) → on garde la date du LLM (resolveRelativeDay=nil).
+        let swiftDay = DateResolver.resolveRelativeDay(text: p.whenRaw, now: now)
         // Heure : celle du LLM (ou détectée dans le texte). Si on a un jour Swift fiable ET une heure,
         // on recale l'heure sur le BON jour (corrige un rappel dont le LLM s'est trompé de jour).
         var remind = parseISODateTime(p.remindAtRaw) ?? DateResolver.resolveRemind(text: p.text, now: now)

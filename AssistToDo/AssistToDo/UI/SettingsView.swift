@@ -14,12 +14,20 @@ import UserNotifications
 import KeyboardShortcuts
 
 struct SettingsView: View {
-    @AppStorage("whisperModel") private var whisperModel: String = "openai_whisper-large-v3_turbo"
+    @AppStorage("whisperModel") private var whisperModel: String = "large-v3-turbo-q8_0"
     @AppStorage("routingEnabled") private var routingEnabled: Bool = true
     @AppStorage("defaultCalendar") private var defaultCalendar: String = ""
     @AppStorage("defaultReminderList") private var defaultReminderList: String = ""
     @AppStorage("defaultNote") private var defaultNote: String = "LISTE Courses MAISON 2026"
-    @AppStorage("eventAlarmsEnabled") private var eventAlarmsEnabled: Bool = true
+    // Deux alertes par défaut pour les événements créés (minutes avant le début ; -1 = aucune).
+    @AppStorage("eventAlarm1Min") private var eventAlarm1Min: Int = 60
+    @AppStorage("eventAlarm2Min") private var eventAlarm2Min: Int = 1440
+    // (minutes avant, libellé). -1 = aucune, 0 = à l'heure.
+    private let alarmChoices: [(min: Int, label: String)] = [
+        (-1, "Aucune"), (0, "À l'heure de l'événement"), (5, "5 min avant"), (15, "15 min avant"),
+        (30, "30 min avant"), (60, "1 heure avant"), (120, "2 heures avant"),
+        (1440, "1 jour avant"), (2880, "2 jours avant"), (10080, "1 semaine avant")
+    ]
     @AppStorage("customRoutingRules") private var customRoutingRules: String = ""
     @AppStorage("calendar_perso") private var calendarPerso: String = ""
     @AppStorage("calendar_commun") private var calendarCommun: String = ""
@@ -45,19 +53,24 @@ struct SettingsView: View {
     @State private var calendarAccess = false
     @State private var remindersAccess = false
     @State private var importMessage: String?
+
+    @ObservedObject var transcriber: Transcriber
+    @State private var testing = false
+    @State private var testResult: TunnelResult?
+
+    struct TunnelResult {
+        var whisperOK: Bool; var whisperMsg: String
+        var orOK: Bool; var orMsg: String
+        var allOK: Bool { whisperOK && orOK }
+    }
     @State private var noteNames: [String] = []
     @State private var loadingNotes = false
     @State private var calendars: [String] = []
     @State private var reminderLists: [String] = []
 
-    // (slug WhisperKit exact, libellé). Slugs vérifiés sur le repo argmaxinc/whisperkit-coreml.
+    // Modèle GGML (whisper.cpp). Un seul modèle : large-v3-turbo q8_0, chargé par mmap (instantané).
     private let models: [(slug: String, label: String)] = [
-        ("tiny", "Tiny · ultra rapide, basique"),
-        ("base", "Base · rapide"),
-        ("small", "Small · plus précis"),
-        ("distil-whisper_distil-large-v3_turbo", "Distil Large v3 Turbo · rapide mais perd les dates FR"),
-        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · très précis (défaut)"),
-        ("openai_whisper-large-v3", "Large v3 · précision max, le plus lent")
+        ("large-v3-turbo-q8_0", "Large v3 Turbo · q8_0, chargement instantané (défaut)")
     ]
 
     /// Pont entre des minutes-depuis-minuit (stockées) et une Date pour le DatePicker (heure Paris).
@@ -75,6 +88,33 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Diagnostic du tunnel") {
+                Button {
+                    Task { await runTunnelTest() }
+                } label: {
+                    HStack {
+                        Image(systemName: "stethoscope")
+                        Text("Tester le tunnel (transcription + IA)")
+                        if testing { Spacer(); ProgressView().controlSize(.small) }
+                    }
+                }
+                .disabled(testing)
+                if let r = testResult {
+                    Label(r.whisperOK ? "Transcription (Whisper) : OK" : "Transcription : \(r.whisperMsg)",
+                          systemImage: r.whisperOK ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                        .foregroundStyle(r.whisperOK ? Color.green : Color.red).font(.system(size: 12))
+                    Label(r.orOK ? "IA (OpenRouter / Gemini) : OK" : "IA : \(r.orMsg)",
+                          systemImage: r.orOK ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                        .foregroundStyle(r.orOK ? Color.green : Color.red).font(.system(size: 12))
+                    if r.allOK {
+                        Text("✅ Tout fonctionne, le tunnel est opérationnel.")
+                            .font(.system(size: 12, weight: .medium)).foregroundStyle(.green)
+                    }
+                }
+                Text("Vérifie que le modèle de transcription est chargé ET que l'IA répond avec ta clé. Rouge = c'est là que ça bloque.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Section("Raccourci de capture") {
                 KeyboardShortcuts.Recorder("Maintenir pour parler :", name: .capture)
                 Text("Appui long = capture vocale. Appui bref = ouvre la liste.")
@@ -85,7 +125,23 @@ struct SettingsView: View {
                 Picker("Modèle Whisper", selection: $whisperModel) {
                     ForEach(models, id: \.slug) { Text($0.label).tag($0.slug) }
                 }
-                Text("Plus le modèle est gros, plus c'est précis mais lent (et lourd à télécharger au 1er usage). Les « Large » comprennent mieux les mots rares. Changement pris en compte au redémarrage.")
+                if transcriber.downloading {
+                    HStack {
+                        ProgressView(value: transcriber.downloadProgress > 0 ? transcriber.downloadProgress : nil)
+                        Text("\(Int(transcriber.downloadProgress * 100)) %").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    Text("Téléchargement du modèle… (une seule fois)").font(.caption).foregroundStyle(.secondary)
+                } else if whisperModel != transcriber.loadedModel {
+                    Button("Télécharger et activer ce modèle") {
+                        Task { await transcriber.switchModel(to: whisperModel) }
+                    }
+                    Text("Télécharge le modèle si besoin et l'active tout de suite, sans redémarrer.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else if transcriber.isReady {
+                    Label("Modèle actif : \(transcriber.loadedModel ?? whisperModel)", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green).font(.caption)
+                }
+                Text("Moteur whisper.cpp (Metal). Le modèle Large v3 Turbo (874 Mo) se télécharge une seule fois depuis notre serveur, puis se charge en ~1 s à chaque lancement, hors-ligne. Aucun temps de chauffe.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -127,7 +183,14 @@ struct SettingsView: View {
                         Text("Quand tu fermes le studio sans heure précise, l'événement bloque cette plage (créneau réel, pas journée entière → bloque vraiment les réservations).")
                             .font(.caption).foregroundStyle(.secondary)
                         Picker("Agenda par défaut", selection: $defaultCalendar) { calendarOptions() }
-                        Toggle("Rappels auto sur les événements (1h + 1 jour avant)", isOn: $eventAlarmsEnabled)
+                        Picker("Alerte 1", selection: $eventAlarm1Min) {
+                            ForEach(alarmChoices, id: \.min) { Text($0.label).tag($0.min) }
+                        }
+                        Picker("Alerte 2", selection: $eventAlarm2Min) {
+                            ForEach(alarmChoices, id: \.min) { Text($0.label).tag($0.min) }
+                        }
+                        Text("Alertes ajoutées automatiquement aux événements créés. ⚠️ macOS Calendrier peut AUSSI ajouter sa propre alerte « par défaut » (Calendrier ▸ Réglages ▸ Alertes) : si tu vois un doublon « 1 h avant », mets Alerte 1 sur « Aucune » ou retire le défaut dans Calendrier.")
+                            .font(.caption).foregroundStyle(.secondary)
                         Text("Le LLM classe chaque rdv (perso / commun / pro / studio) et l'ajoute à l'agenda choisi ici.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
@@ -292,6 +355,34 @@ struct SettingsView: View {
     }
 
     // MARK: - Actions
+
+    private func runTunnelTest() async {
+        testing = true; defer { testing = false }
+        testResult = nil
+        // 1) Transcription : état réel du modèle chargé par l'app (warmup réussi = transcrit vraiment).
+        let wOK = transcriber.isReady
+        let loaded = transcriber.loadedModel ?? whisperModel
+        let wMsg: String
+        if transcriber.downloading {
+            wMsg = "téléchargement du modèle en cours (1ʳᵉ fois)…"
+        } else if wOK {
+            wMsg = "modèle « \(loaded) » chargé"
+        } else {
+            wMsg = "modèle « \(whisperModel) » pas encore chargé"
+        }
+        // 2) IA : vrai appel minimal à OpenRouter avec ta clé.
+        var orOK = false; var orMsg = ""
+        let orModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? "google/gemini-2.5-flash"
+        do {
+            let resp = try await OpenRouterClient(model: orModel, timeout: 15)
+                .complete(system: "Réponds uniquement: ok", user: "ping")
+            orOK = !resp.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            orMsg = orOK ? "réponse reçue" : "réponse vide"
+        } catch {
+            orMsg = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+        }
+        testResult = TunnelResult(whisperOK: wOK, whisperMsg: wMsg, orOK: orOK, orMsg: orMsg)
+    }
 
     private func refresh() {
         apiKeySaved = KeychainStore.hasAPIKey

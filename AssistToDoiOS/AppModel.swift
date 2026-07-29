@@ -32,8 +32,9 @@ final class AppModel: ObservableObject {
     /// Modèle de transcription chargé (faux pendant le téléchargement du 1er lancement).
     /// Reflète `Transcriber.isReady` pour piloter un bandeau d'attente dans l'UI.
     @Published var transcriberReady = false
-    /// État détaillé de préparation (téléchargement %, préparation) pour un bandeau informatif.
-    @Published var transcriberReadiness: Transcriber.Readiness = .downloading(0)
+    /// Téléchargement du modèle GGML en cours (1er lancement) + progression 0…1 (bandeau).
+    @Published var transcriberDownloading = false
+    @Published var transcriberDownloadProgress: Double = 0
     /// Incrémenté quand la visibilité des agendas change (Réglages) → la vue Agenda se rafraîchit.
     @Published var agendaVisibilityVersion = 0
     /// Toast « revenir en arrière » : confirmation visible de la dernière action + bouton Annuler.
@@ -75,9 +76,9 @@ final class AppModel: ObservableObject {
         Task { await store.refreshToday() }
     }
 
-    // Slug WhisperKit (même liste que macOS, vérifiée sur argmaxinc/whisperkit-coreml).
-    // Défaut iPhone : "small" (FR correct, ~480 Mo) ; les modèles large restent dispo en option.
-    static let defaultWhisperModel = "small"
+    // Moteur whisper.cpp : un seul modèle GGML (turbo q8_0, ~874 Mo) téléchargé 1 fois depuis
+    // notre GitHub, chargé par mmap (offline, quasi instantané, aucune compilation ANE).
+    static let defaultWhisperModel = "large-v3-turbo-q8_0"
     static let defaultOpenRouterModel = "google/gemini-2.5-flash"
 
     /// true = le journal des captures n'a PAS pu s'ouvrir sur disque (repli mémoire volatile).
@@ -98,8 +99,9 @@ final class AppModel: ObservableObject {
         captureStoreIsVolatile = false
         captureStoreError = nil
         let notifications = NotificationManager(store: store)
-        let whisper = UserDefaults.standard.string(forKey: "whisperModel") ?? Self.defaultWhisperModel
-        let transcriber = Transcriber(model: whisper)
+        // Provisionnement du modèle GGML côté app (téléchargement 1×, vérif SHA256, offline ensuite).
+        let transcriber = Transcriber(model: Self.defaultWhisperModel,
+                                      provision: { p in await ModelProvisioner.ensureTurbo(progress: p) })
         let orModel = UserDefaults.standard.string(forKey: "openRouterModel") ?? Self.defaultOpenRouterModel
         let parser = TaskParser(client: OpenRouterClient(model: orModel))
         let router = IOSTaskRouter(store: store, notifications: notifications)
@@ -135,9 +137,10 @@ final class AppModel: ObservableObject {
             }
         }
 
-        // Reflète l'état de chargement du modèle Whisper dans l'UI (bandeau d'attente au 1er run).
+        // Reflète l'état de chargement du modèle dans l'UI (bandeau de téléchargement au 1er run).
         transcriber.$isReady.assign(to: &$transcriberReady)
-        transcriber.$readiness.assign(to: &$transcriberReadiness)
+        transcriber.$downloading.assign(to: &$transcriberDownloading)
+        transcriber.$downloadProgress.assign(to: &$transcriberDownloadProgress)
 
         // Nag des rappels en retard : re-programme les 2 notifs/jour à CHAQUE évolution des rappels
         // iCloud ouverts (cocher, reporter, sync iCloud en arrière-plan). Idempotent côté Kit.

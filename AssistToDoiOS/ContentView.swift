@@ -164,8 +164,8 @@ struct ContentView: View {
     /// Bandeau non bloquant pendant le téléchargement/chargement du modèle de transcription.
     /// Affiche un pourcentage réel pendant le download (1er lancement) pour ne pas faire croire à un bug.
     @ViewBuilder private var modelLoadingBanner: some View {
-        switch model.transcriberReadiness {
-        case .downloading(let fraction):
+        if model.transcriberDownloading {
+            let fraction = model.transcriberDownloadProgress
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -174,18 +174,14 @@ struct ContentView: View {
                     Spacer()
                 }
                 ProgressView(value: fraction)
-                Text("1er lancement uniquement (~480 Mo). Garde l'app ouverte.")
+                Text("1er lancement uniquement (~874 Mo). Garde l'app ouverte.")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16).padding(.vertical, 8)
             .background(.thinMaterial)
-        case .preparing:
-            banner(icon: nil, "Préparation du modèle… (presque prêt)")
-        case .failed:
-            banner(icon: "exclamationmark.triangle.fill",
-                   "Échec du chargement du modèle. Relance l'app (vérifie ta connexion).")
-        case .ready:
-            EmptyView()
+        } else {
+            // Pas en téléchargement mais pas encore prêt = chargement mmap (quasi instantané).
+            banner(icon: nil, "Préparation du modèle…")
         }
     }
 

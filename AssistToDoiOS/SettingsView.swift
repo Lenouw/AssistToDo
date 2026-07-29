@@ -17,7 +17,6 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @AppStorage("toudouBaseURL") private var toudouURL = ""
-    @AppStorage("whisperModel") private var whisperModel = AppModel.defaultWhisperModel
     @AppStorage("openRouterModel") private var openRouterModel = AppModel.defaultOpenRouterModel
     @AppStorage("routingEnabled") private var routingEnabled = true
     @AppStorage("iosLayout") private var iosLayout: AppLayout = .segmented
@@ -58,16 +57,6 @@ struct SettingsView: View {
     @State private var savedFlash = false
     @State private var hiddenCalendars: Set<String> = []   // agendas masqués de la zone Agenda
 
-    // Slugs WhisperKit vérifiés (repo argmaxinc/whisperkit-coreml), mêmes que macOS.
-    private let whisperModels: [(slug: String, label: String)] = [
-        ("tiny", "Tiny · ultra rapide, basique"),
-        ("base", "Base · rapide"),
-        ("small", "Small · équilibré (défaut iPhone)"),
-        ("distil-whisper_distil-large-v3_turbo", "Distil Large v3 Turbo · précis, assez rapide"),
-        ("openai_whisper-large-v3_turbo", "Large v3 Turbo · très précis, plus lent"),
-        ("openai_whisper-large-v3", "Large v3 · précision max, le plus lent")
-    ]
-
     var body: some View {
         NavigationStack {
             Form {
@@ -87,10 +76,11 @@ struct SettingsView: View {
                 }
 
                 Section("Transcription") {
-                    Picker("Modèle Whisper", selection: $whisperModel) {
-                        ForEach(whisperModels, id: \.slug) { Text($0.label).tag($0.slug) }
+                    HStack {
+                        Text("Modèle"); Spacer()
+                        Text("Large v3 Turbo").foregroundStyle(.secondary)
                     }
-                    Text("Changement pris en compte au prochain lancement.")
+                    Text("Moteur whisper.cpp (offline, chargement instantané). Téléchargé une seule fois au 1er lancement.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 

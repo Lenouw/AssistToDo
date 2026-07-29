@@ -33,6 +33,16 @@ public enum DateResolver {
         return nil
     }
 
+    /// Résout un jour PUREMENT relatif (« mardi prochain », « demain », « après-demain »).
+    /// Renvoie nil si le texte contient un CHIFFRE : « jeudi 6 août » / « vendredi 25 » sont des dates
+    /// ABSOLUES où le nom du jour n'est qu'une étiquette → la date du LLM fait foi, PAS un calcul de
+    /// jour de semaine (sinon on jette le « 6 août » et on retombe sur le prochain jeudi).
+    public static func resolveRelativeDay(text: String?, now: Date) -> Date? {
+        guard let t = text, !t.isEmpty else { return nil }
+        if t.range(of: #"\d"#, options: .regularExpression) != nil { return nil }
+        return resolveDueDate(text: t, now: now)
+    }
+
     /// Date d'échéance (jour) si un motif de jour est présent, sinon nil.
     public static func resolveDueDate(text: String, now: Date) -> Date? {
         let t = text.lowercased()

@@ -15,6 +15,19 @@ final class DateResolverTests: XCTestCase {
         XCTAssertEqual(DateResolver.resolveDueDate(text: "jeudi prochain", now: now),
                        date("2026-07-23T00:00:00+02:00"))
     }
+    // Régression « jeudi 6 août » → fermé le 30 : une date ABSOLUE avec un nom de jour ne doit PAS
+    // être résolue comme un jour relatif (sinon on jette le "6 août" et on prend le prochain jeudi).
+    func test_date_absolue_avec_nom_de_jour_non_resolue() {
+        let now = date("2026-07-29T10:46:00+02:00")   // mercredi
+        XCTAssertNil(DateResolver.resolveRelativeDay(text: "jeudi 6 août", now: now))
+        XCTAssertNil(DateResolver.resolveRelativeDay(text: "vendredi 25", now: now))
+        // Purement relatif (sans chiffre) → résolu normalement.
+        XCTAssertEqual(DateResolver.resolveRelativeDay(text: "mardi prochain", now: now),
+                       date("2026-08-04T00:00:00+02:00"))
+        XCTAssertEqual(DateResolver.resolveRelativeDay(text: "demain", now: now),
+                       date("2026-07-30T00:00:00+02:00"))
+    }
+
     // Recale l'heure du LLM (mauvais jour) sur le bon jour Swift.
     func test_combine_jour_heure() {
         let day = date("2026-07-21T00:00:00+02:00")     // bon jour (Swift)

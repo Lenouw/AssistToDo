@@ -268,7 +268,7 @@ public final class EventKitService {
 
     /// Rappels Apple datés à VENIR (demain → +`days` jours), non complétés. Complète `fetchOpenReminders`
     /// (qui exclut les futurs) pour que l'app iPhone AFFICHE ce qui a été créé (« À venir »), sinon un
-    /// rappel dicté pour demain semble ne rien produire. Trié au plus tôt d'abord.
+    /// rappel dicté pour demain semble ne rien produire. Trié au plus tôt d'abord. (Utilisé par iOS.)
     public func fetchFutureReminders(days: Int = 14) async -> [TodayItem] {
         guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return [] }
         let lists = store.calendars(for: .reminder)
@@ -285,6 +285,26 @@ public final class EventKitService {
             .compactMap { r -> TodayItem? in
                 guard let comps = r.dueDateComponents, let due = cal.date(from: comps) else { return nil }
                 return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title, hasTime: comps.hour != nil)
+            }
+            .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
+    }
+
+    /// Rappels iCloud à échéance FUTURE (après aujourd'hui), NON bornés. Utilisé par le TaskStore
+    /// partagé (Mac). Triés par échéance croissante.
+    public func fetchUpcomingReminders() async -> [TodayItem] {
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { return [] }
+        let lists = store.calendars(for: .reminder)
+        let pred = store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: lists)
+        let reminders: [EKReminder] = await withCheckedContinuation { cont in
+            store.fetchReminders(matching: pred) { cont.resume(returning: $0 ?? []) }
+        }
+        let cal = ParisCalendar.calendar
+        guard let endToday = cal.date(byAdding: .day, value: 1, to: ParisCalendar.startOfDay(for: Date())) else { return [] }
+        return reminders
+            .filter { !$0.isCompleted }
+            .compactMap { r -> TodayItem? in
+                guard let due = r.dueDateComponents.flatMap({ cal.date(from: $0) }), due >= endToday else { return nil }
+                return TodayItem(id: r.calendarItemIdentifier, title: r.title ?? "", date: due, isEvent: false, subtitle: r.calendar?.title, hasTime: r.dueDateComponents?.hour != nil)
             }
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
