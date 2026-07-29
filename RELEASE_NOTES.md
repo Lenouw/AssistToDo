@@ -1,5 +1,5 @@
-## AssistToDo 1.1.21
+## AssistToDo 1.1.22
 
-### Corrigé · dates absolues avec un nom de jour
-- **« le jeudi 6 août » tombait sur le mauvais jour.** Depuis la 1.1.19, quand une date exacte était précédée d'un nom de jour (« jeudi 6 août », « vendredi 25 »), l'app prenait le nom du jour comme une date relative et ignorait le numéro. Corrigé : une date avec un numéro reste absolue (le nom du jour n'est qu'une étiquette). « le jeudi 6 août » → 6 août.
-- Les jours purement relatifs (« mardi prochain », « demain ») restent calculés de façon fiable.
+### Corrigé · fermeture du studio « toute la journée »
+- **Le studio se fermait de 8h à 18h au lieu de ta plage réglée (8h-20h).** Quand tu dis « ferme le studio toute la journée », le modèle inventait une heure de début + une durée, ce qui court-circuitait ta plage configurée. Désormais, pour toute fermeture studio SANS heure d'horloge dictée, l'app applique ta plage des Réglages (Fermeture studio : de … à …), quoi que le modèle propose.
+- Si tu dictes une vraie heure (« ferme le studio de 14h à 18h », « ferme la matinée et rouvre à 14h »), ça reste respecté à la lettre.
