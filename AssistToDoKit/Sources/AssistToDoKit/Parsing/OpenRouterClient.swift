@@ -28,12 +28,32 @@ public struct OpenRouterClient {
     let model: String
     let timeout: TimeInterval
 
-    public init(model: String, timeout: TimeInterval = 8) {
+    /// 30 s (et non 8) : la réponse n'est PAS streamée, donc le timeout doit couvrir la
+    /// génération complète du modèle. À 8 s, sur iPhone (Wi-Fi/4G + latence OpenRouter),
+    /// le parse échouait par timeout → repli « texte brut » → la capture atterrissait dans
+    /// « À faire » sans rappel ni événement. Personne n'attend devant l'écran (le toast est
+    /// déjà affiché, le traitement est en tâche de fond) : mieux vaut patienter que rater.
+    public init(model: String, timeout: TimeInterval = 30) {
         self.model = model
         self.timeout = timeout
     }
 
+    /// Un timeout / une coupure réseau passagère ne doit pas coûter la structuration de la
+    /// capture : on retente une fois avant d'abandonner (les autres erreurs remontent direct).
     public func complete(system: String, user: String) async throws -> String {
+        do {
+            return try await send(system: system, user: user)
+        } catch let error as URLError where Self.isTransient(error) {
+            return try await send(system: system, user: user)
+        }
+    }
+
+    private static func isTransient(_ error: URLError) -> Bool {
+        [.timedOut, .networkConnectionLost, .cannotConnectToHost, .notConnectedToInternet]
+            .contains(error.code)
+    }
+
+    private func send(system: String, user: String) async throws -> String {
         let key = KeychainStore.apiKey()
         guard !key.isEmpty else { throw ClientError.noKey }
 
