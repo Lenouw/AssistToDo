@@ -8,7 +8,12 @@
 
 import Foundation
 
-public struct OpenRouterClient {
+/// Abstraction de l'appel LLM (permet d'injecter un faux client dans les tests du parseur).
+public protocol LLMCompleting: Sendable {
+    func complete(system: String, user: String) async throws -> String
+}
+
+public struct OpenRouterClient: LLMCompleting {
     public enum ClientError: Error, LocalizedError {
         case noKey, badResponse, apiError(String), httpStatus(Int, String)
         public var errorDescription: String? {
