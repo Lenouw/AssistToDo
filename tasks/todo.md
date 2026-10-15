@@ -1,3 +1,48 @@
+# ✅ Panneau « Travail » — LIVRÉ Mac v1.2.0 (2026-10-15)
+
+**Besoin (Florian)** : un panneau dédié au travail, distinct du vidage de cerveau et de la liste Claude Code, pour voir quoi faire en priorité et où il en est.
+
+**Décisions de Florian (2026-10-15)**
+- Avancement : **fait / pas fait** seulement (pas de statut « en cours »). L'ordre vient de la **priorité** puis de l'échéance.
+- **Regroupement par client / projet** : l'IA détecte le client dans la dictée (« pour Alysea… ») et range la tâche sous ce nom.
+- Routage : **mot-clé** (« travail », « boulot », « pour le client X », « côté pro ») + **déplacement manuel** depuis les autres listes. Même logique que `codeTodo`.
+- **Pas de sync Toudou** pour l'instant (Toudou n'a que 2 listes côté serveur). Local Mac + iPhone. Sync = chantier ultérieur côté projet Toudou.
+
+**Ce qui existe déjà et qu'on réutilise**
+- `LocalList` (braindump / code / shopping) → ajouter `.work`. `isSyncable` ne liste que braindump+code → `.work` est exclu de Toudou automatiquement.
+- `Priority` (bas/moyen/haut) déjà stockée (`priorityRaw`) et déjà demandée au LLM, mais jamais affichée ni éditable.
+- `TaskStore.moveToList` gère déjà proprement le déplacement (nouvelle identité + tombstone Toudou de l'ancienne) → pas de risque qu'une tâche déplacée revienne dans braindump au pull.
+
+## Étapes
+
+**A. Modèle (Core + Kit, partagé Mac/iPhone)**
+- [x] `LocalList.work` + champ `workTodo` (bool) dans `ParsedTask` / décodeur, sur le modèle de `codeTodo`.
+- [x] Champ client : `projectName: String?` dans `ParsedTask`, `TaskRecord`, `TaskEntity` (attribut SwiftData **optionnel** = migration légère). **Sauvegarder `AssistToDo.store` avant le 1er lancement** (incident perte de store 2026-06).
+- [x] `moveToList` : recopier aussi `projectName`.
+- [x] `TaskStore.workTasks` publié : `.local` + `.work` + non archivé, trié **priorité haute → basse**, puis échéance, puis ordre manuel.
+- [x] `setPriority(id:)` et `setProject(id:)` dans le store.
+
+**B. Parsing**
+- [x] Prompt : règle `workTodo` (mots-clés pro, exclusive avec `codeTodo`, `code` gagne si « Claude Code ») + extraction `projectName` (nom de client/projet tel que dicté, sinon null, **jamais inventé**).
+- [x] Liste des clients déjà connus injectée dans le prompt pour normaliser l'orthographe (« Alysea » toujours écrit pareil).
+- [x] Tests : routage work/code/braindump, client extrait, client absent → null.
+
+**C. Interface Mac (charger un skill design AVANT de coder : `impeccable` / `ui-ux-pro-max`)**
+- [x] Nouveau panneau « Travail » dans `ListView` (4ᵉ zone, teinte à choisir), compteur.
+- [x] Groupes par client (en-têtes repliables), « Sans client » en dernier.
+- [x] Marqueur de priorité visible + changement rapide (menu contextuel / swipe).
+- [x] Déplacer vers Travail depuis braindump et Claude Code (swipe / menu existants).
+- [x] Hauteur des panneaux : 4 zones redimensionnables (Travail persisté `paneWorkH`) ; groupes clients repliables.
+- [x] Vérif visuelle : capture, thème clair ET sombre.
+
+**D. Livraison**
+- [x] Tests Core/Kit verts, build, install, version, release GitHub.
+- [ ] Handoff iPhone (écrit, reste à faire côté conversation iPhone) : modèle + parsing arrivent par le merge ; le panneau iOS est à faire par la conversation iPhone.
+
+**Hors périmètre (plus tard)** : sync Toudou du panneau Travail (nécessite un 3ᵉ slug côté serveur Toudou), statut « en cours ».
+
+---
+
 # ✅ Polling sync / quota Neon — FAIT Mac v1.1.20 (2026-07-17)
 
 - [x] Pull **15 min** au lieu de 45 s (`SyncCoordinator.pollInterval`)

@@ -154,7 +154,8 @@ final class CaptureCoordinator {
             transcript: transcript, now: Date(),
             calendars: routingOn ? EventKitService.shared.calendarTitles : [],
             reminderLists: routingOn ? EventKitService.shared.reminderListTitles : [],
-            customRules: routingOn ? customRules : ""
+            customRules: routingOn ? customRules : "",
+            knownProjects: macRouter.knownProjects
         )
         // Routage partagé (même logique que le re-traitement). Pas de remplacement en live (capture neuve).
         let outcomes = await macRouter.routeDetailed(routed, replacing: [])

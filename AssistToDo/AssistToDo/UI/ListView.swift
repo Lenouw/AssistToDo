@@ -13,6 +13,7 @@ import SwiftUI
 import AssistToDoKit
 import AppKit
 import AssistToDoCore
+import UniformTypeIdentifiers
 
 struct ListView: View {
     @ObservedObject var store: TaskStore
@@ -26,14 +27,21 @@ struct ListView: View {
     // Hauteurs des zones (persistées). La zone du milieu (Code) prend le reste.
     @AppStorage("paneBrainH") private var brainH: Double = 300
     @AppStorage("paneTodayH") private var todayH: Double = 120
+    @AppStorage("paneWorkH") private var workH: Double = 190
     @State private var dragBaseBrain: Double?
+    @State private var dragBaseWork: Double?
     @State private var dragBaseToday: Double?
+
+    // Panneau Travail : groupes clients repliés (persistés) + édition inline du client.
+    @AppStorage("workCollapsedProjects") private var collapsedRaw: String = ""
+    @State private var editingProjectId: UUID?
+    @State private var projectText = ""
 
     private let handleH: CGFloat = 14
     private let minPane: CGFloat = 60
 
     private var isEmpty: Bool {
-        store.thoughts.isEmpty && store.codeTasks.isEmpty
+        store.thoughts.isEmpty && store.codeTasks.isEmpty && store.workTasks.isEmpty
             && store.todayEvents.isEmpty && store.todayReminders.isEmpty
     }
 
@@ -54,21 +62,31 @@ struct ListView: View {
 
     @ViewBuilder
     private func panes(in total: CGFloat) -> some View {
-        let avail = max(total - 2 * handleH, minPane * 3)
-        let tH = min(max(CGFloat(todayH), minPane), avail - 2 * minPane)
-        let bH = min(max(CGFloat(brainH), minPane), avail - tH - minPane)
-        let cH = avail - bH - tH
+        // Ordre : Vidage de cerveau, Travail, Claude Code (prend le reste), Calendrier.
+        let avail = max(total - 3 * handleH, minPane * 4)
+        let tH = min(max(CGFloat(todayH), minPane), avail - 3 * minPane)
+        let bH = min(max(CGFloat(brainH), minPane), avail - tH - 2 * minPane)
+        let wH = min(max(CGFloat(workH), minPane), avail - tH - bH - minPane)
+        let cH = avail - bH - wH - tH
 
         VStack(spacing: 0) {
             pane(title: "Vidage de cerveau", systemImage: "brain", count: store.thoughts.count + store.openReminders.count + store.upcomingReminders.count, height: bH, tint: .indigo) {
                 brainList
             }
-            handle(base: $dragBaseBrain, value: $brainH, lower: minPane, upper: avail - tH - minPane)
-            pane(title: "Claude Code", systemImage: "chevron.left.forwardslash.chevron.right", count: store.codeTasks.count, height: cH, tint: .green) {
-                if store.codeTasks.isEmpty { paneHint("Dicte « Claude Code : … » pour ajouter ici") }
-                else { taskList(store.codeTasks, move: moveCode) }
+            handle(base: $dragBaseBrain, value: $brainH, lower: minPane, upper: avail - tH - wH - minPane)
+            pane(title: "Travail", systemImage: "briefcase", count: store.workTasks.filter { !$0.isDone }.count, height: wH, tint: .pink) {
+                if store.workTasks.isEmpty {
+                    paneHint("Dicte « Travail : … » ou glisse une tâche ici")
+                        .onDrop(of: [.plainText], isTargeted: nil) { handleDrop($0, to: .work); return true }
+                }
+                else { workList }
             }
-            handle(base: $dragBaseToday, value: $todayH, lower: minPane, upper: avail - bH - minPane, inverted: true)
+            handle(base: $dragBaseWork, value: $workH, lower: minPane, upper: avail - tH - bH - minPane)
+            pane(title: "Claude Code", systemImage: "chevron.left.forwardslash.chevron.right", count: store.codeTasks.count, height: cH, tint: .green) {
+                if store.codeTasks.isEmpty { paneHint("Dicte « Claude Code : … » pour ajouter ici").onDrop(of: [.plainText], isTargeted: nil) { handleDrop($0, to: .code); return true } }
+                else { taskList(store.codeTasks, move: moveCode, dropTo: .code) }
+            }
+            handle(base: $dragBaseToday, value: $todayH, lower: minPane, upper: avail - bH - wH - minPane, inverted: true)
             pane(title: "Calendrier · iCloud", systemImage: "calendar", count: store.todayEvents.count, height: tH, tint: .blue) {
                 todayContent
             }
@@ -130,10 +148,11 @@ struct ListView: View {
 
     // MARK: - Listes réordonnables
 
-    private func taskList(_ tasks: [TaskRecord], move: @escaping (IndexSet, Int) -> Void) -> some View {
+    private func taskList(_ tasks: [TaskRecord], move: @escaping (IndexSet, Int) -> Void, dropTo list: LocalList) -> some View {
         List {
             ForEach(tasks) { thoughtRow($0) }
                 .onMove(perform: move)
+                .onInsert(of: [.plainText]) { _, p in handleDrop(p, to: list) }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -174,6 +193,7 @@ struct ListView: View {
             Section {
                 ForEach(store.thoughts) { thoughtRow($0) }
                     .onMove(perform: moveBrain)
+                    .onInsert(of: [.plainText]) { _, p in handleDrop(p, to: .braindump) }
             }
             // Rappels iCloud à échéance future : confirmation visuelle de ce qu'on vient de créer.
             if !store.upcomingReminders.isEmpty {
@@ -275,6 +295,7 @@ struct ListView: View {
             editRow(task)
         } else {
             ThoughtRow(task: task, timeLabel: Self.timeLabel(task)) { store.toggleDone(id: task.id) }
+                .itemProvider { Self.dragItem(task) }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) { store.delete(id: task.id) } label: { Label("Supprimer", systemImage: "trash") }.labelStyle(.titleAndIcon)
                     if task.destination == .local {
@@ -286,6 +307,11 @@ struct ListView: View {
                     if task.destination != .reminders {
                         Button { startEditing(task) } label: { Label("Modifier", systemImage: "pencil") }.labelStyle(.titleAndIcon).tint(.blue)
                     }
+                    if task.destination == .local && task.localList == .braindump {
+                        Button { store.moveToList(id: task.id, to: .work) } label: {
+                            Label("Travail", systemImage: "briefcase")
+                        }.labelStyle(.titleAndIcon).tint(.pink)
+                    }
                     if task.destination == .local {
                         Button { store.moveToList(id: task.id, to: task.localList == .code ? .braindump : .code) } label: {
                             Label(task.localList == .code ? "Vidage de cerveau" : "Claude Code", systemImage: "arrow.left.arrow.right")
@@ -296,15 +322,161 @@ struct ListView: View {
                     Button(task.isDone ? "Marquer non faite" : "Marquer faite") { store.toggleDone(id: task.id) }
                     if task.destination != .reminders { Button("Modifier") { startEditing(task) } }
                     if task.destination == .local {
-                        Button(task.localList == .code ? "Déplacer vers Vidage de cerveau" : "Déplacer vers Claude Code") {
-                            store.moveToList(id: task.id, to: task.localList == .code ? .braindump : .code)
-                        }
+                        moveMenu(task)
                         Button("Reporter à demain") { store.postponeToTomorrow(id: task.id) }
                     }
                     Divider()
                     Button("Supprimer", role: .destructive) { store.delete(id: task.id) }
                 }
         }
+    }
+
+    // MARK: - Glisser-déposer entre panneaux
+
+    /// Préfixe qui identifie une tâche AssistToDo dans le presse-papiers de glisser (évite d'avaler
+    /// un texte quelconque déposé depuis une autre app).
+    static let dragPrefix = "assisttodo-task:"
+    static func dragItem(_ t: TaskRecord) -> NSItemProvider {
+        NSItemProvider(object: (dragPrefix + t.id.uuidString) as NSString)
+    }
+
+    /// Dépôt d'une tâche sur une liste. Vers Travail, `project` = client du groupe visé (nil = Sans client).
+    private func handleDrop(_ providers: [NSItemProvider], to list: LocalList, project: String? = nil) {
+        for p in providers where p.canLoadObject(ofClass: NSString.self) {
+            _ = p.loadObject(ofClass: NSString.self) { obj, _ in
+                guard let raw = obj as? String, raw.hasPrefix(Self.dragPrefix),
+                      let id = UUID(uuidString: String(raw.dropFirst(Self.dragPrefix.count))) else { return }
+                DispatchQueue.main.async { store.dropTask(id: id, to: list, project: project) }
+            }
+        }
+    }
+
+    /// Sous-menu « Déplacer vers » : les deux autres listes locales.
+    @ViewBuilder
+    private func moveMenu(_ task: TaskRecord) -> some View {
+        Menu("Déplacer vers") {
+            if task.localList != .braindump { Button("Vidage de cerveau") { store.moveToList(id: task.id, to: .braindump) } }
+            if task.localList != .work { Button("Travail") { store.moveToList(id: task.id, to: .work) } }
+            if task.localList != .code { Button("Claude Code") { store.moveToList(id: task.id, to: .code) } }
+        }
+    }
+
+    // MARK: - Travail : groupes par client, ordonnés par urgence
+
+    /// Clients dans l'ordre de leur tâche la plus urgente (workTasks est déjà trié par priorité),
+    /// « Sans client » toujours en dernier.
+    private var workGroups: [(name: String?, tasks: [TaskRecord])] {
+        var order: [String] = []
+        var byName: [String: [TaskRecord]] = [:]
+        var unassigned: [TaskRecord] = []
+        for t in store.workTasks {
+            guard let n = t.projectName else { unassigned.append(t); continue }
+            if byName[n] == nil { order.append(n) }
+            byName[n, default: []].append(t)
+        }
+        var out: [(name: String?, tasks: [TaskRecord])] = order.map { ($0, byName[$0] ?? []) }
+        if !unassigned.isEmpty { out.append((nil, unassigned)) }
+        return out
+    }
+
+    private var collapsed: Set<String> { Set(collapsedRaw.split(separator: "\n").map(String.init)) }
+    private func toggleCollapsed(_ key: String) {
+        var c = collapsed
+        if c.contains(key) { c.remove(key) } else { c.insert(key) }
+        collapsedRaw = c.sorted().joined(separator: "\n")
+    }
+
+    private var workList: some View {
+        List {
+            ForEach(workGroups, id: \.name) { group in
+                let key = group.name ?? "∅"
+                let isCollapsed = collapsed.contains(key)
+                Section {
+                    if !isCollapsed {
+                        ForEach(group.tasks) { workRow($0) }
+                            .onInsert(of: [.plainText]) { _, p in handleDrop(p, to: .work, project: group.name) }
+                    }
+                } header: {
+                    WorkGroupHeader(name: group.name ?? "Sans client", open: group.tasks.filter { !$0.isDone }.count,
+                                    isCollapsed: isCollapsed, isUnassigned: group.name == nil) {
+                        withAnimation(.easeOut(duration: 0.18)) { toggleCollapsed(key) }
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .animation(.easeOut(duration: 0.2), value: store.workTasks)
+    }
+
+    @ViewBuilder
+    private func workRow(_ task: TaskRecord) -> some View {
+        if editingId == task.id {
+            editRow(task)
+        } else if editingProjectId == task.id {
+            projectEditRow(task)
+        } else {
+            WorkRow(task: task, dueLabel: Self.workDueLabel(task),
+                    onToggle: { store.toggleDone(id: task.id) },
+                    onPriority: { store.setPriority(id: task.id, $0) })
+                .itemProvider { Self.dragItem(task) }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) { store.delete(id: task.id) } label: { Label("Supprimer", systemImage: "trash") }.labelStyle(.titleAndIcon)
+                    Button { store.postponeToTomorrow(id: task.id) } label: { Label("Demain", systemImage: "arrow.uturn.forward") }.labelStyle(.titleAndIcon).tint(.orange)
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button { store.toggleDone(id: task.id) } label: { Label("Fait", systemImage: "checkmark.circle") }.labelStyle(.titleAndIcon).tint(.green)
+                    Button { startEditing(task) } label: { Label("Modifier", systemImage: "pencil") }.labelStyle(.titleAndIcon).tint(.blue)
+                    Button { startEditingProject(task) } label: { Label("Client", systemImage: "person.crop.square") }.labelStyle(.titleAndIcon).tint(.pink)
+                }
+                .contextMenu {
+                    Button(task.isDone ? "Marquer non faite" : "Marquer faite") { store.toggleDone(id: task.id) }
+                    Button("Modifier") { startEditing(task) }
+                    Menu("Priorité") {
+                        Button("Haute") { store.setPriority(id: task.id, .haut) }
+                        Button("Moyenne") { store.setPriority(id: task.id, .moyen) }
+                        Button("Basse") { store.setPriority(id: task.id, .bas) }
+                        Divider()
+                        Button("Aucune") { store.setPriority(id: task.id, nil) }
+                    }
+                    Menu("Client") {
+                        ForEach(store.knownProjects.filter { $0 != task.projectName }, id: \.self) { name in
+                            Button(name) { store.setProject(id: task.id, name) }
+                        }
+                        if !store.knownProjects.isEmpty { Divider() }
+                        Button("Nouveau client…") { startEditingProject(task) }
+                        if task.projectName != nil { Button("Retirer le client") { store.setProject(id: task.id, nil) } }
+                    }
+                    moveMenu(task)
+                    Button("Reporter à demain") { store.postponeToTomorrow(id: task.id) }
+                    Divider()
+                    Button("Supprimer", role: .destructive) { store.delete(id: task.id) }
+                }
+        }
+    }
+
+    private func projectEditRow(_ task: TaskRecord) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "person.crop.square").foregroundStyle(.pink)
+            TextField("Nom du client", text: $projectText)
+                .textFieldStyle(.plain)
+                .onSubmit { commitProject(task) }
+            Button("OK") { commitProject(task) }.buttonStyle(.borderedProminent).controlSize(.small).tint(.pink)
+        }
+        .padding(.vertical, 3)
+        .onExitCommand { editingProjectId = nil }
+    }
+
+    private func startEditingProject(_ task: TaskRecord) { projectText = task.projectName ?? ""; editingProjectId = task.id }
+    private func commitProject(_ task: TaskRecord) { store.setProject(id: task.id, projectText); editingProjectId = nil }
+
+    /// Échéance affichée seulement si elle apporte une info : à venir (« ven. 17 ») ou reportée.
+    static func workDueLabel(_ r: TaskRecord) -> String? {
+        if let d = r.dueDate, ParisCalendar.startOfDay(for: d) > ParisCalendar.startOfDay(for: Date()) {
+            return ParisCalendar.calendar.isDateInTomorrow(d) ? "demain" : dayShort.string(from: d)
+        }
+        if r.rolloverCount > 0 { return "reportée ×\(r.rolloverCount)" }
+        return nil
     }
 
     private func editRow(_ task: TaskRecord) -> some View {
@@ -408,6 +580,7 @@ private struct ThoughtRow: View {
 
     private var iconName: String {
         if task.destination == .local && task.localList == .code { return "chevron.left.forwardslash.chevron.right" }
+        if task.destination == .local && task.localList == .work { return "briefcase" }
         return Self.icon(task.destination)
     }
     private var iconTint: Color {
@@ -507,5 +680,119 @@ private struct ReminderRowView: View {
             guard overdue else { return }
             withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true }
         }
+    }
+}
+
+// MARK: - Travail : ligne et en-tête de groupe
+
+/// Ligne du panneau Travail. La priorité se lit par la FORME (barres de signal remplies 1→3),
+/// la couleur ne fait que renforcer « haute » : lisible aussi en daltonisme et en thème sombre.
+private struct WorkRow: View {
+    let task: TaskRecord
+    let dueLabel: String?
+    let onToggle: () -> Void
+    let onPriority: (Priority?) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Button(action: onToggle) {
+                Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(task.isDone ? Color.green : Color.secondary)
+            }
+            .buttonStyle(.plain)
+            .frame(width: 16)
+            .padding(.top, 1)
+            .accessibilityLabel(task.isDone ? "Marquer non faite" : "Marquer faite")
+
+            Menu {
+                Button { onPriority(.haut) } label: { Label("Haute", systemImage: "cellularbars") }
+                Button { onPriority(.moyen) } label: { Label("Moyenne", systemImage: "cellularbars") }
+                Button { onPriority(.bas) } label: { Label("Basse", systemImage: "cellularbars") }
+                Divider()
+                Button("Aucune") { onPriority(nil) }
+            } label: {
+                Image(systemName: "cellularbars", variableValue: barsValue)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(barsStyle)
+                    .frame(width: 16, height: 16)
+            }
+            // .button + .plain : seul style de Menu macOS qui respecte la couleur du label
+            // (.borderlessButton la repeint en noir/blanc, la priorité haute perdait son rose).
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .padding(.top, 1)
+            .help("Priorité : \(priorityName)")
+            .accessibilityLabel("Priorité \(priorityName)")
+
+            Text(task.text)
+                .font(.system(size: 13))
+                .strikethrough(task.isDone)
+                .foregroundStyle(task.isDone ? .secondary : .primary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 6)
+
+            if let dueLabel {
+                Text(dueLabel)
+                    .font(.system(size: 10).monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 2)
+            }
+        }
+        .padding(.vertical, 3)
+        .contentShape(Rectangle())
+        .opacity(task.isDone ? 0.7 : 1)
+    }
+
+    private var barsValue: Double {
+        // Paliers nets sur l'icône à 4 barres : basse 1, moyenne 2, haute 4 (écart lisible d'un coup d'œil).
+        switch task.priority { case .haut: return 1; case .moyen: return 0.5; case .bas: return 0.25; case nil: return 0 }
+    }
+    private var barsStyle: AnyShapeStyle {
+        switch task.priority {
+        case .haut: return AnyShapeStyle(Color.pink)
+        case .moyen: return AnyShapeStyle(.secondary)
+        case .bas, nil: return AnyShapeStyle(.tertiary)
+        }
+    }
+    private var priorityName: String {
+        switch task.priority { case .haut: return "haute"; case .moyen: return "moyenne"; case .bas: return "basse"; case nil: return "aucune" }
+    }
+}
+
+/// En-tête repliable d'un groupe client : chevron, nom, nombre de tâches ouvertes.
+private struct WorkGroupHeader: View {
+    let name: String
+    let open: Int
+    let isCollapsed: Bool
+    let isUnassigned: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 10)
+                Text(name)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(isUnassigned ? .secondary : .primary)
+                    .italic(isUnassigned)
+                    .lineLimit(1)
+                Spacer()
+                if open > 0 {
+                    Text("\(open)").font(.system(size: 10, weight: .medium).monospacedDigit()).foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(name), \(open) tâche\(open > 1 ? "s" : ""), \(isCollapsed ? "replié" : "déplié")")
     }
 }

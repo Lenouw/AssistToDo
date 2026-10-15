@@ -23,6 +23,8 @@ struct RoutedOutcome {
 @MainActor
 final class MacTaskRouter: TaskRouting {
     private let store: TaskStore
+    /// Clients / projets déjà utilisés (panneau Travail), pour normaliser l'orthographe côté LLM.
+    var knownProjects: [String] { store.knownProjects }
     private let notifications: NotificationManager
 
     init(store: TaskStore, notifications: NotificationManager) {

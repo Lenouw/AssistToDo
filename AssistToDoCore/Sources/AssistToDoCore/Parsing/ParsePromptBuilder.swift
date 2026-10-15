@@ -2,7 +2,7 @@ import Foundation
 
 public enum ParsePromptBuilder {
     public static func systemPrompt(now: Date, calendars: [String] = [], reminderLists: [String] = [],
-                                    customRules: String = "") -> String {
+                                    customRules: String = "", knownProjects: [String] = []) -> String {
         let f = ISO8601DateFormatter()
         f.timeZone = ParisCalendar.tz
         f.formatOptions = [.withInternetDateTime]
@@ -32,6 +32,9 @@ public enum ParsePromptBuilder {
         if !reminderLists.isEmpty {
             routing += "\nListes de Rappels disponibles : \(reminderLists.joined(separator: ", ")). Pour destination=reminders, mets dans listName la liste pertinente, sinon null."
         }
+        if !knownProjects.isEmpty {
+            routing += "\nClients / projets déjà connus : \(knownProjects.joined(separator: ", ")). Si la capture concerne l'un d'eux, réutilise EXACTEMENT son orthographe dans projectName."
+        }
         let rules = customRules.trimmingCharacters(in: .whitespacesAndNewlines)
         if !rules.isEmpty {
             routing += "\nRègles de classement de l'utilisateur (PRIORITAIRES sur tout le reste, applique-les strictement) :\n\(rules)"
@@ -40,7 +43,7 @@ public enum ParsePromptBuilder {
         return """
         Tu transformes une phrase dictée en français en tâches JSON.
         Réponds UNIQUEMENT en JSON, sans texte autour, au format :
-        {"tasks":[{"text":"...","destination":"local|reminders|calendar|notes","remindAt":"ISO8601 avec offset ou null","dueDate":"YYYY-MM-DD ou null","when":"expression de jour relative brute ou null","durationMinutes":60,"calendarCategory":"perso|commun|pro|studio ou null","calendarName":"nom de calendrier ou null","listName":"nom de liste Rappels ou null","noteName":"nom de note ou null","priority":"bas|moyen|haut ou null","notify":true|false,"tags":[],"codeTodo":true|false}]}
+        {"tasks":[{"text":"...","destination":"local|reminders|calendar|notes","remindAt":"ISO8601 avec offset ou null","dueDate":"YYYY-MM-DD ou null","when":"expression de jour relative brute ou null","durationMinutes":60,"calendarCategory":"perso|commun|pro|studio ou null","calendarName":"nom de calendrier ou null","listName":"nom de liste Rappels ou null","noteName":"nom de note ou null","priority":"bas|moyen|haut ou null","notify":true|false,"tags":[],"codeTodo":true|false,"workTodo":true|false,"projectName":"client/projet ou null"}]}
         Maintenant = \(nowStr) (Europe/Paris). Calcule les HEURES relatives (« dans 2h », « ce soir ») par rapport à cet instant.
         DATES : ne calcule PAS toi-même le jour de la semaine (tu te trompes). Pour une tâche datée par un jour RELATIF SANS numéro ("mardi", "mardi prochain", "demain", "après-demain", "jeudi prochain") : recopie l'expression EXACTE dans "when", et mets aussi la date de la table dans dueDate. Une date ABSOLUE (avec un NUMÉRO de jour ou un mois, MÊME précédée d'un nom de jour : "le 25 juillet", "le 3/09", "jeudi 6 août", "vendredi 25") N'EST PAS relative : when=null et mets la vraie date dans dueDate (le nom du jour n'est qu'une étiquette de cette date). Si aucune date : when=null, dueDate=null. "when" ne contient JAMAIS d'heure ni de numéro.
         Table des dates (Europe/Paris) — pour remplir dueDate :
@@ -67,6 +70,8 @@ public enum ParsePromptBuilder {
         - "notes" : article de courses ou liste de courses partagée ("ajoute du lait", "il nous faut du pain", "sur la liste de courses", ingrédients à acheter pour la maison). Le champ text ne contient QUE le nom de l'article ("lait", "pain", "farine") — JAMAIS de verbe ("acheter", "ajoute", "prends", "il faut"). Un item par article. Mets dans noteName le nom de note si précisé ("dans ma note X"), sinon null.
         - "local" : to-do "vide-tête" SANS aucune date ni heure dictée (chose à faire un jour, pas urgente, sans "quand" : "chercher le colis Amazon", "penser à rappeler le plombier", "réserver une table au resto", "préparer le dossier") — c'est le cas par défaut d'une chose à faire non datée. OU rappel très court terme (moins de 2h : "dans 5 min", "dans 1h"). OU simple note/idée à capturer. C'est cette liste locale qui se synchronise avec Toudou.
         Champ "codeTodo" (uniquement pertinent si destination="local") : mets-le à true quand la capture est une to-do de DÉVELOPPEMENT / code, signalée par un mot-clé : "Claude Code", "à coder", "note de code", "à développer", "feature à faire", "bug à corriger", "le client veut/demande" (une modif logicielle). Dans ce cas, RETIRE le mot-clé déclencheur du text (ex "Claude Code : ajouter le dark mode" => text "Ajouter le dark mode", codeTodo=true). Sinon codeTodo=false. Ça ne change PAS destination (reste "local"), juste la sous-liste.
+        Champ "workTodo" (uniquement si destination="local") : true quand la capture est une to-do de TRAVAIL professionnel, signalée par un mot-clé : "travail", "boulot", "côté pro", "pour le travail", "pour le client", "pour un client", ou le nom d'un client/projet connu. Dans ce cas RETIRE le mot-clé déclencheur du text (ex "Travail : envoyer le devis à Alysea" => text "Envoyer le devis", workTodo=true, projectName "Alysea"). Si codeTodo=true (Claude Code, à coder…), workTodo=false : le code gagne. Sinon workTodo=false.
+        Champ "projectName" : le nom du client ou du projet tel qu'il est DICTÉ ("pour Alysea", "chez Dupont", "projet ARP 2000"), sinon null. N'INVENTE JAMAIS un client absent de la dictée. Retire-le du text s'il ne sert qu'à classer.
         Mots-clés explicites prioritaires sur les règles ci-dessus :
         - "dans mon calendrier", "mets ça dans l'agenda", "ajoute un événement" => calendar
         - "dans mes rappels", "dans Rappels", "dans ma liste X" => reminders (listName = "X")

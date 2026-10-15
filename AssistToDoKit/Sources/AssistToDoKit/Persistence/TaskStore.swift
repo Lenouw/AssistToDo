@@ -23,6 +23,10 @@ public final class TaskStore: ObservableObject {
     @Published public private(set) var codeTasks: [TaskRecord] = []
     /// Liste de courses in-app (local, sous-liste "shopping") : utilisée sur iOS.
     @Published public private(set) var shoppingItems: [TaskRecord] = []
+    /// Travail (local, sous-liste "work") : priorité haute → basse, puis échéance, puis ordre manuel.
+    @Published public private(set) var workTasks: [TaskRecord] = []
+    /// Clients / projets déjà utilisés (panneau Travail), triés A→Z. Injectés au LLM pour l'orthographe.
+    @Published public private(set) var knownProjects: [String] = []
     /// Agenda du jour, lecture seule, lu en direct d'iCloud.
     @Published public private(set) var todayEvents: [TodayItem] = []
     @Published public private(set) var todayReminders: [TodayItem] = []
@@ -86,14 +90,30 @@ public final class TaskStore: ObservableObject {
             .sorted(by: Self.manualOrder)
         shoppingItems = all.filter { $0.destination == .local && $0.localList == .shopping }
             .sorted(by: Self.manualOrder)
+        workTasks = all.filter { $0.destination == .local && $0.localList == .work && !archivedNow($0) }
+            .sorted(by: Self.workOrder)
+        knownProjects = Array(Set(all.filter { $0.localList == .work }.compactMap { $0.projectName }))
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
         // Archive : tâches faites depuis plus de 24h (braindump + code), plus récentes en haut.
-        archived = all.filter { ($0.localList == .braindump || $0.localList == .code) && archivedNow($0) }
+        archived = all.filter { ($0.localList == .braindump || $0.localList == .code || $0.localList == .work) && archivedNow($0) }
             .sorted { ($0.doneAt ?? .distantPast) > ($1.doneAt ?? .distantPast) }
         badgeCount = thoughts.filter { !$0.isDone }.count
     }
 
+    /// Ordre du panneau Travail : priorité (haut > moyen > sans > bas), puis échéance la plus proche,
+    /// puis ordre manuel. Une tâche sans priorité passe avant « bas » (non triée ≠ peu importante).
+    static func workOrder(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
+        func rank(_ p: Priority?) -> Int {
+            switch p { case .haut: return 0; case .moyen: return 1; case nil: return 2; case .bas: return 3 }
+        }
+        if rank(a.priority) != rank(b.priority) { return rank(a.priority) < rank(b.priority) }
+        let da = a.dueDate ?? .distantFuture, db = b.dueDate ?? .distantFuture
+        if da != db { return da < db }
+        return manualOrder(a, b)
+    }
+
     /// Ordre d'affichage : ordre manuel (orderIndex croissant), à égalité le plus récent en haut.
-    private static func manualOrder(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
+    static func manualOrder(_ a: TaskRecord, _ b: TaskRecord) -> Bool {
         a.orderIndex != b.orderIndex ? a.orderIndex < b.orderIndex : a.createdAt > b.createdAt
     }
 
@@ -139,10 +159,12 @@ public final class TaskStore: ObservableObject {
     /// Déplace une tâche locale d'une sous-liste à l'autre (vidage de cerveau ↔ code).
     /// Pour respecter la sync : on crée une nouvelle identité dans la liste cible et on retire l'ancienne
     /// (tombstone si elle était sur Toudou, sinon suppression locale).
-    public func moveToList(id: UUID, to list: LocalList) {
-        guard let e = fetchAll().first(where: { $0.id == id }), e.destinationRaw == "local" else { return }
+    /// Renvoie l'id de la copie créée (nil si rien n'a bougé).
+    @discardableResult
+    public func moveToList(id: UUID, to list: LocalList) -> UUID? {
+        guard let e = fetchAll().first(where: { $0.id == id }), e.destinationRaw == "local" else { return nil }
         let from = LocalList(rawValue: e.localListRaw) ?? .braindump
-        guard from != list else { return }
+        guard from != list else { return nil }
 
         let nextOrder = topOrderIndex()
         let copy = TaskEntity(id: UUID(), text: e.text, createdAt: e.createdAt, dueDate: e.dueDate, remindAt: nil,
@@ -151,6 +173,7 @@ public final class TaskStore: ObservableObject {
                               rawTranscript: e.rawTranscript, parseStatusRaw: e.parseStatusRaw,
                               destinationRaw: "local", externalId: nil, orderIndex: nextOrder)
         copy.localListRaw = list.rawValue
+        copy.projectName = e.projectName
         if Self.isSyncable(copy) { copy.updatedAt = Date(); copy.syncDirty = true }  // braindump → créé sur Toudou
         context.insert(copy)
 
@@ -163,6 +186,7 @@ public final class TaskStore: ObservableObject {
             context.delete(e)
         }
         save(); reload()
+        return copy.id
     }
 
     /// Marque une tâche comme modifiée à synchroniser (bump updatedAt + dirty), si elle est synchronisable.
@@ -279,6 +303,33 @@ public final class TaskStore: ObservableObject {
         e.notify = remindAt != nil
         e.notificationId = notificationId
         if let remindAt { e.dueDate = ParisCalendar.startOfDay(for: remindAt) }
+        save(); reload()
+    }
+
+    /// Glisser-déposer d'une tâche vers une liste. Vers Travail, `project` range la tâche sous le
+    /// client du groupe visé (nil = « Sans client ») ; dans Travail même, ça change juste le client.
+    /// Renvoie l'id final de la tâche (nouvel id si elle a changé de liste).
+    @discardableResult
+    public func dropTask(id: UUID, to list: LocalList, project: String? = nil) -> UUID? {
+        guard let e = fetchAll().first(where: { $0.id == id }), e.destinationRaw == "local", !e.tombstone else { return nil }
+        let from = LocalList(rawValue: e.localListRaw) ?? .braindump
+        let finalId = from == list ? id : (moveToList(id: id, to: list) ?? id)
+        if list == .work { setProject(id: finalId, project) }
+        return finalId
+    }
+
+    /// Priorité d'une tâche (nil = sans priorité). Local-only : la priorité ne part pas sur Toudou.
+    public func setPriority(id: UUID, _ priority: Priority?) {
+        guard let e = fetchAll().first(where: { $0.id == id }) else { return }
+        e.priorityRaw = priority?.rawValue
+        save(); reload()
+    }
+
+    /// Client / projet d'une tâche (nil ou vide = « Sans client »).
+    public func setProject(id: UUID, _ name: String?) {
+        guard let e = fetchAll().first(where: { $0.id == id }) else { return }
+        let t = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        e.projectName = (t?.isEmpty ?? true) ? nil : t
         save(); reload()
     }
 

@@ -39,6 +39,9 @@ final class TaskEntity {
     // Sous-liste d'une tâche locale : "braindump" (vidage de cerveau) ou "code" (to-do Claude Code).
     var localListRaw: String = "braindump"
 
+    // Client / projet (panneau Travail). Optionnel : migration SwiftData légère, nil = « Sans client ».
+    var projectName: String? = nil
+
     // Synchronisation Toudou (ne concerne que les to-do "vide-tête" = local sans remindAt).
     var updatedAt: Date = Date.distantPast   // horloge de dernière modif synchronisable (LWW)
     var syncDirty: Bool = false              // changement local pas encore poussé vers Toudou
@@ -67,6 +70,7 @@ extension TaskEntity {
                   parseStatusRaw: r.parseStatus.rawValue, destinationRaw: r.destination.rawValue,
                   externalId: r.externalId, orderIndex: r.orderIndex)
         self.localListRaw = r.localList.rawValue
+        self.projectName = r.projectName
     }
 
     func toRecord() -> TaskRecord {
@@ -78,7 +82,8 @@ extension TaskEntity {
                    parseStatus: TaskRecord.ParseStatus(rawValue: parseStatusRaw) ?? .parsed,
                    destination: Destination(rawValue: destinationRaw) ?? .local,
                    externalId: externalId, orderIndex: orderIndex,
-                   localList: LocalList(rawValue: localListRaw) ?? .braindump)
+                   localList: LocalList(rawValue: localListRaw) ?? .braindump,
+                   projectName: projectName)
     }
 
     /// Met à jour l'entité existante depuis un record (utilisé par le rollover).
@@ -89,5 +94,6 @@ extension TaskEntity {
         rawTranscript = r.rawTranscript; parseStatusRaw = r.parseStatus.rawValue
         destinationRaw = r.destination.rawValue; externalId = r.externalId; orderIndex = r.orderIndex
         localListRaw = r.localList.rawValue
+        projectName = r.projectName
     }
 }

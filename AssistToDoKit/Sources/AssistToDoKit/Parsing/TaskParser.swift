@@ -22,20 +22,32 @@ public struct RoutedTask {
 }
 
 public struct TaskParser {
-    let client: OpenRouterClient
+    let client: any LLMCompleting
 
-    public init(client: OpenRouterClient) {
+    public init(client: any LLMCompleting) {
         self.client = client
     }
 
     public func parse(transcript: String, now: Date,
                       calendars: [String] = [], reminderLists: [String] = [],
-                      customRules: String = "") async -> [RoutedTask] {
+                      customRules: String = "", knownProjects: [String] = []) async -> [RoutedTask] {
         let system = ParsePromptBuilder.systemPrompt(now: now, calendars: calendars,
-                                                     reminderLists: reminderLists, customRules: customRules)
+                                                     reminderLists: reminderLists, customRules: customRules,
+                                                     knownProjects: knownProjects)
         do {
             let content = try await client.complete(system: system, user: transcript)
-            let parsed = try ParseResponseDecoder.decode(content)
+            var parsed = try ParseResponseDecoder.decode(content)
+            // Garde-fou « écho » : le LLM recrache parfois la phrase dictée telle quelle en simple
+            // note locale, en ignorant la consigne (vu en vrai : « Ferme le studio le vendredi 9
+            // septembre de 15h à 16h » rangé dans le vidage de cerveau au lieu de créer l'événement).
+            // C'est un raté d'instruction, pas une décision : on retente UNE fois.
+            if Self.isEcho(parsed, transcript: transcript) {
+                if let retryContent = try? await client.complete(system: system, user: transcript),
+                   let retry = try? ParseResponseDecoder.decode(retryContent),
+                   !Self.isEcho(retry, transcript: transcript) {
+                    parsed = retry
+                }
+            }
             // Vide = le LLM a jugé que ce n'est pas une vraie tâche → on ne crée rien.
             // On écarte aussi les tâches au texte vide/blanc (hallucination de split, objet
             // résiduel) : sinon une ligne fantôme serait créée et poussée sur Toudou.
@@ -47,6 +59,36 @@ public struct TaskParser {
             print("Parse échoué, fallback texte brut : \(error)")
             return [rawFallback(transcript, now: now)]
         }
+    }
+
+    // MARK: - Garde-fou « écho »
+
+    /// Vrai si le LLM s'est contenté de renvoyer la phrase dictée en note locale non datée, alors que
+    /// la phrase contient un repère temporel (donc elle aurait dû être routée/datée). Le prompt interdit
+    /// explicitement de recopier le transcript : c'est un raté d'instruction → on peut retenter.
+    static func isEcho(_ tasks: [ParsedTask], transcript: String) -> Bool {
+        guard tasks.count == 1, let t = tasks.first,
+              t.destination == .local,
+              t.dueDateRaw == nil, t.remindAtRaw == nil,
+              hasTemporalSignal(transcript) else { return false }
+        return normalized(t.text) == normalized(transcript)
+    }
+
+    /// Repère temporel dicté : heure d'horloge, mois, jour de semaine, ou mot relatif.
+    static func hasTemporalSignal(_ s: String) -> Bool {
+        let t = normalized(s)
+        if s.range(of: #"\d{1,2}\s*[h:]"#, options: .regularExpression) != nil { return true }
+        let markers = ["janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout",
+                       "septembre", "octobre", "novembre", "decembre",
+                       "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
+                       "demain", "prochain", "prochaine", "aujourdhui"]
+        return markers.contains { t.contains($0) }
+    }
+
+    /// Minuscules, sans accents ni ponctuation ni espaces (comparaison tolérante).
+    private static func normalized(_ s: String) -> String {
+        s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_FR"))
+            .components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
     }
 
     // MARK: - Construction
@@ -79,7 +121,8 @@ public struct TaskParser {
             tags: p.tags,
             rawTranscript: transcript,
             parseStatus: .parsed,
-            localList: p.codeTodo ? .code : .braindump
+            localList: p.codeTodo ? .code : (p.workTodo ? .work : .braindump),
+            projectName: p.projectName
         )
         // Un événement calendrier sans heure → événement "journée entière" (ex: bloquer le studio).
         return RoutedTask(record: record, destination: p.destination,

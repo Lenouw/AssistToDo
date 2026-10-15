@@ -16,6 +16,7 @@ public enum LocalList: String, Codable, Sendable {
     case braindump   // vidage de cerveau (liste principale)
     case code        // to-do Claude Code (idées de dev, modifs clients)
     case shopping    // liste de courses in-app (iOS)
+    case work        // travail : to-do pro priorisée, regroupée par client
 }
 
 public struct ParsedTask: Equatable, Sendable {
@@ -33,18 +34,21 @@ public struct ParsedTask: Equatable, Sendable {
     public var notify: Bool
     public var tags: [String]
     public var codeTodo: Bool          // to-do de code (liste Claude Code) plutôt que vidage de cerveau
+    public var workTodo: Bool          // to-do de travail (panneau Travail)
+    public var projectName: String?    // client / projet dicté (jamais inventé)
 
     public init(text: String, destination: Destination = .local,
                 remindAtRaw: String? = nil, dueDateRaw: String? = nil, whenRaw: String? = nil,
                 durationMinutes: Int? = nil, listName: String? = nil, calendarName: String? = nil,
                 calendarCategory: CalendarCategory? = nil, noteName: String? = nil,
                 priority: Priority? = nil, notify: Bool = false, tags: [String] = [],
-                codeTodo: Bool = false) {
+                codeTodo: Bool = false, workTodo: Bool = false, projectName: String? = nil) {
         self.text = text; self.destination = destination
         self.remindAtRaw = remindAtRaw; self.dueDateRaw = dueDateRaw; self.whenRaw = whenRaw
         self.durationMinutes = durationMinutes; self.listName = listName; self.calendarName = calendarName
         self.calendarCategory = calendarCategory; self.noteName = noteName
         self.priority = priority; self.notify = notify; self.tags = tags
         self.codeTodo = codeTodo
+        self.workTodo = workTodo; self.projectName = projectName
     }
 }
