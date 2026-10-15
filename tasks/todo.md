@@ -1,4 +1,4 @@
-# TODO — Panneau « Travail » (to-do pro priorisée par client) · cadrage 2026-10-15
+# ✅ Panneau « Travail » — LIVRÉ Mac v1.2.0 (2026-10-15)
 
 **Besoin (Florian)** : un panneau dédié au travail, distinct du vidage de cerveau et de la liste Claude Code, pour voir quoi faire en priorité et où il en est.
 
@@ -16,28 +16,28 @@
 ## Étapes
 
 **A. Modèle (Core + Kit, partagé Mac/iPhone)**
-- [ ] `LocalList.work` + champ `workTodo` (bool) dans `ParsedTask` / décodeur, sur le modèle de `codeTodo`.
-- [ ] Champ client : `projectName: String?` dans `ParsedTask`, `TaskRecord`, `TaskEntity` (attribut SwiftData **optionnel** = migration légère). **Sauvegarder `AssistToDo.store` avant le 1er lancement** (incident perte de store 2026-06).
-- [ ] `moveToList` : recopier aussi `projectName`.
-- [ ] `TaskStore.workTasks` publié : `.local` + `.work` + non archivé, trié **priorité haute → basse**, puis échéance, puis ordre manuel.
-- [ ] `setPriority(id:)` et `setProject(id:)` dans le store.
+- [x] `LocalList.work` + champ `workTodo` (bool) dans `ParsedTask` / décodeur, sur le modèle de `codeTodo`.
+- [x] Champ client : `projectName: String?` dans `ParsedTask`, `TaskRecord`, `TaskEntity` (attribut SwiftData **optionnel** = migration légère). **Sauvegarder `AssistToDo.store` avant le 1er lancement** (incident perte de store 2026-06).
+- [x] `moveToList` : recopier aussi `projectName`.
+- [x] `TaskStore.workTasks` publié : `.local` + `.work` + non archivé, trié **priorité haute → basse**, puis échéance, puis ordre manuel.
+- [x] `setPriority(id:)` et `setProject(id:)` dans le store.
 
 **B. Parsing**
-- [ ] Prompt : règle `workTodo` (mots-clés pro, exclusive avec `codeTodo`, `code` gagne si « Claude Code ») + extraction `projectName` (nom de client/projet tel que dicté, sinon null, **jamais inventé**).
-- [ ] Liste des clients déjà connus injectée dans le prompt pour normaliser l'orthographe (« Alysea » toujours écrit pareil).
-- [ ] Tests : routage work/code/braindump, client extrait, client absent → null.
+- [x] Prompt : règle `workTodo` (mots-clés pro, exclusive avec `codeTodo`, `code` gagne si « Claude Code ») + extraction `projectName` (nom de client/projet tel que dicté, sinon null, **jamais inventé**).
+- [x] Liste des clients déjà connus injectée dans le prompt pour normaliser l'orthographe (« Alysea » toujours écrit pareil).
+- [x] Tests : routage work/code/braindump, client extrait, client absent → null.
 
 **C. Interface Mac (charger un skill design AVANT de coder : `impeccable` / `ui-ux-pro-max`)**
-- [ ] Nouveau panneau « Travail » dans `ListView` (4ᵉ zone, teinte à choisir), compteur.
-- [ ] Groupes par client (en-têtes repliables), « Sans client » en dernier.
-- [ ] Marqueur de priorité visible + changement rapide (menu contextuel / swipe).
-- [ ] Déplacer vers Travail depuis braindump et Claude Code (swipe / menu existants).
-- [ ] Hauteur des panneaux : revoir la répartition (4 zones) ou rendre Travail repliable.
-- [ ] Vérif visuelle : capture, thème clair ET sombre.
+- [x] Nouveau panneau « Travail » dans `ListView` (4ᵉ zone, teinte à choisir), compteur.
+- [x] Groupes par client (en-têtes repliables), « Sans client » en dernier.
+- [x] Marqueur de priorité visible + changement rapide (menu contextuel / swipe).
+- [x] Déplacer vers Travail depuis braindump et Claude Code (swipe / menu existants).
+- [x] Hauteur des panneaux : 4 zones redimensionnables (Travail persisté `paneWorkH`) ; groupes clients repliables.
+- [x] Vérif visuelle : capture, thème clair ET sombre.
 
 **D. Livraison**
-- [ ] Tests Core/Kit verts, build, install, version, release GitHub.
-- [ ] Handoff iPhone : modèle + parsing arrivent par le merge ; le panneau iOS est à faire par la conversation iPhone.
+- [x] Tests Core/Kit verts, build, install, version, release GitHub.
+- [ ] Handoff iPhone (écrit, reste à faire côté conversation iPhone) : modèle + parsing arrivent par le merge ; le panneau iOS est à faire par la conversation iPhone.
 
 **Hors périmètre (plus tard)** : sync Toudou du panneau Travail (nécessite un 3ᵉ slug côté serveur Toudou), statut « en cours ».
 

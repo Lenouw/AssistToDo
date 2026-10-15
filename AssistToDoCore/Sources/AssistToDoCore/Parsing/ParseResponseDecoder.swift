@@ -17,6 +17,8 @@ public enum ParseResponseDecoder {
         let notify: Bool?
         let tags: [String]?
         let codeTodo: Bool?
+        let workTodo: Bool?
+        let projectName: String?
     }
 
     public enum DecodeError: Error { case noJSON }
@@ -41,7 +43,9 @@ public enum ParseResponseDecoder {
                 priority: Priority(rawValue: nullable(rt.priority) ?? ""),
                 notify: rt.notify ?? false,
                 tags: rt.tags ?? [],
-                codeTodo: rt.codeTodo ?? false
+                codeTodo: rt.codeTodo ?? false,
+                workTodo: rt.workTodo ?? false,
+                projectName: nullable(rt.projectName?.trimmingCharacters(in: .whitespacesAndNewlines))
             )
         }
     }

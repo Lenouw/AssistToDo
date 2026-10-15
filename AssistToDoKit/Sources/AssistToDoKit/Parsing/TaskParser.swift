@@ -30,9 +30,10 @@ public struct TaskParser {
 
     public func parse(transcript: String, now: Date,
                       calendars: [String] = [], reminderLists: [String] = [],
-                      customRules: String = "") async -> [RoutedTask] {
+                      customRules: String = "", knownProjects: [String] = []) async -> [RoutedTask] {
         let system = ParsePromptBuilder.systemPrompt(now: now, calendars: calendars,
-                                                     reminderLists: reminderLists, customRules: customRules)
+                                                     reminderLists: reminderLists, customRules: customRules,
+                                                     knownProjects: knownProjects)
         do {
             let content = try await client.complete(system: system, user: transcript)
             var parsed = try ParseResponseDecoder.decode(content)
@@ -120,7 +121,8 @@ public struct TaskParser {
             tags: p.tags,
             rawTranscript: transcript,
             parseStatus: .parsed,
-            localList: p.codeTodo ? .code : .braindump
+            localList: p.codeTodo ? .code : (p.workTodo ? .work : .braindump),
+            projectName: p.projectName
         )
         // Un événement calendrier sans heure → événement "journée entière" (ex: bloquer le studio).
         return RoutedTask(record: record, destination: p.destination,
