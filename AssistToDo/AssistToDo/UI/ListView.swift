@@ -13,6 +13,7 @@ import SwiftUI
 import AssistToDoKit
 import AppKit
 import AssistToDoCore
+import UniformTypeIdentifiers
 
 struct ListView: View {
     @ObservedObject var store: TaskStore
@@ -74,13 +75,16 @@ struct ListView: View {
             }
             handle(base: $dragBaseBrain, value: $brainH, lower: minPane, upper: avail - tH - wH - minPane)
             pane(title: "Travail", systemImage: "briefcase", count: store.workTasks.filter { !$0.isDone }.count, height: wH, tint: .pink) {
-                if store.workTasks.isEmpty { paneHint("Dicte « Travail : … » ou « pour Alysea, … »") }
+                if store.workTasks.isEmpty {
+                    paneHint("Dicte « Travail : … » ou glisse une tâche ici")
+                        .onDrop(of: [.plainText], isTargeted: nil) { handleDrop($0, to: .work); return true }
+                }
                 else { workList }
             }
             handle(base: $dragBaseWork, value: $workH, lower: minPane, upper: avail - tH - bH - minPane)
             pane(title: "Claude Code", systemImage: "chevron.left.forwardslash.chevron.right", count: store.codeTasks.count, height: cH, tint: .green) {
-                if store.codeTasks.isEmpty { paneHint("Dicte « Claude Code : … » pour ajouter ici") }
-                else { taskList(store.codeTasks, move: moveCode) }
+                if store.codeTasks.isEmpty { paneHint("Dicte « Claude Code : … » pour ajouter ici").onDrop(of: [.plainText], isTargeted: nil) { handleDrop($0, to: .code); return true } }
+                else { taskList(store.codeTasks, move: moveCode, dropTo: .code) }
             }
             handle(base: $dragBaseToday, value: $todayH, lower: minPane, upper: avail - bH - wH - minPane, inverted: true)
             pane(title: "Calendrier · iCloud", systemImage: "calendar", count: store.todayEvents.count, height: tH, tint: .blue) {
@@ -144,10 +148,11 @@ struct ListView: View {
 
     // MARK: - Listes réordonnables
 
-    private func taskList(_ tasks: [TaskRecord], move: @escaping (IndexSet, Int) -> Void) -> some View {
+    private func taskList(_ tasks: [TaskRecord], move: @escaping (IndexSet, Int) -> Void, dropTo list: LocalList) -> some View {
         List {
             ForEach(tasks) { thoughtRow($0) }
                 .onMove(perform: move)
+                .onInsert(of: [.plainText]) { _, p in handleDrop(p, to: list) }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -188,6 +193,7 @@ struct ListView: View {
             Section {
                 ForEach(store.thoughts) { thoughtRow($0) }
                     .onMove(perform: moveBrain)
+                    .onInsert(of: [.plainText]) { _, p in handleDrop(p, to: .braindump) }
             }
             // Rappels iCloud à échéance future : confirmation visuelle de ce qu'on vient de créer.
             if !store.upcomingReminders.isEmpty {
@@ -289,6 +295,7 @@ struct ListView: View {
             editRow(task)
         } else {
             ThoughtRow(task: task, timeLabel: Self.timeLabel(task)) { store.toggleDone(id: task.id) }
+                .itemProvider { Self.dragItem(task) }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) { store.delete(id: task.id) } label: { Label("Supprimer", systemImage: "trash") }.labelStyle(.titleAndIcon)
                     if task.destination == .local {
@@ -321,6 +328,26 @@ struct ListView: View {
                     Divider()
                     Button("Supprimer", role: .destructive) { store.delete(id: task.id) }
                 }
+        }
+    }
+
+    // MARK: - Glisser-déposer entre panneaux
+
+    /// Préfixe qui identifie une tâche AssistToDo dans le presse-papiers de glisser (évite d'avaler
+    /// un texte quelconque déposé depuis une autre app).
+    static let dragPrefix = "assisttodo-task:"
+    static func dragItem(_ t: TaskRecord) -> NSItemProvider {
+        NSItemProvider(object: (dragPrefix + t.id.uuidString) as NSString)
+    }
+
+    /// Dépôt d'une tâche sur une liste. Vers Travail, `project` = client du groupe visé (nil = Sans client).
+    private func handleDrop(_ providers: [NSItemProvider], to list: LocalList, project: String? = nil) {
+        for p in providers where p.canLoadObject(ofClass: NSString.self) {
+            _ = p.loadObject(ofClass: NSString.self) { obj, _ in
+                guard let raw = obj as? String, raw.hasPrefix(Self.dragPrefix),
+                      let id = UUID(uuidString: String(raw.dropFirst(Self.dragPrefix.count))) else { return }
+                DispatchQueue.main.async { store.dropTask(id: id, to: list, project: project) }
+            }
         }
     }
 
@@ -367,6 +394,7 @@ struct ListView: View {
                 Section {
                     if !isCollapsed {
                         ForEach(group.tasks) { workRow($0) }
+                            .onInsert(of: [.plainText]) { _, p in handleDrop(p, to: .work, project: group.name) }
                     }
                 } header: {
                     WorkGroupHeader(name: group.name ?? "Sans client", open: group.tasks.filter { !$0.isDone }.count,
@@ -391,6 +419,7 @@ struct ListView: View {
             WorkRow(task: task, dueLabel: Self.workDueLabel(task),
                     onToggle: { store.toggleDone(id: task.id) },
                     onPriority: { store.setPriority(id: task.id, $0) })
+                .itemProvider { Self.dragItem(task) }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) { store.delete(id: task.id) } label: { Label("Supprimer", systemImage: "trash") }.labelStyle(.titleAndIcon)
                     Button { store.postponeToTomorrow(id: task.id) } label: { Label("Demain", systemImage: "arrow.uturn.forward") }.labelStyle(.titleAndIcon).tint(.orange)

@@ -62,3 +62,33 @@ final class WorkPanelTests: XCTestCase {
         XCTAssertNil(store.workTasks.first?.projectName)
     }
 }
+
+/// Glisser-déposer entre panneaux.
+final class WorkDropTests: XCTestCase {
+    @MainActor func test_deposer_du_vidage_sur_un_groupe_client() throws {
+        let store = TaskStore(inMemory: true)
+        store.add([TaskRecord(text: "Retoucher", createdAt: Date(), localList: .braindump)])
+        let id = try XCTUnwrap(store.thoughts.first?.id)
+        store.dropTask(id: id, to: .work, project: "Alysea")
+        XCTAssertTrue(store.thoughts.isEmpty)
+        XCTAssertEqual(store.workTasks.first?.projectName, "Alysea")
+    }
+
+    @MainActor func test_deposer_dans_travail_entre_deux_clients_change_juste_le_client() throws {
+        let store = TaskStore(inMemory: true)
+        store.add([TaskRecord(text: "Devis", createdAt: Date(), localList: .work, projectName: "Alysea")])
+        let id = try XCTUnwrap(store.workTasks.first?.id)
+        XCTAssertEqual(store.dropTask(id: id, to: .work, project: "ARP 2000"), id)   // même id, pas de copie
+        XCTAssertEqual(store.workTasks.count, 1)
+        XCTAssertEqual(store.workTasks.first?.projectName, "ARP 2000")
+    }
+
+    @MainActor func test_deposer_de_travail_vers_le_vidage() throws {
+        let store = TaskStore(inMemory: true)
+        store.add([TaskRecord(text: "Idée", createdAt: Date(), localList: .work, projectName: "Alysea")])
+        let id = try XCTUnwrap(store.workTasks.first?.id)
+        store.dropTask(id: id, to: .braindump)
+        XCTAssertTrue(store.workTasks.isEmpty)
+        XCTAssertEqual(store.thoughts.first?.text, "Idée")
+    }
+}
