@@ -39,6 +39,9 @@ final class IOSTaskRouter: TaskRouting {
         await routeDetailed(tasks, replacing: previous).compactMap { $0.storedId }
     }
 
+    /// Clients déjà utilisés (panneau Travail), pour que le LLM réutilise la même orthographe.
+    var knownProjects: [String] { store.knownProjects }
+
     func routeDetailed(_ tasks: [RoutedTask], replacing previous: [UUID]) async -> [RoutedOutcome] {
         // Idempotence (re-traitement) : supprime les items locaux produits précédemment.
         for id in previous { store.delete(id: id) }
@@ -125,7 +128,8 @@ final class IOSTaskRouter: TaskRouting {
                 let kept = keepLocal(item.record, list: .shopping); toStore.append(kept)
                 outcomes.append(RoutedOutcome(storedId: kept.id, record: item.record, destination: .notes, fellBack: false))
             case .local:
-                let list: LocalList = item.record.localList == .code ? .code : .braindump
+                // Code et Travail gardent leur liste (Travail avec son client) ; le reste va au Vidage.
+                let list: LocalList = [.code, .work].contains(item.record.localList) ? item.record.localList : .braindump
                 let kept = keepLocal(item.record, list: list); toStore.append(kept)
                 outcomes.append(RoutedOutcome(storedId: kept.id, record: item.record, destination: .local, fellBack: false))
             }

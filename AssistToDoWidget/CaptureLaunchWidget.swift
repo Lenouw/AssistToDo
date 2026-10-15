@@ -34,15 +34,15 @@ struct CaptureLaunchWidget: Widget {
 
 struct CaptureWidgetView: View {
     var body: some View {
-        Button(intent: RecordVoiceIntent()) {
-            VStack(spacing: 6) {
-                Image(systemName: "mic.fill").font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(WidgetBrand.accent)
-                Text("Note").font(.caption.weight(.medium)).foregroundStyle(WidgetBrand.accent)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // widgetURL plutôt qu'un bouton d'intent : l'app reçoit l'URL et démarre le micro, sans
+        // dépendre d'un drapeau écrit depuis le processus du widget.
+        VStack(spacing: 6) {
+            Image(systemName: "mic.fill").font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(WidgetBrand.accent)
+            Text("Note").font(.caption.weight(.medium)).foregroundStyle(WidgetBrand.accent)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .widgetURL(PendingCapture.url)
         .containerBackground(WidgetBrand.accent.opacity(0.16), for: .widget)
     }
 }

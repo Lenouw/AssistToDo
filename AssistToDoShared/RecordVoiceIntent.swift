@@ -18,15 +18,23 @@ public struct RecordVoiceIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        // perform() s'exécute dans le processus de l'app (openAppWhenRun) : on lève un drapeau
-        // que l'app consomme dès qu'elle devient active pour démarrer la capture.
+        // Siri, Raccourcis, bouton Action mappé sur le raccourci : perform() tourne dans l'app.
+        // Deux signaux : le drapeau (lu au passage au premier plan, cas du lancement à froid) ET
+        // une notification immédiate (cas de l'app déjà ouverte : pas de changement de scenePhase,
+        // le drapeau seul attendait la prochaine ouverture et le micro ne démarrait pas).
         PendingCapture.flag()
+        await MainActor.run { NotificationCenter.default.post(name: PendingCapture.requested, object: nil) }
         return .result()
     }
 }
 
-/// Pont léger intent → app via UserDefaults (même processus quand openAppWhenRun=true).
+/// Pont intent → app. Le Centre de contrôle et le widget passent par l'URL `assisttodo://capture`
+/// (ouverte par le système, reçue par l'app dans tous les cas). Le drapeau UserDefaults ne sert
+/// qu'aux intents exécutés DANS l'app : écrit depuis l'extension widget, il resterait invisible
+/// pour l'app (UserDefaults.standard n'est pas partagé entre processus sans App Group).
 public enum PendingCapture {
+    public static let url = URL(string: "assisttodo://capture")!
+    public static let requested = Notification.Name("assisttodo.captureRequested")
     private static let key = "pendingVoiceCapture"
     public static func flag() { UserDefaults.standard.set(true, forKey: key) }
     /// Retourne true une seule fois si une capture est en attente, puis remet à zéro.

@@ -110,6 +110,10 @@ struct SettingsView: View {
                     Button("Autoriser les notifications") { Task { await model.requestNotifications() } }
                 }
 
+                Section("Diagnostic") {
+                    NavigationLink("Mesures de démarrage") { PerfView() }
+                }
+
                 Section {
                     HStack {
                         Text("Version"); Spacer()

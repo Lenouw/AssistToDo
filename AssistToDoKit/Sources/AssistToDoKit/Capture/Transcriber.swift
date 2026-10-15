@@ -56,8 +56,11 @@ public final class Transcriber: ObservableObject {
         }
         downloading = false
         guard let path else { log.error("provisionnement du modèle GGML échoué"); return }
+        Perf.mark(.modelProvisioned)
         do {
-            let c = try WhisperCppContext.create(modelPath: path.path)
+            let c = try Perf.measure(.modelInitStart, .modelInitEnd) {
+                try WhisperCppContext.create(modelPath: path.path)
+            }
             ctx = c
             loadedModel = model
             isReady = true

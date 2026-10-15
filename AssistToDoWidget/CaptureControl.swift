@@ -13,7 +13,9 @@ import AppIntents
 struct CaptureControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "com.assisttodo.capture.control") {
-            ControlWidgetButton(action: RecordVoiceIntent()) {
+            // OpenURLIntent : le système ouvre l'app sur `assisttodo://capture` et l'app démarre
+            // le micro dès réception, quel que soit le processus qui exécute l'intent du contrôle.
+            ControlWidgetButton(action: OpenURLIntent(PendingCapture.url)) {
                 Label("Note vocale", systemImage: "mic.fill")
             }
         }

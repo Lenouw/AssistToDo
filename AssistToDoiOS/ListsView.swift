@@ -14,6 +14,7 @@ import AssistToDoKit
 
 enum DispatchZone: String, CaseIterable, Identifiable {
     case todo = "À faire"
+    case work = "Travail"
     case code = "Code"
     case reminders = "Rappels"
     case agenda = "Agenda"
@@ -35,6 +36,10 @@ struct ListsView: View {
     @State private var editingTask: TaskRecord?
     @State private var editText = ""
     @State private var showDone = false
+    // Travail : client en cours d'édition + groupes clients repliés (persistés, comme sur Mac).
+    @State private var editingClientTask: TaskRecord?
+    @State private var clientText = ""
+    @AppStorage("workCollapsedProjects") private var collapsedRaw: String = ""
 
     var body: some View {
         Group {
@@ -64,6 +69,14 @@ struct ListsView: View {
                 editingTask = nil
             }
         }
+        .alert("Client", isPresented: editingClientBinding) {
+            TextField("Nom du client", text: $clientText)
+                .textInputAutocapitalization(.words)
+            Button("Annuler", role: .cancel) { editingClientTask = nil }
+            Button("OK") { commitClient() }
+        } message: {
+            Text("Laisse vide pour « Sans client ».")
+        }
     }
 
     // MARK: - Disposition segmentée
@@ -80,6 +93,7 @@ struct ListsView: View {
             List {
                 switch zone {
                 case .todo:      todoRows
+                case .work:      workRows
                 case .code:      codeRows
                 case .reminders: reminderRows
                 case .agenda:    eventRows
@@ -88,6 +102,7 @@ struct ListsView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .contentMargins(.bottom, 120, for: .scrollContent)   // dégage le bouton micro flottant
         }
         .background(Color.atdBg.ignoresSafeArea())
     }
@@ -99,12 +114,14 @@ struct ListsView: View {
             todayHeader
             List {
                 Section("À faire") { todoRows }
+                Section("Travail") { workRows }
                 Section("Claude Code") { codeRows }
                 Section("Rappels") { reminderRows }
                 Section("Agenda") { eventRows }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .contentMargins(.bottom, 120, for: .scrollContent)   // dégage le bouton micro flottant
             .background(Color.atdBg.ignoresSafeArea())
         }
         .background(Color.atdBg.ignoresSafeArea())
@@ -207,7 +224,7 @@ struct ListsView: View {
     }
 
     @ViewBuilder private var doneRows: some View {
-        let items = (store.thoughts + store.codeTasks).filter { $0.isDone }
+        let items = (store.thoughts + store.codeTasks + store.workTasks).filter { $0.isDone }
             .sorted { ($0.doneAt ?? .distantPast) > ($1.doneAt ?? .distantPast) }
         if items.isEmpty && store.archived.isEmpty { emptyRow("Rien de coché pour l'instant") }
         if !items.isEmpty {
@@ -245,6 +262,9 @@ struct ListsView: View {
             if rec.localList == .code {
                 Image(systemName: "chevron.left.forwardslash.chevron.right")
                     .font(.caption2).foregroundStyle(Color.atdCode.opacity(0.6))
+            } else if rec.localList == .work {
+                Image(systemName: "briefcase")
+                    .font(.caption2).foregroundStyle(Color.atdWork.opacity(0.6))
             }
         }
         .padding(.vertical, 3)
@@ -307,6 +327,208 @@ struct ListsView: View {
         }
     }
 
+    // MARK: - Travail : to-do pro groupée par client, triée par priorité
+
+    /// Clients dans l'ordre de leur tâche la plus urgente (workTasks est déjà trié par priorité
+    /// puis échéance), « Sans client » toujours en dernier. Même logique que le panneau Mac.
+    private var workGroups: [(name: String?, tasks: [TaskRecord])] {
+        var order: [String] = []
+        var byName: [String: [TaskRecord]] = [:]
+        var unassigned: [TaskRecord] = []
+        for t in store.workTasks where !t.isDone {
+            guard let n = t.projectName else { unassigned.append(t); continue }
+            if byName[n] == nil { order.append(n) }
+            byName[n, default: []].append(t)
+        }
+        var out: [(name: String?, tasks: [TaskRecord])] = order.map { ($0, byName[$0] ?? []) }
+        if !unassigned.isEmpty { out.append((nil, unassigned)) }
+        return out
+    }
+
+    @ViewBuilder private var workRows: some View {
+        let groups = workGroups
+        if groups.isEmpty {
+            emptyState("Rien côté pro",
+                       "Dicte « pour le client X : … », ou swipe une tâche du Vidage vers la droite puis touche Travail.",
+                       "briefcase")
+        }
+        ForEach(groups, id: \.name) { group in
+            let key = group.name ?? "∅"
+            let isCollapsed = collapsed.contains(key)
+            workGroupHeader(group.name, count: group.tasks.count, isCollapsed: isCollapsed) {
+                toggleCollapsed(key)
+            }
+            if !isCollapsed {
+                ForEach(group.tasks) { workRow($0) }
+            }
+        }
+    }
+
+    /// En-tête repliable d'un groupe client : chevron, nom, nombre de tâches ouvertes.
+    private func workGroupHeader(_ name: String?, count: Int, isCollapsed: Bool,
+                                 toggle: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.light()
+            withAnimation(.easeOut(duration: 0.2)) { toggle() }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                    .foregroundStyle(Color.atdInkTertiary)
+                    .frame(width: 12)
+                Text(name ?? "Sans client")
+                    .font(.subheadline.weight(.semibold))
+                    .italic(name == nil)
+                    .foregroundStyle(name == nil ? Color.atdInkSecondary : Color.atdInk)
+                    .lineLimit(1)
+                Spacer()
+                Text("\(count)")
+                    .font(.footnote.weight(.medium).monospacedDigit())
+                    .foregroundStyle(Color.atdInkTertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 6)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .accessibilityLabel("\(name ?? "Sans client"), \(count) tâche\(count > 1 ? "s" : ""), \(isCollapsed ? "replié" : "déplié")")
+    }
+
+    /// Ligne Travail. La priorité se lit par la FORME (barres de signal 1 à 4), le rose ne fait
+    /// que renforcer « haute ». Toucher les barres change la priorité sans ouvrir de fiche.
+    private func workRow(_ rec: TaskRecord) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Button { toggleTask(rec) } label: {
+                Image(systemName: rec.isDone ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 21))
+                    .foregroundStyle(rec.isDone ? Color.atdSuccess : Color.atdInkTertiary)
+                    .symbolEffect(.bounce, value: rec.isDone)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(rec.isDone ? "Marquer non faite" : "Marquer faite")
+
+            Menu {
+                Picker("Priorité", selection: Binding(
+                    get: { rec.priority },
+                    set: { p in Haptics.light(); store.setPriority(id: rec.id, p) })) {
+                    ForEach([Priority.haut, .moyen, .bas], id: \.self) { p in
+                        Label {
+                            Text(Self.priorityName(p).capitalized)
+                        } icon: {
+                            Image(systemName: "cellularbars", variableValue: Self.barsValue(p))
+                        }
+                        .tag(Priority?.some(p))
+                    }
+                    Text("Aucune").tag(Priority?.none)
+                }
+            } label: {
+                Image(systemName: "cellularbars", variableValue: Self.barsValue(rec.priority))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(rec.priority == .haut ? Color.atdWork
+                                     : (rec.priority == .moyen ? Color.atdInkSecondary : Color.atdInkTertiary))
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Priorité \(Self.priorityName(rec.priority))")
+
+            Text(rec.text)
+                .font(rec.priority == .haut ? .body.weight(.semibold) : .body)
+                .foregroundStyle(rec.priority == .bas ? Color.atdInkSecondary : Color.atdInk)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 4)
+
+            if let due = Self.workDueLabel(rec) {
+                Text(due)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(Color.atdInkTertiary)
+            }
+        }
+        .padding(.vertical, 2)
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button { toggleTask(rec) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
+            Button { startEditingClient(rec) } label: { Label("Client", systemImage: "person.crop.square") }.tint(Color.atdWork)
+            Button { store.moveToList(id: rec.id, to: .braindump) } label: { Label("Vidage", systemImage: "tray") }.tint(.purple)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) { store.delete(id: rec.id) } label: { Label("Supprimer", systemImage: "trash") }
+            Button { store.postponeToTomorrow(id: rec.id) } label: { Label("Demain", systemImage: "arrow.uturn.forward") }.tint(.orange)
+            Button { startEditing(rec) } label: { Label("Modifier", systemImage: "pencil") }.tint(.blue)
+        }
+        .contextMenu {
+            Button(rec.isDone ? "Marquer non faite" : "Marquer faite") { toggleTask(rec) }
+            Button("Modifier") { startEditing(rec) }
+            Menu("Client") {
+                ForEach(store.knownProjects.filter { $0 != rec.projectName }.sorted(), id: \.self) { name in
+                    Button(name) { store.setProject(id: rec.id, name) }
+                }
+                Button("Nouveau client…") { startEditingClient(rec) }
+                if rec.projectName != nil { Button("Retirer le client") { store.setProject(id: rec.id, nil) } }
+            }
+            Button("Vers Vidage de cerveau") { store.moveToList(id: rec.id, to: .braindump) }
+            Button("Reporter à demain") { store.postponeToTomorrow(id: rec.id) }
+            Divider()
+            Button("Supprimer", role: .destructive) { store.delete(id: rec.id) }
+        }
+    }
+
+    /// Paliers nets sur l'icône à 4 barres : basse 1, moyenne 2, haute 4 (même code que le Mac).
+    private static func barsValue(_ p: Priority?) -> Double {
+        switch p { case .haut: return 1; case .moyen: return 0.5; case .bas: return 0.25; case nil: return 0 }
+    }
+    private static func priorityName(_ p: Priority?) -> String {
+        switch p { case .haut: return "haute"; case .moyen: return "moyenne"; case .bas: return "basse"; case nil: return "aucune" }
+    }
+
+    /// Échéance affichée seulement si elle apporte une info : à venir (« ven. 17 ») ou reportée.
+    private static func workDueLabel(_ r: TaskRecord) -> String? {
+        if let d = r.dueDate, ParisCalendar.startOfDay(for: d) > ParisCalendar.startOfDay(for: Date()) {
+            return ParisCalendar.calendar.isDateInTomorrow(d) ? "demain" : workDayFmt.string(from: d)
+        }
+        if r.rolloverCount > 0 { return "reportée ×\(r.rolloverCount)" }
+        return nil
+    }
+    private static let workDayFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR"); f.timeZone = ParisCalendar.tz
+        f.dateFormat = "EEE d"; return f
+    }()
+
+    private var collapsed: Set<String> { Set(collapsedRaw.split(separator: "\n").map(String.init)) }
+    private func toggleCollapsed(_ key: String) {
+        var c = collapsed
+        if c.contains(key) { c.remove(key) } else { c.insert(key) }
+        collapsedRaw = c.sorted().joined(separator: "\n")
+    }
+
+    /// Envoie une tâche dans Travail, avec « Annuler » (geste de swipe = faute de manip possible).
+    private func sendToWork(_ rec: TaskRecord) {
+        Haptics.light()
+        let from = rec.localList
+        guard let newId = store.moveToList(id: rec.id, to: .work) else { return }
+        model.showToast("Rangée dans Travail") { [weak store] in
+            _ = store?.moveToList(id: newId, to: from)
+        }
+    }
+
+    private var editingClientBinding: Binding<Bool> {
+        Binding(get: { editingClientTask != nil }, set: { if !$0 { editingClientTask = nil } })
+    }
+    private func startEditingClient(_ rec: TaskRecord) {
+        clientText = rec.projectName ?? ""
+        editingClientTask = rec
+    }
+    private func commitClient() {
+        if let t = editingClientTask {
+            let name = clientText.trimmingCharacters(in: .whitespacesAndNewlines)
+            store.setProject(id: t.id, name.isEmpty ? nil : name)
+        }
+        editingClientTask = nil
+    }
+
+
     // MARK: - Lignes
 
     private func taskRow(_ rec: TaskRecord) -> some View {
@@ -346,28 +568,31 @@ struct ListsView: View {
         // Priorité haute : fond de ligne légèrement teinté (hiérarchie sans bordure latérale).
         .listRowBackground(high ? Color.atdPriorityHigh.opacity(0.06) : Color.clear)
         // Swipe gauche→droite (parité Mac) : Fait · Modifier · Déplacer.
+        // Swipe vers la droite : Fait, Travail, Code/Cerveau.
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button { toggleTask(rec) } label: { Label("Fait", systemImage: "checkmark.circle") }.tint(.green)
-            if rec.destination != .reminders {
-                Button { startEditing(rec) } label: { Label("Modifier", systemImage: "pencil") }.tint(.blue)
-            }
             if rec.destination == .local {
+                Button { sendToWork(rec) } label: { Label("Travail", systemImage: "briefcase") }.tint(Color.atdWork)
                 Button { store.moveToList(id: rec.id, to: rec.localList == .code ? .braindump : .code) } label: {
                     Label(rec.localList == .code ? "Cerveau" : "Code", systemImage: "arrow.left.arrow.right")
                 }.tint(.purple)
             }
         }
-        // Swipe droite→gauche (parité Mac) : Supprimer · Demain.
+        // Swipe vers la gauche : Supprimer, Demain, Modifier.
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) { store.delete(id: rec.id) } label: { Label("Supprimer", systemImage: "trash") }
             if rec.destination == .local {
                 Button { store.postponeToTomorrow(id: rec.id) } label: { Label("Demain", systemImage: "arrow.uturn.forward") }.tint(.orange)
+            }
+            if rec.destination != .reminders {
+                Button { startEditing(rec) } label: { Label("Modifier", systemImage: "pencil") }.tint(.blue)
             }
         }
         .contextMenu {
             Button(rec.isDone ? "Marquer non faite" : "Marquer faite") { toggleTask(rec) }
             if rec.destination != .reminders { Button("Modifier") { startEditing(rec) } }
             if rec.destination == .local {
+                Button("Vers Travail") { sendToWork(rec) }
                 Button(rec.localList == .code ? "Vers Vidage de cerveau" : "Vers Claude Code") {
                     store.moveToList(id: rec.id, to: rec.localList == .code ? .braindump : .code)
                 }
@@ -392,10 +617,10 @@ struct ListsView: View {
                 HStack(spacing: 4) {
                     if item.date != nil {
                         Image(systemName: overdue ? "exclamationmark.circle.fill" : "bell")
-                        (overdue ? Text("En retard · ").bold() : Text("")) + Text(Self.reminderWhen(item))
+                        (overdue ? Text("En retard, ").bold() : Text("")) + Text(Self.reminderWhen(item))
                     }
                     if let list = item.subtitle {
-                        Text(item.date == nil ? list : "· \(list)")
+                        Text(item.date == nil ? list : ", \(list)")
                     }
                 }
                 .font(.caption)
@@ -554,7 +779,7 @@ struct ListsView: View {
         Haptics.light()
         store.toggleDone(id: rec.id)
         if !rec.isDone {   // rec = état AVANT le tap → on vient de la marquer faite
-            model.showToast("Fait ✓ · \(rec.text)") { [weak store] in
+            model.showToast("Fait : \(rec.text)") { [weak store] in
                 store?.toggleDone(id: rec.id)
             }
         }

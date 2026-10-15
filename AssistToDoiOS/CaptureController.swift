@@ -117,6 +117,7 @@ final class CaptureController: ObservableObject {
     }
 
     func cancel() {
+        Perf.finishCapture(outcome: "annulée")
         generation &+= 1
         levelTask?.cancel()
         _ = audio.stop()
@@ -128,11 +129,13 @@ final class CaptureController: ObservableObject {
         autoStopArmed = false
         levelTask?.cancel()
         let result = audio.stop()
+        Perf.mark(.captureStop, note: String(format: "%.1f s de dictée", result.duration))
         let gen = generation
 
         guard result.didDetectSpeech, let url = result.fileURL else {
             capLog.error("Capture SANS parole détectée (durée \(result.duration, format: .fixed(precision: 1)) s) → rien journalisé")
             flashError("Rien entendu", gen: gen)
+            Perf.finishCapture(outcome: "rien entendu")
             return
         }
 
@@ -150,6 +153,7 @@ final class CaptureController: ObservableObject {
             // transcrit + routé automatiquement dès que le modèle est chargé. On CONFIRME à
             // l'utilisateur que son idée est en sécurité (pas un refus).
             guard transcriber.isReady else {
+                Perf.finishCapture(outcome: "audio enregistré, modèle pas encore prêt (transcrit plus tard)")
                 self.addedSummaries = ["🎙️ Enregistré ! Je transcris dès que le modèle est prêt."]
                 self.phase = .added
                 self.liveActivity.end(phase: .added, detail: "Enregistré, transcription à venir")
@@ -159,7 +163,11 @@ final class CaptureController: ObservableObject {
                 self.reset()
                 return
             }
-            guard let t = await transcriber.transcribe(path: url.path) else {
+            Perf.mark(.transcriptionStart)
+            let transcribed = await transcriber.transcribe(path: url.path)
+            Perf.mark(.transcriptionEnd)
+            guard let t = transcribed else {
+                Perf.finishCapture(outcome: "transcription échouée")
                 self.captureStore.update(id: capId) { $0.status = .failed(stage: "transcription", reason: "indisponible") }
                 self.flashError("Transcription indisponible (sera rejouée)", gen: gen)
                 return
@@ -173,6 +181,7 @@ final class CaptureController: ObservableObject {
             guard case .accept = verdict else {
                 self.captureStore.update(id: capId) { $0.status = .done; $0.parsedSummary = "(ignoré : bruit)" }
                 if case .reject(let reason) = verdict { self.flashError("Ignoré (\(reason))", gen: gen) }
+                Perf.finishCapture(outcome: "ignorée (bruit)")
                 return
             }
 
@@ -182,6 +191,8 @@ final class CaptureController: ObservableObject {
 
             let (summaries, outcomes, summary, rawOnly) = await self.route(transcript: t.text)
             let producedIds = outcomes.compactMap { $0.storedId }
+            Perf.mark(.routingEnd)
+            Perf.finishCapture(outcome: rawOnly ? "texte brut (routage indisponible)" : "\(outcomes.count) élément(s) créé(s)")
             guard gen == self.generation else { return }
 
             if summaries.isEmpty {
@@ -221,7 +232,8 @@ final class CaptureController: ObservableObject {
             transcript: transcript, now: Date(),
             calendars: routingOn ? EventKitService.shared.calendarTitles : [],
             reminderLists: routingOn ? EventKitService.shared.reminderListTitles : [],
-            customRules: routingOn ? customRules : ""
+            customRules: routingOn ? customRules : "",
+            knownProjects: router.knownProjects
         )
         let outcomes = await router.routeDetailed(routed, replacing: [])
         let rawOnly = routed.contains { $0.record.parseStatus == .rawOnly }
@@ -234,16 +246,24 @@ final class CaptureController: ObservableObject {
         case .calendar:  icon = "📅"
         case .reminders: icon = "⏰"
         case .notes:     icon = "🛒"
-        case .local:     icon = o.record.localList == .code ? "💻" : "🧠"
+        case .local:
+            switch o.record.localList {
+            case .code: icon = "💻"
+            case .work: icon = "💼"
+            default:    icon = "🧠"
+            }
         }
         // Événement : afficher la FENÊTRE réelle (jour + plage), essentiel pour vérifier une
         // fermeture de studio d'un coup d'œil (« 📅 Fermer le studio · 15 juil · 8:00–20:00 »).
         if o.destination == .calendar, let detail = o.eventDetail {
-            return "\(icon) \(o.record.text) · \(detail)"
+            return "\(icon) \(o.record.text), \(detail)"
         }
         // Rappel : afficher QUAND (sinon un rappel « pour demain » semble n'aller nulle part).
         if o.destination == .reminders, let d = o.record.remindAt ?? o.record.dueDate {
-            return "\(icon) \(o.record.text) · \(Self.whenFmt.string(from: d))"
+            return "\(icon) \(o.record.text), \(Self.whenFmt.string(from: d))"
+        }
+        if o.destination == .local, o.record.localList == .work, let client = o.record.projectName {
+            return "\(icon) \(o.record.text) (\(client))"
         }
         return "\(icon) \(o.record.text)"
     }

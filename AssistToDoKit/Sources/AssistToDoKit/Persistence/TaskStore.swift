@@ -50,21 +50,23 @@ public final class TaskStore: ObservableObject {
     public convenience init() { self.init(inMemory: false) }
 
     /// `inMemory` : store volatile pour les tests (aucun fichier sur disque).
-    init(inMemory: Bool) {
+    /// `url` : emplacement explicite de la base (tests de migration sur une copie).
+    init(inMemory: Bool, url: URL? = nil) {
         let schema = Schema(versionedSchema: AssistToDoSchemaV1.self)
+        let storeURL = url ?? CapturePaths.storeURL()
         let config = inMemory
             ? ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-            : ModelConfiguration(schema: schema, url: CapturePaths.storeURL())
+            : ModelConfiguration(schema: schema, url: storeURL)
+        // Sauvegarde AVANT ouverture, une fois par nouvelle version de l'app : c'est là qu'une
+        // migration de schéma peut mal tourner. Uniquement pour la vraie base (pas les tests).
+        if !inMemory && url == nil { StoreBackup.snapshotIfAppUpdated(store: storeURL) }
         do {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
-            // Migration impossible (ancien store incompatible) : on repart propre plutôt que crasher.
-            print("Migration SwiftData échouée (\(error)), recréation du store.")
-            if let url = config.url as URL? {
-                try? FileManager.default.removeItem(at: url)
-                try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("store-shm"))
-                try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("store-wal"))
-            }
+            // Migration impossible : on repart propre SANS rien détruire. L'ancienne base est
+            // déplacée dans Sauvegardes/…-echec-migration (avant : supprimée = perte totale).
+            print("Migration SwiftData échouée (\(error)), base mise de côté et recréée.")
+            if !inMemory { StoreBackup.quarantine(store: storeURL) }
             container = (try? ModelContainer(for: schema, configurations: config))
                 ?? { fatalError("Impossible de créer le store SwiftData") }()
         }

@@ -39,7 +39,10 @@ struct CaptureView: View {
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.atdSurfaceRaised.ignoresSafeArea())
-        .onAppear { if frozenAutoStart == nil { frozenAutoStart = autoStart } }
+        .onAppear {
+            Perf.mark(.sheetShown)
+            if frozenAutoStart == nil { frozenAutoStart = autoStart }
+        }
         .task { await prepare() }
         .onChange(of: capture.phase) { _, phase in
             switch phase {
@@ -160,6 +163,7 @@ struct CaptureView: View {
     /// Demande le micro une seule fois à l'apparition ; en mode déclencheur, démarre la capture.
     private func prepare() async {
         let ok = await model.requestMicrophone()
+        Perf.mark(.micPermission)
         micGranted = ok
         guard ok else { micDenied = true; return }
         if effectiveAutoStart {

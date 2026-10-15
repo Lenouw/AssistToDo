@@ -22,6 +22,12 @@ struct AssistToDoiOSApp: App {
                 .tint(.atdAccent)                     // identité Clarté chaude
                 .preferredColorScheme(.light)         // clair verrouillé (direction C, fond crème)
                 .task { await model.requestNotifications() }
+                // Centre de contrôle, widget : `assisttodo://capture` → micro immédiat.
+                .onOpenURL { url in
+                    if url.scheme == PendingCapture.url.scheme, url.host == PendingCapture.url.host {
+                        model.requestCapture(trigger: "Centre de contrôle ou widget")
+                    }
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {

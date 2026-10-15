@@ -76,11 +76,12 @@ struct ContentView: View {
                     undoToastView(toast)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                CaptureButton { model.autoStartCapture = true; model.showCapture = true }
+                CaptureButton { model.requestCapture(trigger: "bouton micro de l'app") }
             }
             .padding(.bottom, 24)
             .animation(.spring(duration: 0.35), value: model.undoToast?.id)
         }
+        .onAppear { Perf.mark(.firstFrame, once: true) }
         .sheet(isPresented: $model.showCapture) {
             CaptureView(autoStart: model.autoStartCapture)
                 .presentationDetents([.height(360)])

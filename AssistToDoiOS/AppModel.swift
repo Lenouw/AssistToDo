@@ -88,10 +88,12 @@ final class AppModel: ObservableObject {
     let captureStoreError: String?
 
     init() {
+        Perf.mark(.appInitStart, once: true)
         #if DEBUG
         Self.seedDevSecretsIfNeeded()   // confort de dév : injecte les secrets s'ils manquent
         #endif
         let store = TaskStore()
+        Perf.mark(.storeOpened, once: true)
         // Journal de capture : PARTAGE le container SwiftData de TaskStore (même fichier). Ouvrir
         // une 2ᵉ connexion sur le même .store échouait par intermittence (verrou SQLite au boot)
         // → repli mémoire silencieux → captures « disparues ». Un seul container = plus de course.
@@ -137,6 +139,13 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // Intent exécuté dans l'app alors qu'elle est DÉJÀ ouverte (bouton Action, Siri) : pas de
+        // passage au premier plan, donc démarrage direct sur signal.
+        NotificationCenter.default.publisher(for: PendingCapture.requested)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.requestCapture(trigger: "raccourci ou bouton Action") }
+            .store(in: &cancellables)
+
         // Reflète l'état de chargement du modèle dans l'UI (bandeau de téléchargement au 1er run).
         transcriber.$isReady.assign(to: &$transcriberReady)
         transcriber.$downloading.assign(to: &$transcriberDownloading)
@@ -160,6 +169,7 @@ final class AppModel: ObservableObject {
                 Task { @MainActor in self?.capture.reprocessPending() }
             }
             .store(in: &cancellables)
+        Perf.mark(.appInitEnd, once: true)
     }
 
     private var cancellables: Set<AnyCancellable> = []
@@ -168,6 +178,7 @@ final class AppModel: ObservableObject {
 
     /// À l'ouverture / au retour au premier plan : synchro Toudou + agenda du jour + capture en attente.
     func onForeground() {
+        Perf.mark(.foreground)
         sync.start()
         capture.reprocessPending()   // rejoue les captures en échec / à enrichir (filet)
         store.reload()               // ré-applique la frontière d'archivage 24h (tâches faites → Archive)
@@ -177,10 +188,17 @@ final class AppModel: ObservableObject {
             await store.refreshToday()               // remplit aussi openReminders (rappels ouverts)
             notifications.rescheduleReminderNags()   // relance des rappels en retard (2 notifs/jour)
         }
-        if PendingCapture.consume() {
-            autoStartCapture = true
-            showCapture = true
-        }
+        if PendingCapture.consume() { requestCapture(trigger: "raccourci ou bouton Action (au lancement)") }
+    }
+
+    /// Ouvre la capture en démarrage automatique (micro immédiat). Idempotent : un second signal
+    /// pendant une capture en cours (URL + intent + drapeau pour un même appui) est ignoré.
+    func requestCapture(trigger: String) {
+        _ = PendingCapture.consume()
+        guard !showCapture else { return }
+        Perf.beginCapture(trigger: trigger, modelReady: transcriber.isReady)
+        autoStartCapture = true
+        showCapture = true
     }
 
     func onBackground() {

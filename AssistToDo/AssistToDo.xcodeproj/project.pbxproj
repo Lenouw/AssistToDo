@@ -32,6 +32,7 @@
 		9E88902CE2CCD08D069F67DA /* DevSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B86D2A27FFE6FBE8F9A4132 /* DevSecrets.swift */; };
 		A52C53DC4AC3507B7DDBC3B1 /* CapturesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EDA39A73F370E447487484 /* CapturesView.swift */; };
 		AB64A745FE890F97198DA669 /* RecordVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B25E3CC2BD45D25ADF64C9B /* RecordVoiceIntent.swift */; };
+		AE041A3195807B0AB0214E39 /* PerfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9AD3D745097FC303711CD7 /* PerfView.swift */; };
 		B68CC6C835C2C6E892D2D75E /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B86318D7C309A0DCED7827 /* CaptureView.swift */; };
 		BD1D338110A81BE18590E8C1 /* AssistToDoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6B4BE3B50789FF50C3191A2F /* AssistToDoKit */; };
 		C91DC3DBB44757A1040C4CE0 /* AssistToDoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A6B44444623FB1AF7630BF95 /* AssistToDoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -79,6 +80,7 @@
 		9E62219EC32E79FCBFC9D85B /* CaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureControl.swift; sourceTree = "<group>"; };
 		A6B44444623FB1AF7630BF95 /* AssistToDoWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AssistToDoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A7ADC7F35477329F0FCE4896 /* CaptureLaunchWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureLaunchWidget.swift; sourceTree = "<group>"; };
+		AA9AD3D745097FC303711CD7 /* PerfView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PerfView.swift; sourceTree = "<group>"; };
 		C58C5D5954A860C795E1CDE9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		CBD4F8B5B60DAF14D929C069 /* AssistToDoiOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AssistToDoiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE09628ACE9220D8FBD6D02B /* IOSTaskRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSTaskRouter.swift; sourceTree = "<group>"; };
@@ -186,6 +188,7 @@
 				F6EDA39A73F370E447487484 /* CapturesView.swift */,
 				DF18B11D4C05AE82F6922A11 /* Assets.xcassets */,
 				E218AA7B51EFDDF05B018A3A /* ModelProvisioner.swift */,
+				AA9AD3D745097FC303711CD7 /* PerfView.swift */,
 			);
 			name = AssistToDoiOS;
 			path = ../AssistToDoiOS;
@@ -379,6 +382,7 @@
 				05D859A5C3459C2080595A2C /* TranscriberAdapter.swift in Sources */,
 				A52C53DC4AC3507B7DDBC3B1 /* CapturesView.swift in Sources */,
 				654BD277BFC9C1BDCBDA2F57 /* ModelProvisioner.swift in Sources */,
+				AE041A3195807B0AB0214E39 /* PerfView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -604,14 +608,14 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ../AssistToDoWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AssistToDo;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -629,7 +633,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -649,7 +653,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -667,7 +671,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -687,7 +691,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -702,14 +706,14 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = TQVHUV8MZY;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ../AssistToDoWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AssistToDo;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.assisttodo.ios.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;

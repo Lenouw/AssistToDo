@@ -51,6 +51,7 @@ public extension Color {
     static let atdZoneAgenda    = Color(hex: 0x2E5FCB) // Agenda = bleu
     static let atdZoneDone      = Color(hex: 0x3E9D6A) // Fait = vert
     static let atdCode          = Color(hex: 0x6A52C8) // liste Claude Code (violet)
+    static let atdWork          = Color(hex: 0xC2417A) // panneau Travail (rose profond, = rose du Mac)
 }
 
 #if canImport(UIKit)

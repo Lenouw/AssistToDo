@@ -2,13 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>AssistToDo crée des rappels Apple à partir de tes captures vocales.</string>
-	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>AssistToDo crée des événements de calendrier à partir de tes captures vocales.</string>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.assisttodo.ios</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>assisttodo</string>
+			</array>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>AssistToDo crée des événements de calendrier à partir de tes captures vocales.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>AssistToDo crée des rappels Apple à partir de tes captures vocales.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 </dict>
 </plist>

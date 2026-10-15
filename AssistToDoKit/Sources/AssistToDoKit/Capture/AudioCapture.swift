@@ -95,10 +95,13 @@ public final class AudioCapture: ObservableObject {
         let format = input.inputFormat(forBus: 0)
         sampleRate = format.sampleRate
         input.removeTap(onBus: 0)
+        var firstBuffer = true
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self else { return }
             guard let channel = buffer.floatChannelData?[0] else { return }
             let count = Int(buffer.frameLength)
+            // Mesure : 1ʳᵉ trame réellement reçue = le micro enregistre (pas seulement « lancé »).
+            if firstBuffer, count > 0 { firstBuffer = false; Perf.mark(.micFirstBuffer) }
 
             var sum: Float = 0
             var local = [Float](repeating: 0, count: count)
@@ -129,6 +132,7 @@ public final class AudioCapture: ObservableObject {
         do {
             try engine.start()
             startTime = Date()
+            Perf.mark(.audioEngineStarted)
         } catch {
             print("Erreur démarrage audio: \(error)")
         }
