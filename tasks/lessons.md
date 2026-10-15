@@ -2,6 +2,8 @@
 
 Format : `[date] | ce qui a mal tourné | règle pour l'éviter`
 
+- 2026-10-15 | Notes de version du panneau Travail : « Glisse une tâche vers Travail (swipe ou clic droit) ». Florian a compris glisser-déposer entre panneaux, qui n'existait pas → « je n'arrive pas à déplacer ». | Dans un texte destiné à Florian, décrire le geste EXACT (« swipe vers la droite », « clic droit ▸ Déplacer vers »), jamais un verbe ambigu. Et sur macOS, si un élément ressemble à une ligne déplaçable, l'utilisateur s'attend au glisser-déposer entre zones : le prévoir d'emblée.
+
 - 2026-10-15 | SwiftUI macOS : un `Menu` en `.menuStyle(.borderlessButton)` repeint son label en noir/blanc et ignore `foregroundStyle` (la priorité haute en rose s'affichait noire). Repéré seulement grâce au rendu visuel hors écran. | Pour un Menu dont le label porte une couleur de sens : `.menuStyle(.button)` + `.buttonStyle(.plain)`. Et toujours rendre l'UI (NSHostingView hors écran, clair + sombre) avant de livrer, ne jamais se fier au code seul.
 - 2026-10-15 | `TaskStore.init` SUPPRIME la base si la migration SwiftData échoue (repli « on repart propre »). Ajouter un attribut au modèle = risque de perte totale. | Avant tout changement de `TaskEntity`/`CaptureRecord` : sauvegarder le store, puis ouvrir une COPIE de la vraie base avec le nouveau schéma dans un test jetable (compter tâches + captures) AVANT de lancer l'app. Attributs nouveaux toujours optionnels ou avec valeur par défaut.
 
