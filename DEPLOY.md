@@ -8,7 +8,7 @@ Méthode tant que le MacBook Air reste en Xcode 16.4 (pas d'image développeur p
 - **Déployé le** : 2026-10-16 · **Mode** : demo (noindex, dossier opaque)
 - **Version** : 1.2.4 (5) : fusion Mac v1.2.4 (Travail synchronisé, ids UUID en synchro, suppressions distantes)
 - **Vérifié** : page 200, manifest 200 application/xml, ipa 200 application/octet-stream, SHA-256 identique au local (ac3c6234…), aucune clé dans le binaire
-- **À faire** : supprimer www/demo/d-c39440/ dès que Florian confirme l'installation
+- **Supprimé** le 2026-10-16 après installation (404 vérifié)
 
 ## Historique
 
