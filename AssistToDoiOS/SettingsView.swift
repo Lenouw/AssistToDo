@@ -60,12 +60,17 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Connexion Toudou") {
+                Section {
                     TextField("URL (défaut : prod)", text: $toudouURL)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                     SecureField("Token", text: $toudouToken)
                     Button("Enregistrer la connexion") { saveToudou() }
-                    Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow() }
+                    Button("Synchroniser maintenant") { SyncCoordinator.shared?.syncNow(full: true) }
+                    SyncStatusLine(sync: model.sync)
+                } header: {
+                    Text("Connexion Toudou")
+                } footer: {
+                    Text("Le Vidage et Claude Code se synchronisent avec le Mac. Travail reste sur chaque appareil pour l'instant.")
                 }
 
                 Section("OpenRouter (structuration)") {

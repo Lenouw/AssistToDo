@@ -17,6 +17,7 @@
 		2172826A796E0D50F08D1B59 /* CaptureActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 196771DA7713341F3E66BCBA /* CaptureActivityAttributes.swift */; };
 		25A91BF1CC61D61B4F1A8BE8 /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB10D949154BFEF3F2FAA826 /* LiveActivityController.swift */; };
 		33F3BE08AF15D9D10607E1F3 /* AssistToDoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0D461C5C2A54C724709F96C5 /* AssistToDoCore */; };
+		3D2F1CB0511D5521102AA12F /* SyncStatusViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CB913E006B3EA6C5B80AC12 /* SyncStatusViews.swift */; };
 		484D1ECCB7FA675663F5EC65 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C58C5D5954A860C795E1CDE9 /* Foundation.framework */; };
 		5015C2BF0EFA38AFE670DFEA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D648ED0EECA6700E238ABCC /* ContentView.swift */; };
 		528A8D823DA72203F69E835C /* IOSTaskRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE09628ACE9220D8FBD6D02B /* IOSTaskRouter.swift */; };
@@ -77,6 +78,7 @@
 		8B0D0FBF1F4D618085523749 /* AppShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppShortcuts.swift; sourceTree = "<group>"; };
 		946BB857D3638DFE351EC26C /* AppModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		9B86D2A27FFE6FBE8F9A4132 /* DevSecrets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DevSecrets.swift; sourceTree = "<group>"; };
+		9CB913E006B3EA6C5B80AC12 /* SyncStatusViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncStatusViews.swift; sourceTree = "<group>"; };
 		9E62219EC32E79FCBFC9D85B /* CaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureControl.swift; sourceTree = "<group>"; };
 		A6B44444623FB1AF7630BF95 /* AssistToDoWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AssistToDoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A7ADC7F35477329F0FCE4896 /* CaptureLaunchWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureLaunchWidget.swift; sourceTree = "<group>"; };
@@ -189,6 +191,7 @@
 				DF18B11D4C05AE82F6922A11 /* Assets.xcassets */,
 				E218AA7B51EFDDF05B018A3A /* ModelProvisioner.swift */,
 				AA9AD3D745097FC303711CD7 /* PerfView.swift */,
+				9CB913E006B3EA6C5B80AC12 /* SyncStatusViews.swift */,
 			);
 			name = AssistToDoiOS;
 			path = ../AssistToDoiOS;
@@ -383,6 +386,7 @@
 				A52C53DC4AC3507B7DDBC3B1 /* CapturesView.swift in Sources */,
 				654BD277BFC9C1BDCBDA2F57 /* ModelProvisioner.swift in Sources */,
 				AE041A3195807B0AB0214E39 /* PerfView.swift in Sources */,
+				3D2F1CB0511D5521102AA12F /* SyncStatusViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

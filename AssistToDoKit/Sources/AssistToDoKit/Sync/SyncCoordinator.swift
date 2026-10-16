@@ -13,7 +13,17 @@ import os
 import AssistToDoCore
 
 @MainActor
-public final class SyncCoordinator {
+public final class SyncCoordinator: ObservableObject {
+    /// État visible de la synchro (Réglages + bandeau) : sans lui, un jeton manquant ou une erreur
+    /// réseau laissaient l'iPhone désynchronisé sans le moindre signe.
+    public enum Status: Equatable {
+        case notConfigured
+        case syncing
+        case ok(at: Date, tasks: Int)
+        case failed(at: Date, message: String)
+    }
+    @Published public private(set) var status: Status = .notConfigured
+
     private let log = Logger(subsystem: "com.assisttodo", category: "Sync")
     /// Référence faible pour déclencher une synchro manuelle depuis les Réglages.
     public static weak var shared: SyncCoordinator?
@@ -45,7 +55,7 @@ public final class SyncCoordinator {
     public func start() {
         timer?.invalidate(); timer = nil
         log.notice("start: isConfigured=\(self.client.isConfigured, privacy: .public)")
-        guard client.isConfigured else { return }
+        guard client.isConfigured else { status = .notConfigured; return }
         // Push immédiat (débouncé) dès qu'une tâche synchronisable change localement.
         store.onLocalChange = { [weak self] in self?.pushSoon() }
         // Au lancement : pull COMPLET (since=nil) → réconcilie tout l'état serveur. Indispensable
@@ -81,16 +91,29 @@ public final class SyncCoordinator {
     /// Un cycle complet : chaque liste indépendamment (push ses ops, puis pull). `full` = ignore le
     /// curseur et pull tout (réconciliation), sinon delta depuis le curseur.
     public func syncNow(full: Bool = false) {
-        guard !syncing, client.isConfigured else { return }
+        guard client.isConfigured else { status = .notConfigured; return }
+        guard !syncing else { return }
         syncing = true
+        if case .ok = status {} else { status = .syncing }
         Task { @MainActor in
             defer { self.syncing = false }
-            for ch in self.channels { await self.syncList(slug: ch.slug, list: ch.list, full: full) }
+            var total = 0
+            var failure: String?
+            for ch in self.channels {
+                switch await self.syncList(slug: ch.slug, list: ch.list, full: full) {
+                case .success(let n): total += n
+                case .failure(let e): failure = failure ?? e
+                }
+            }
+            self.status = failure.map { .failed(at: Date(), message: $0) } ?? .ok(at: Date(), tasks: total)
         }
     }
 
     /// Synchronise une liste : push (ops en attente) avant pull.
-    private func syncList(slug: String, list: LocalList, full: Bool) async {
+    private enum ListResult { case success(Int), failure(String) }
+
+    @discardableResult
+    private func syncList(slug: String, list: LocalList, full: Bool) async -> ListResult {
         do {
             let ops = store.collectPendingOps(for: list)
             if !ops.isEmpty {
@@ -104,11 +127,14 @@ public final class SyncCoordinator {
             // perdues (jamais re-demandées car `since` aurait dépassé leur serverTime).
             if store.applyPulled(pull.tasks, forList: list) {
                 setCursor(slug, pull.serverTime)
+                return .success(pull.tasks.count)
             } else {
                 log.error("\(slug, privacy: .public): persistance échouée, curseur NON avancé")
+                return .failure("enregistrement local échoué")
             }
         } catch {
             log.error("\(slug, privacy: .public) échouée : \(error.localizedDescription, privacy: .public)")
+            return .failure(error.localizedDescription)
         }
     }
 

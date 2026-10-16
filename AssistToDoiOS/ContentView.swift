@@ -61,6 +61,7 @@ struct ContentView: View {
                     VStack(spacing: 1) {
                         if !model.transcriberReady { modelLoadingBanner }
                         if routingKeyMissing { routingInactiveBanner }
+                        SyncProblemBanner(sync: model.sync) { showSettings = true }
                         if model.captureStoreIsVolatile { volatileStoreBanner }
                         // Avancement du traitement en arrière-plan : rien ne tombe dans l'oubli.
                         CapturePipelineStrip(captureStore: model.captureStore) { showCaptures = true }

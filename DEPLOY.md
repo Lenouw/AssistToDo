@@ -10,7 +10,7 @@ Méthode tant que le MacBook Air reste en Xcode 16.4 (pas d'image développeur p
 - **Build** : `xcodebuild -scheme AssistToDoiOS -configuration Release -destination 'generic/platform=iOS' -derivedDataPath /tmp/dd-ios-rel -allowProvisioningUpdates build`, puis Payload/ zippé en .ipa
 - **Secrets** : aucun (Release, DevSecrets sous #if DEBUG et vide)
 - **Vérifié** : 200 page, manifest 200 application/xml, ipa 200 application/octet-stream SHA-256 identique au local (86820bcf…), noindex, listing parent 403, /.env et /.htpasswd 403
-- **À faire** : supprimer www/demo/d-5da30b/ dès que Florian confirme l'installation
+- **Supprimé** le 2026-10-16 après installation (404 vérifié sur page, manifest et ipa)
 
 ## Historique
 
