@@ -8,7 +8,7 @@ Méthode tant que le MacBook Air reste en Xcode 16.4 (pas d'image développeur p
 - **Déployé le** : 2026-10-16 · **Mode** : demo (noindex, dossier opaque)
 - **Version** : 1.2.2 (4) : Travail synchronisé via Toudou (fusion Mac v1.2.2) + état de synchro visible
 - **Vérifié** : page 200, manifest 200 application/xml, ipa 200 application/octet-stream, SHA-256 identique au local (3a31fc94…), noindex, listing parent 403, /.env et /.htpasswd 403
-- **À faire** : supprimer www/demo/d-ffcd38/ dès que Florian confirme l'installation
+- **Supprimé** le 2026-10-16 à la demande de Florian (404 vérifié ; aucune copie de l'app dans les autres dossiers demo)
 
 ## Historique
 
