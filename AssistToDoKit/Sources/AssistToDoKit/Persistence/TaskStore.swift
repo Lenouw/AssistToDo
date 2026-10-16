@@ -129,13 +129,17 @@ public final class TaskStore: ObservableObject {
         (fetchAll().filter { $0.destinationRaw == "local" }.map { $0.orderIndex }.min() ?? 0) - 1
     }
 
-    /// Synchronisable avec Toudou = to-do locale sans rappel minuté. Les deux sous-listes
-    /// (braindump, code) se synchronisent, chacune vers son slug Toudou (canal dédié).
+    /// Synchronisable avec Toudou = to-do locale sans rappel minuté. Les sous-listes braindump,
+    /// code et work se synchronisent, chacune vers son slug Toudou (canal dédié).
     static func isSyncable(_ e: TaskEntity) -> Bool {
-        // Seules les sous-listes braindump + code se synchronisent avec Toudou.
         // La liste de courses (shopping, iOS) reste locale.
         e.destinationRaw == "local" && e.remindAt == nil
-            && (e.localListRaw == "braindump" || e.localListRaw == "code")
+            && (e.localListRaw == "braindump" || e.localListRaw == "code" || e.localListRaw == "work")
+    }
+
+    /// Client, priorité et échéance d'une tâche Travail, tels qu'envoyés à Toudou.
+    static func workMeta(_ e: TaskEntity) -> WorkMeta {
+        WorkMeta(project: e.projectName, priority: e.priorityRaw, dueAt: e.dueDate)
     }
 
     /// Archivée = faite depuis plus de 24h. Sortie des listes actives ET retirée de Toudou
@@ -318,10 +322,11 @@ public final class TaskStore: ObservableObject {
         return finalId
     }
 
-    /// Priorité d'une tâche (nil = sans priorité). Local-only : la priorité ne part pas sur Toudou.
+    /// Priorité d'une tâche (nil = sans priorité). Synchronisée avec Toudou pour la liste Travail.
     public func setPriority(id: UUID, _ priority: Priority?) {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         e.priorityRaw = priority?.rawValue
+        if e.localListRaw == LocalList.work.rawValue { markSyncDirty(e) }
         save(); reload()
     }
 
@@ -330,6 +335,7 @@ public final class TaskStore: ObservableObject {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         let t = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         e.projectName = (t?.isEmpty ?? true) ? nil : t
+        if e.localListRaw == LocalList.work.rawValue { markSyncDirty(e) }
         save(); reload()
     }
 
@@ -346,6 +352,7 @@ public final class TaskStore: ObservableObject {
         guard let e = fetchAll().first(where: { $0.id == id }) else { return }
         let todayStart = ParisCalendar.startOfDay(for: Date())
         e.dueDate = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: todayStart)
+        if e.localListRaw == LocalList.work.rawValue { markSyncDirty(e) }   // échéance Travail → Toudou
         if let remind = e.remindAt {
             if let nid = e.notificationId { onCancelNotification?(nid) }
             let newRemind = ParisCalendar.calendar.date(byAdding: .day, value: 1, to: remind) ?? remind
@@ -387,6 +394,7 @@ public final class TaskStore: ObservableObject {
     func collectPendingOps(for list: LocalList) -> [SyncOp] {
         var ops: [SyncOp] = []
         var toDelete: [TaskEntity] = []
+        var stamped = false
         for e in fetchAll() where e.localListRaw == list.rawValue {
             // Archivée (faite > 24h) et encore connue de Toudou → on la retire de la liste Toudou
             // (une seule fois ; on la garde dans l'Archive locale). N'a pas besoin d'être dirty.
@@ -394,7 +402,13 @@ public final class TaskStore: ObservableObject {
                 ops.append(SyncOp(kind: .delete, id: e.id.uuidString, text: nil, done: nil, updatedAt: e.updatedAt))
                 continue
             }
-            guard e.syncDirty else { continue }
+            // Travail : une tâche jamais connue de Toudou part toujours (rattrape les tâches créées
+            // avant que Travail ne soit synchronisé, v1.2.2).
+            let neverPushedWork = list == .work && !e.remoteKnown && !e.tombstone && !Self.isArchived(e)
+            guard e.syncDirty || neverPushedWork else { continue }
+            // Tâche jamais datée pour la synchro (créée hors canal) : on la date maintenant, sinon elle
+            // partirait avec un updatedAt antique et serait invisible aux pulls delta des autres appareils.
+            if neverPushedWork && !e.syncDirty { e.updatedAt = Date(); stamped = true }
             if e.tombstone {
                 if e.remoteKnown {
                     ops.append(SyncOp(kind: .delete, id: e.id.uuidString, text: nil, done: nil, updatedAt: e.updatedAt))
@@ -402,14 +416,18 @@ public final class TaskStore: ObservableObject {
                     toDelete.append(e)   // jamais sur Toudou → suppression locale directe
                 }
             } else if Self.isSyncable(e) {
+                let meta = list == .work ? Self.workMeta(e) : nil
                 if e.remoteKnown {
-                    ops.append(SyncOp(kind: .update, id: e.id.uuidString, text: e.text, done: e.isDone, updatedAt: e.updatedAt))
+                    ops.append(SyncOp(kind: .update, id: e.id.uuidString, text: e.text, done: e.isDone, updatedAt: e.updatedAt, meta: meta))
                 } else {
-                    ops.append(SyncOp(kind: .create, id: e.id.uuidString, text: e.text, done: nil, updatedAt: e.updatedAt))
+                    // done transmis aussi pour Travail : une tâche déjà faite au rattrapage reste faite.
+                    ops.append(SyncOp(kind: .create, id: e.id.uuidString, text: e.text, done: list == .work ? e.isDone : nil,
+                                      updatedAt: e.updatedAt, meta: meta))
                 }
             }
         }
-        if !toDelete.isEmpty { toDelete.forEach { context.delete($0) }; save(); reload() }
+        if !toDelete.isEmpty { toDelete.forEach { context.delete($0) } }
+        if !toDelete.isEmpty || stamped { save(); reload() }
         return ops
     }
 
@@ -458,6 +476,7 @@ public final class TaskStore: ObservableObject {
                     // à chaque sync. nil si la tâche redevient non faite.
                     e.doneAt = w.done ? (e.doneAt ?? w.updatedAt) : nil
                     e.localListRaw = list.rawValue   // la version serveur fait foi sur la sous-liste
+                    if list == .work { Self.applyWorkMeta(w, to: e) }
                     e.updatedAt = w.updatedAt
                     e.remoteKnown = true
                     e.syncDirty = false
@@ -471,7 +490,8 @@ public final class TaskStore: ObservableObject {
                                    isDone: w.done, doneAt: w.done ? w.updatedAt : nil, rolloverCount: 0,
                                    rawTranscript: w.text, parseStatusRaw: "parsed",
                                    destinationRaw: "local", externalId: nil, orderIndex: nextTop)
-                e.localListRaw = list.rawValue   // place le miroir dans la bonne sous-liste (braindump/code)
+                e.localListRaw = list.rawValue   // place le miroir dans la bonne sous-liste (braindump/code/work)
+                if list == .work { Self.applyWorkMeta(w, to: e) }
                 e.updatedAt = w.updatedAt
                 e.remoteKnown = true
                 e.syncDirty = false
@@ -480,6 +500,14 @@ public final class TaskStore: ObservableObject {
             }
         }
         let ok = save(); reload(); return ok
+    }
+
+    /// Recopie client, priorité et échéance reçus de Toudou (le serveur fait foi pour Travail).
+    private static func applyWorkMeta(_ w: WireTask, to e: TaskEntity) {
+        let p = w.project?.trimmingCharacters(in: .whitespacesAndNewlines)
+        e.projectName = (p?.isEmpty ?? true) ? nil : p
+        e.priorityRaw = w.priority.flatMap(Priority.init(rawValue:))?.rawValue
+        e.dueDate = w.dueAt
     }
 
     // MARK: - Privé
