@@ -4,13 +4,14 @@ Méthode tant que le MacBook Air reste en Xcode 16.4 (pas d'image développeur p
 
 ## En cours
 
-- **URL** : https://lessitesdeflo.fr/demo/d-ffcd38/
+- **URL** : https://lessitesdeflo.fr/demo/d-c39440/
 - **Déployé le** : 2026-10-16 · **Mode** : demo (noindex, dossier opaque)
-- **Version** : 1.2.2 (4) : Travail synchronisé via Toudou (fusion Mac v1.2.2) + état de synchro visible
-- **Vérifié** : page 200, manifest 200 application/xml, ipa 200 application/octet-stream, SHA-256 identique au local (3a31fc94…), noindex, listing parent 403, /.env et /.htpasswd 403
-- **Supprimé** le 2026-10-16 à la demande de Florian (404 vérifié ; aucune copie de l'app dans les autres dossiers demo)
+- **Version** : 1.2.4 (5) : fusion Mac v1.2.4 (Travail synchronisé, ids UUID en synchro, suppressions distantes)
+- **Vérifié** : page 200, manifest 200 application/xml, ipa 200 application/octet-stream, SHA-256 identique au local (ac3c6234…), aucune clé dans le binaire
+- **À faire** : supprimer www/demo/d-c39440/ dès que Florian confirme l'installation
 
 ## Historique
 
+- 2026-10-16 · demo/d-ffcd38 · 1.2.2 (4) · supprimé à la demande de Florian (404 vérifié)
 - 2026-10-16 · demo/d-5da30b · 1.2.1 (2 puis 3) · supprimé après installation (404 vérifié)
 - 2026-09-27 · demo/d-f58c04 · 1.0 (1) · supprimé après installation (404 vérifié)
