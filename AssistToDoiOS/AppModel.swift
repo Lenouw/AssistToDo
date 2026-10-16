@@ -169,6 +169,8 @@ final class AppModel: ObservableObject {
                 Task { @MainActor in self?.capture.reprocessPending() }
             }
             .store(in: &cancellables)
+        // Session audio préparée dès le lancement : au tap, il ne reste qu'à l'activer.
+        Task.detached(priority: .userInitiated) { AudioCapture.prepareSession() }
         Perf.mark(.appInitEnd, once: true)
     }
 
@@ -197,6 +199,12 @@ final class AppModel: ObservableObject {
         _ = PendingCapture.consume()
         guard !showCapture else { return }
         Perf.beginCapture(trigger: trigger, modelReady: transcriber.isReady)
+        // Micro déjà autorisé : on enregistre TOUT DE SUITE, sans attendre l'animation de la
+        // feuille ni la vérification asynchrone de l'autorisation (les premiers mots comptent).
+        // Sinon, la feuille demande l'autorisation puis démarre comme avant.
+        if AVAudioApplication.shared.recordPermission == .granted {
+            capture.begin(autoStop: true)
+        }
         autoStartCapture = true
         showCapture = true
     }

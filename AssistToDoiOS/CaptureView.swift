@@ -169,7 +169,10 @@ struct CaptureView: View {
         if effectiveAutoStart {
             model.autoStartCapture = false
             hasStarted = true
-            capture.begin(autoStop: true)   // mains libres : s'arrête seul au silence
+            // Déjà démarré au signal (AppModel.requestCapture) : ne pas relancer.
+            if capture.phase != .listening {
+                capture.begin(autoStop: true)   // mains libres : s'arrête seul au silence
+            }
         }
     }
 }

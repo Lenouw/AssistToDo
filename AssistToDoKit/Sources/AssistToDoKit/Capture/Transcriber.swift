@@ -58,13 +58,30 @@ public final class Transcriber: ObservableObject {
         guard let path else { log.error("provisionnement du modèle GGML échoué"); return }
         Perf.mark(.modelProvisioned)
         do {
-            let c = try Perf.measure(.modelInitStart, .modelInitEnd) {
-                try WhisperCppContext.create(modelPath: path.path)
-            }
+            // HORS du fil principal : whisper_init lit le .bin (874 Mo, relu du disque quand iOS a
+            // vidé le cache) et initialise Metal. Sur le fil principal, ça gelait l'interface ET
+            // retardait le micro au lancement (mesuré au simulateur : 1 à 19 s de gel).
+            Perf.mark(.modelInitStart)
+            let modelPath = path.path
+            let c = try await Task.detached(priority: .userInitiated) {
+                try WhisperCppContext.create(modelPath: modelPath)
+            }.value
+            Perf.mark(.modelInitEnd)
             ctx = c
             loadedModel = model
             isReady = true
             log.notice("✅ whisper.cpp prêt (\(self.model, privacy: .public))")
+            // Préchauffage : une transcription de 1 s de silence compile les noyaux Metal et alloue
+            // les tampons, pour que la 1ʳᵉ vraie dictée soit aussi rapide que les suivantes.
+            // Le contexte est un acteur : une dictée arrivée entre-temps attend simplement la fin.
+            // Pas sur simulateur : sans GPU, la fenêtre de 30 s de whisper coûte ~50 s de CPU et
+            // retarde la 1ʳᵉ vraie dictée. Sur iPhone (Metal), son coût est mesuré (« Modèle préchauffé »).
+            #if !targetEnvironment(simulator)
+            Task.detached(priority: .utility) {
+                _ = try? await c.transcribe(samples: [Float](repeating: 0, count: 16_000), language: "fr")
+                Perf.mark(.modelWarm)
+            }
+            #endif
         } catch {
             log.error("init whisper.cpp échoué : \(String(describing: error), privacy: .public)")
         }

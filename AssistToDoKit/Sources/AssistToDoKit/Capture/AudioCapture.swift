@@ -53,11 +53,24 @@ public final class AudioCapture: ObservableObject {
     // MARK: - Session iOS
 
     /// iOS : active une session d'enregistrement avant de démarrer le moteur. No-op sur macOS.
+    /// iOS : configure la catégorie d'enregistrement À L'AVANCE (au lancement, hors fil principal),
+    /// pour qu'au tap il ne reste que l'activation. No-op sur macOS.
+    public static func prepareSession() {
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        if session.category != .record || session.mode != .measurement {
+            try? session.setCategory(.record, mode: .measurement, options: [])
+        }
+        #endif
+    }
+
     private func activateSession() {
         #if os(iOS)
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.record, mode: .measurement, options: [])
+            if session.category != .record || session.mode != .measurement {
+                try session.setCategory(.record, mode: .measurement, options: [])
+            }
             try session.setActive(true, options: [])
         } catch {
             print("Erreur activation AVAudioSession: \(error)")
