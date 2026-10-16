@@ -58,9 +58,10 @@ public final class Transcriber: ObservableObject {
         guard let path else { log.error("provisionnement du modèle GGML échoué"); return }
         Perf.mark(.modelProvisioned)
         do {
-            // HORS du fil principal : whisper_init lit le .bin (874 Mo, relu du disque quand iOS a
-            // vidé le cache) et initialise Metal. Sur le fil principal, ça gelait l'interface ET
-            // retardait le micro au lancement (mesuré au simulateur : 1 à 19 s de gel).
+            // HORS du fil principal : whisper_init lit le .bin (874 Mo, relu du disque quand le
+            // système a vidé le cache) et initialise Metal. Sur le fil principal (Transcriber est
+            // @MainActor), ça gelait l'interface au lancement : 0,6 à 14 s mesurés sur le Mac,
+            // 1 à 19 s au simulateur iPhone.
             Perf.mark(.modelInitStart)
             let modelPath = path.path
             let c = try await Task.detached(priority: .userInitiated) {

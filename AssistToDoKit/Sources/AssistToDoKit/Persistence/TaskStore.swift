@@ -436,9 +436,10 @@ public final class TaskStore: ObservableObject {
     /// Applique le résultat d'un push : op acceptée ou stale → la tâche n'est plus dirty ;
     /// un tombstone confirmé est supprimé pour de bon.
     func applyPushApplied(_ results: [AppliedResult]) {
-        let byId = Dictionary(fetchAll().map { ($0.id.uuidString, $0) }, uniquingKeysWith: { a, _ in a })
+        // Clé = UUID (pas la chaîne) : Postgres renvoie les ids en minuscules, `uuidString` est en majuscules.
+        let byId = Dictionary(fetchAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for r in results {
-            guard let e = byId[r.id] else { continue }
+            guard let uuid = UUID(uuidString: r.id), let e = byId[uuid] else { continue }
             if e.tombstone {
                 context.delete(e)      // delete propagé (ou stale = serveur a déjà une version) → on lâche le tombstone
             } else if Self.isArchived(e) {
@@ -458,12 +459,15 @@ public final class TaskStore: ObservableObject {
     @discardableResult
     func applyPulled(_ tasks: [WireTask], forList list: LocalList) -> Bool {
         guard !tasks.isEmpty else { return true }
-        let byId = Dictionary(fetchAll().map { ($0.id.uuidString, $0) }, uniquingKeysWith: { a, _ in a })
+        // Clé = UUID : le serveur renvoie les ids en minuscules, `uuidString` est en majuscules. Comparer
+        // des chaînes faisait rater toutes les tâches nées sur le Mac (suppressions distantes ignorées,
+        // mises à jour réinsérées comme nouvelles).
+        let byId = Dictionary(fetchAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let today = ParisCalendar.startOfDay(for: Date())
         var nextTop = topOrderIndex()   // nouveaux miroirs Toudou insérés en haut
 
         for w in tasks {
-            if let e = byId[w.id] {
+            if let e = UUID(uuidString: w.id).flatMap({ byId[$0] }) {
                 // Tombstone serveur : on supprime, SAUF si on l'a déjà archivée localement (c'est NOUS
                 // qui l'avons retirée de Toudou à l'archivage → garder la copie dans l'Archive).
                 if w.deleted { if !Self.isArchived(e) { context.delete(e) }; continue }

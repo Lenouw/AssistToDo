@@ -39,6 +39,20 @@ final class WorkSyncTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(op!.updatedAt.timeIntervalSince1970, before.timeIntervalSince1970 - 5)
     }
 
+    /// Le serveur renvoie les ids en minuscules : une suppression distante doit quand même
+    /// retirer la tâche née sur le Mac (id en majuscules côté Swift).
+    func testServerLowercaseIdsMatchLocalTasks() throws {
+        let store = TaskStore(inMemory: true)
+        store.add([TaskRecord(text: "née sur le Mac", createdAt: Date(), dueDate: Date(), localList: .braindump)])
+        let ops = store.collectPendingOps(for: .braindump)
+        store.applyPushApplied(ops.map { AppliedResult(id: $0.id.lowercased(), status: "applied") })
+        XCTAssertTrue(store.collectPendingOps(for: .braindump).isEmpty, "push confirmé malgré la casse")
+        let id = store.thoughts[0].id.uuidString.lowercased()
+        let json = #"[{"id":"\#(id)","text":"née sur le Mac","done":false,"updatedAt":"2030-01-01T00:00:00.000Z","deleted":true}]"#
+        store.applyPulled(try JSONDecoder().decode([WireTask].self, from: Data(json.utf8)), forList: .braindump)
+        XCTAssertTrue(store.thoughts.isEmpty, "suppression distante appliquée")
+    }
+
     func testBraindumpOpsHaveNoMeta() {
         let store = TaskStore(inMemory: true)
         store.add([TaskRecord(text: "pain", createdAt: Date(), dueDate: Date(), localList: .braindump)])
