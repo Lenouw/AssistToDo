@@ -16,8 +16,12 @@ struct WireTask: Decodable {
     let done: Bool
     let updatedAt: Date
     let deleted: Bool
+    // Champs de la liste Travail (client, priorité bas|moyen|haut, échéance). nil ailleurs.
+    let project: String?
+    let priority: String?
+    let dueAt: Date?
 
-    enum CodingKeys: String, CodingKey { case id, text, done, updatedAt, deleted }
+    enum CodingKeys: String, CodingKey { case id, text, done, updatedAt, deleted, project, priority, dueAt }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
@@ -26,6 +30,9 @@ struct WireTask: Decodable {
         deleted = (try? c.decode(Bool.self, forKey: .deleted)) ?? false
         let iso = (try? c.decode(String.self, forKey: .updatedAt)) ?? ""
         updatedAt = ToudouClient.parseDate(iso) ?? .distantPast
+        project = try? c.decodeIfPresent(String.self, forKey: .project)
+        priority = try? c.decodeIfPresent(String.self, forKey: .priority)
+        dueAt = (try? c.decodeIfPresent(String.self, forKey: .dueAt)).flatMap { $0.flatMap(ToudouClient.parseDate) }
     }
 }
 
@@ -38,6 +45,15 @@ struct SyncOp {
     let text: String?
     let done: Bool?
     let updatedAt: Date
+    /// Métadonnées Travail, envoyées seulement pour la liste Travail (nil = clés absentes).
+    var meta: WorkMeta? = nil
+}
+
+/// Client, priorité et échéance d'une tâche Travail. Un champ nil part en `null` (= effacé côté serveur).
+struct WorkMeta: Equatable {
+    let project: String?
+    let priority: String?
+    let dueAt: Date?
 }
 
 struct AppliedResult { let id: String; let status: String }   // status: "applied" | "ignored-stale"
@@ -108,6 +124,11 @@ final class ToudouClient {
             var d: [String: Any] = ["op": op.kind.rawValue, "id": op.id, "updatedAt": Self.formatDate(op.updatedAt)]
             if let t = op.text { d["text"] = t }
             if let dn = op.done { d["done"] = dn }
+            if let m = op.meta {
+                d["project"] = m.project ?? NSNull()
+                d["priority"] = m.priority ?? NSNull()
+                d["dueAt"] = m.dueAt.map(Self.formatDate) ?? NSNull()
+            }
             return d
         }
         req.httpBody = try JSONSerialization.data(withJSONObject: ["list": list, "ops": opsJSON])

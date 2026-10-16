@@ -43,7 +43,8 @@ public final class SyncCoordinator: ObservableObject {
     /// Les listes synchronisées : slug Toudou ↔ sous-liste locale.
     private let channels: [(slug: String, list: LocalList)] = [
         ("braindump", .braindump),
-        ("code", .code)
+        ("code", .code),
+        ("travail", .work)
     ]
 
     public init(store: TaskStore) {

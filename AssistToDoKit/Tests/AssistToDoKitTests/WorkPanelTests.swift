@@ -39,11 +39,13 @@ final class WorkPanelTests: XCTestCase {
         XCTAssertEqual(store.workTasks.map(\.text), ["haut-tot", "haut-tard", "moyen", "sans", "bas"])
     }
 
-    @MainActor func test_travail_ne_part_pas_sur_toudou_et_clients_connus() {
+    @MainActor func test_travail_part_sur_son_canal_toudou_et_clients_connus() {
         let store = TaskStore(inMemory: true)
         store.add([TaskRecord(text: "A", createdAt: Date(), localList: .work, projectName: "Zeta"),
                    TaskRecord(text: "B", createdAt: Date(), localList: .work, projectName: "Alysea")])
-        XCTAssertTrue(store.collectPendingOps(for: .work).isEmpty)   // aucune op Toudou
+        // Depuis v1.2.2 Travail se synchronise (slug « travail »), jamais via le canal du Vidage.
+        XCTAssertEqual(store.collectPendingOps(for: .work).count, 2)
+        XCTAssertTrue(store.collectPendingOps(for: .braindump).isEmpty)
         XCTAssertEqual(store.knownProjects, ["Alysea", "Zeta"])
     }
 
