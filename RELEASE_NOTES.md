@@ -1,5 +1,5 @@
-## AssistToDo 1.2.3
+## AssistToDo 1.2.4
 
-### Démarrage plus fluide
-- Au lancement, l'app ne fige plus pendant le chargement du modèle de transcription. Avant, l'interface pouvait rester bloquée de une demi-seconde à une quinzaine de secondes (mesuré sur ton Mac) ; c'est maintenant quelques millisecondes.
-- Juste après le chargement, l'app fait un essai à vide d'une seconde pour que ta première dictée soit aussi rapide que les suivantes.
+### Les suppressions faites ailleurs arrivent enfin sur le Mac
+- Une tâche supprimée sur l'iPhone ou sur la page web Toudou disparaissait bien là-bas, mais restait sur le Mac. C'est corrigé, pour le Vidage de cerveau, Claude Code et Travail.
+- Au premier lancement, les tâches supprimées ailleurs ces 30 derniers jours quittent aussi le Mac. Celles que tu as archivées toi-même restent dans l'Archive.
