@@ -70,7 +70,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Connexion Toudou")
                 } footer: {
-                    Text("Le Vidage et Claude Code se synchronisent avec le Mac. Travail reste sur chaque appareil pour l'instant.")
+                    Text("Le Vidage, Travail et Claude Code se synchronisent avec le Mac.")
                 }
 
                 Section("OpenRouter (structuration)") {

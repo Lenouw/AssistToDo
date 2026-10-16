@@ -4,14 +4,13 @@ Méthode tant que le MacBook Air reste en Xcode 16.4 (pas d'image développeur p
 
 ## En cours
 
-- **URL** : https://lessitesdeflo.fr/demo/d-5da30b/
-- **Déployé le** : 2026-10-16 · **Mode** : demo (noindex, dossier opaque, sans mot de passe : l'installeur iOS ne gère pas l'authentification)
-- **Version** : 1.2.1 (3) : modèle chargé hors fil principal, micro démarré au signal, préchauffage GPU
-- **Build** : `xcodebuild -scheme AssistToDoiOS -configuration Release -destination 'generic/platform=iOS' -derivedDataPath /tmp/dd-ios-rel -allowProvisioningUpdates build`, puis Payload/ zippé en .ipa
-- **Secrets** : aucun (Release, DevSecrets sous #if DEBUG et vide)
-- **Vérifié** : 200 page, manifest 200 application/xml, ipa 200 application/octet-stream SHA-256 identique au local (86820bcf…), noindex, listing parent 403, /.env et /.htpasswd 403
-- **Supprimé** le 2026-10-16 après installation (404 vérifié sur page, manifest et ipa)
+- **URL** : https://lessitesdeflo.fr/demo/d-ffcd38/
+- **Déployé le** : 2026-10-16 · **Mode** : demo (noindex, dossier opaque)
+- **Version** : 1.2.2 (4) : Travail synchronisé via Toudou (fusion Mac v1.2.2) + état de synchro visible
+- **Vérifié** : page 200, manifest 200 application/xml, ipa 200 application/octet-stream, SHA-256 identique au local (3a31fc94…), noindex, listing parent 403, /.env et /.htpasswd 403
+- **À faire** : supprimer www/demo/d-ffcd38/ dès que Florian confirme l'installation
 
 ## Historique
 
+- 2026-10-16 · demo/d-5da30b · 1.2.1 (2 puis 3) · supprimé après installation (404 vérifié)
 - 2026-09-27 · demo/d-f58c04 · 1.0 (1) · supprimé après installation (404 vérifié)
