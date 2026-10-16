@@ -57,11 +57,27 @@ public final class Transcriber: ObservableObject {
         downloading = false
         guard let path else { log.error("provisionnement du modèle GGML échoué"); return }
         do {
-            let c = try WhisperCppContext.create(modelPath: path.path)
+            // HORS du fil principal : whisper_init lit le .bin (874 Mo, relu du disque quand le
+            // système a vidé le cache) et initialise Metal. Sur le fil principal (Transcriber est
+            // @MainActor), ça gelait l'interface au lancement : 0,6 à 14 s mesurés sur le Mac,
+            // 1 à 19 s au simulateur iPhone.
+            let modelPath = path.path
+            let c = try await Task.detached(priority: .userInitiated) {
+                try WhisperCppContext.create(modelPath: modelPath)
+            }.value
             ctx = c
             loadedModel = model
             isReady = true
             log.notice("✅ whisper.cpp prêt (\(self.model, privacy: .public))")
+            // Préchauffage : une transcription de 1 s de silence compile les noyaux Metal et alloue
+            // les tampons, pour que la 1ʳᵉ vraie dictée soit aussi rapide que les suivantes.
+            // Le contexte est un acteur : une dictée arrivée entre-temps attend simplement la fin.
+            // Pas sur simulateur : sans GPU, la fenêtre de 30 s de whisper coûte ~50 s de CPU.
+            #if !targetEnvironment(simulator)
+            Task.detached(priority: .utility) {
+                _ = try? await c.transcribe(samples: [Float](repeating: 0, count: 16_000), language: "fr")
+            }
+            #endif
         } catch {
             log.error("init whisper.cpp échoué : \(String(describing: error), privacy: .public)")
         }

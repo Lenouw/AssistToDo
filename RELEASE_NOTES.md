@@ -1,7 +1,5 @@
-## AssistToDo 1.2.2
+## AssistToDo 1.2.3
 
-### Le panneau Travail se synchronise
-- Tes tâches Travail passent maintenant par Toudou, comme le Vidage de cerveau et Claude Code. Elles arrivent sur l'iPhone dès que l'app iPhone est mise à jour.
-- Le client, la priorité et l'échéance voyagent avec la tâche : changer la priorité sur le Mac la change sur l'iPhone, et inversement.
-- Au premier lancement, les tâches Travail déjà présentes sur le Mac sont envoyées automatiquement. Rien à faire.
-- Sur la page web Toudou, une liste « Travail » apparaît (texte des tâches seulement pour l'instant).
+### Démarrage plus fluide
+- Au lancement, l'app ne fige plus pendant le chargement du modèle de transcription. Avant, l'interface pouvait rester bloquée de une demi-seconde à une quinzaine de secondes (mesuré sur ton Mac) ; c'est maintenant quelques millisecondes.
+- Juste après le chargement, l'app fait un essai à vide d'une seconde pour que ta première dictée soit aussi rapide que les suivantes.
